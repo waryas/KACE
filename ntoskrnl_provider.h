@@ -491,7 +491,69 @@ void h_IoDeleteController(PVOID ControllerObject) {
     return;
 };
 
+NTSTATUS h_RtlDuplicateUnicodeString(int add_nul, const UNICODE_STRING* source, UNICODE_STRING* destination) {
+
+    auto ret = __NtRoutine("RtlDuplicateUnicodeString", add_nul, source, destination);
+    printf("RtlDuplicateUnicodeString : %llx\n", ret);
+    return STATUS_SUCCESS;
+}
+
+typedef struct _TIME_FIELDS
+{
+    SHORT Year;
+    SHORT Month;
+    SHORT Day;
+    SHORT Hour;
+    SHORT Minute;
+    SHORT Second;
+    SHORT Milliseconds;
+    SHORT Weekday;
+} TIME_FIELDS, * PTIME_FIELDS;
+
+void h_ExSystemTimeToLocalTime(PLARGE_INTEGER SystemTime, PLARGE_INTEGER LocalTime) {
+
+    //LocalTime->QuadPart = SystemTime->QuadPart - 10;
+}
+
+int h_vswprintf_s(wchar_t* buffer, size_t numberOfElements, const wchar_t* format, va_list argptr) {
+    return vswprintf_s(buffer, numberOfElements, format, argptr);
+}
+
+
+int h_swprintf_s(
+    wchar_t* buffer,
+    size_t sizeOfBuffer,
+    const wchar_t* format,
+    ...
+) {
+    return swprintf_s(buffer, sizeOfBuffer, format);
+}
+
+int h__vsnwprintf(
+    wchar_t* buffer,
+    size_t count,
+    const wchar_t* format,
+    va_list argptr
+) {
+
+    return _vsnwprintf(buffer, count, format, argptr);
+}
+
+errno_t h_wcscpy_s(
+    wchar_t* dest,
+    rsize_t dest_size,
+    const wchar_t* src
+) {
+    return wcscpy_s(dest, dest_size, src);
+}
+
+void h_RtlTimeToTimeFields(__int64 Time, __int64 TimeFields) {
+
+    __NtRoutine("RtlTimeToTimeFields", Time, TimeFields);
+}
+
 FunctionPrototype myProvider[] = {
+    {"RtlDuplicateUnicodeString", 1, h_RtlDuplicateUnicodeString},
     {"IoDeleteController", 1, h_IoDeleteController},
     {"SeQueryInformationToken", 1, h_SeQueryInformationToken},
     {"PsReferencePrimaryToken", 1, h_PsReferencePrimaryToken},
@@ -538,7 +600,17 @@ FunctionPrototype myProvider[] = {
     {"IoWMIOpenBlock", 1, h_IoWMIOpenBlock},
     {"IoWMIQueryAllData", 1, h_IoWMIQueryAllData},
     {"ObfDereferenceObject", 1, h_ObfDereferenceObject},
-    {"PsLookupThreadByThreadId", 1, h_PsLookupThreadByThreadId}
+    {"PsLookupThreadByThreadId", 1, h_PsLookupThreadByThreadId},
+    {"RtlDuplicateUnicodeString", 3 , h_RtlDuplicateUnicodeString },
+    {"ExSystemTimeToLocalTime", 2 , h_ExSystemTimeToLocalTime },
+
+    {"vswprintf_s", 4 , h_vswprintf_s },
+    {"swprintf_s", 3 , h_swprintf_s },
+    {"_vsnwprintf", 4 , h__vsnwprintf },
+    {"wcscpy_s", 3 , h_wcscpy_s },
+
+    //{"wcscat_s", 3 , h_ExSystemTimeToLocalTime },
+    {"RtlTimeToTimeFields", 2 , h_RtlTimeToTimeFields },
 
 
 

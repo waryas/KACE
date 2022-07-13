@@ -71,6 +71,12 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 			}
+			else if (e->ContextRecord->Rdx == (DWORD64)0xfffff78000000014) {
+				if (bufferopcode[0] == 0x4c && bufferopcode[1] == 0x8B && bufferopcode[2] == 0x12) {
+					e->ContextRecord->Rdx = 0x7FFE0014;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+			}
 			else if (offset == 0x5ff83a && e->ContextRecord->Rax == 0xFFFFF78000000014) {
 				e->ContextRecord->Rdx = *(uint64_t*)0x7FFE0014;
 				e->ContextRecord->Rip += 3;
@@ -200,7 +206,7 @@ int fakeDriverEntry() {
 	RegistryPath.Buffer = (WCHAR*)randomStr;
 	RegistryPath.Length = lstrlenW(randomStr);
 	RegistryPath.MaximumLength = 16;
-	memset((void*)&drvObj, 0xFF, sizeof(drvObj));
+	//memset((void*)&drvObj, 0xFF, sizeof(drvObj));
 
 	memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
 
@@ -476,6 +482,7 @@ int main() {
 	LoadPE("c:\\EMU\\fltmgr.sys", false);
 
 	DriverEntry = (proxyCall)LoadPE("c:\\EMU\\EasyAntiCheat_2.sys", true);
+	//DriverEntry = (proxyCall)LoadPE("c:\\EMU\\VGK.sys", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
