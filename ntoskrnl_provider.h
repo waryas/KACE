@@ -493,63 +493,64 @@ void h_IoDeleteController(PVOID ControllerObject) {
 
 NTSTATUS h_RtlDuplicateUnicodeString(int add_nul, const UNICODE_STRING* source, UNICODE_STRING* destination) {
 
-    auto ret = __NtRoutine("RtlDuplicateUnicodeString", add_nul, source, destination);
-    printf("RtlDuplicateUnicodeString : %llx\n", ret);
-    return STATUS_SUCCESS;
+	auto ret = __NtRoutine("RtlDuplicateUnicodeString", add_nul, source, destination);
+	printf("RtlDuplicateUnicodeString : %llx\n", ret);
+	return ret;
 }
 
 typedef struct _TIME_FIELDS
 {
-    SHORT Year;
-    SHORT Month;
-    SHORT Day;
-    SHORT Hour;
-    SHORT Minute;
-    SHORT Second;
-    SHORT Milliseconds;
-    SHORT Weekday;
-} TIME_FIELDS, * PTIME_FIELDS;
+	SHORT Year;
+	SHORT Month;
+	SHORT Day;
+	SHORT Hour;
+	SHORT Minute;
+	SHORT Second;
+	SHORT Milliseconds;
+	SHORT Weekday;
+} TIME_FIELDS, *PTIME_FIELDS;
 
 void h_ExSystemTimeToLocalTime(PLARGE_INTEGER SystemTime, PLARGE_INTEGER LocalTime) {
 
-    //LocalTime->QuadPart = SystemTime->QuadPart - 10;
+	//LocalTime->QuadPart = SystemTime->QuadPart - 10;
 }
 
-int h_vswprintf_s(wchar_t* buffer, size_t numberOfElements, const wchar_t* format, va_list argptr) {
-    return vswprintf_s(buffer, numberOfElements, format, argptr);
+int h_vswprintf_s(wchar_t *buffer, size_t numberOfElements, const wchar_t *format, va_list argptr) {
+	return vswprintf_s(buffer, numberOfElements, format, argptr);
 }
 
 
 int h_swprintf_s(
-    wchar_t* buffer,
-    size_t sizeOfBuffer,
-    const wchar_t* format,
-    ...
+	wchar_t *buffer,
+	size_t sizeOfBuffer,
+	const wchar_t *format,
+	...
 ) {
-    return swprintf_s(buffer, sizeOfBuffer, format);
+    //TOFIX
+	return swprintf_s(buffer, sizeOfBuffer, format, L"A", L"2", L"3", L"4", L"5");
 }
 
 int h__vsnwprintf(
-    wchar_t* buffer,
-    size_t count,
-    const wchar_t* format,
-    va_list argptr
+	wchar_t *buffer,
+	size_t count,
+	const wchar_t *format,
+	va_list argptr
 ) {
 
-    return _vsnwprintf(buffer, count, format, argptr);
+	return _vsnwprintf(buffer, count, format, argptr);
 }
 
 errno_t h_wcscpy_s(
-    wchar_t* dest,
-    rsize_t dest_size,
-    const wchar_t* src
+	wchar_t *dest,
+	rsize_t dest_size,
+	const wchar_t *src
 ) {
-    return wcscpy_s(dest, dest_size, src);
+	return wcscpy_s(dest, dest_size, src);
 }
 
 void h_RtlTimeToTimeFields(__int64 Time, __int64 TimeFields) {
 
-    __NtRoutine("RtlTimeToTimeFields", Time, TimeFields);
+	__NtRoutine("RtlTimeToTimeFields", Time, TimeFields);
 }
 
 FunctionPrototype myProvider[] = {
@@ -605,7 +606,7 @@ FunctionPrototype myProvider[] = {
     {"ExSystemTimeToLocalTime", 2 , h_ExSystemTimeToLocalTime },
 
     {"vswprintf_s", 4 , h_vswprintf_s },
-    {"swprintf_s", 3 , h_swprintf_s },
+    {"swprintf_s", 3 ,  h_swprintf_s },
     {"_vsnwprintf", 4 , h__vsnwprintf },
     {"wcscpy_s", 3 , h_wcscpy_s },
 

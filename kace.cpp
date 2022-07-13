@@ -64,7 +64,68 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 		switch (e->ExceptionRecord->ExceptionInformation[0]) {
 		case READ_VIOLATION:
 
-
+			if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->ExceptionInformation[1] <= 0xFFFFF78000001000) {
+				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
+				auto offset_shared = read_addr - 0xFFFFF78000000000;
+				
+				if (e->ContextRecord->Rsi == read_addr) {
+					e->ContextRecord->Rsi = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->Rdx == read_addr) {
+					e->ContextRecord->Rdx = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->Rcx == read_addr) {
+					e->ContextRecord->Rcx = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->Rax == read_addr) {
+					e->ContextRecord->Rax = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->Rbx == read_addr) {
+					e->ContextRecord->Rbx = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->Rsp == read_addr) {
+					e->ContextRecord->Rsp = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R8 == read_addr) {
+					e->ContextRecord->R8 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R9 == read_addr) {
+					e->ContextRecord->R9 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R10 == read_addr) {
+					e->ContextRecord->R10 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R11 == read_addr) {
+					e->ContextRecord->R11 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R12 == read_addr) {
+					e->ContextRecord->R12 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R13 == read_addr) {
+					e->ContextRecord->R13 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R14 == read_addr) {
+					e->ContextRecord->R14 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (e->ContextRecord->R15 == read_addr) {
+					e->ContextRecord->R15 = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				
+			}
 			if (e->ContextRecord->Rsi == (DWORD64)0xfffff78000000014) {
 				if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0x8B && bufferopcode[2] == 0x06) {
 					e->ContextRecord->Rsi = 0x7FFE0014;
@@ -481,8 +542,8 @@ int main() {
 	LoadPE("c:\\EMU\\cng.sys", false);
 	LoadPE("c:\\EMU\\fltmgr.sys", false);
 
-	DriverEntry = (proxyCall)LoadPE("c:\\EMU\\EasyAntiCheat_2.sys", true);
-	//DriverEntry = (proxyCall)LoadPE("c:\\EMU\\VGK.sys", true);
+	//DriverEntry = (proxyCall)LoadPE("c:\\EMU\\EasyAntiCheat_2.sys", true);
+	DriverEntry = (proxyCall)LoadPE("c:\\EMU\\VGK.sys", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
