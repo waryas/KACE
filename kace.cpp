@@ -88,6 +88,10 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 					e->ContextRecord->Rbx = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
+				if (e->ContextRecord->Rdi == read_addr) {
+					e->ContextRecord->Rdi = 0x7FFE0000 + offset_shared;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
 				if (e->ContextRecord->Rsp == read_addr) {
 					e->ContextRecord->Rsp = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
