@@ -42,7 +42,8 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
         printf("Class %08x success\n", SystemInformationClass);
         if (SystemInformationClass == 0xb) { //SystemModuleInformation
             auto ptr = (char*)SystemInformation;
-            *(uint64_t*)(ptr + 0x18) = kb;
+            *(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
+                ;
             //   RTL_PROCESS_MODULES *castTest = (RTL_PROCESS_MODULES*)(SystemInformation);
               // __NtRoutine("randededom", castTest->NumberOfModules);
               // for (int i = 0; i < castTest->NumberOfModules; i++) {
@@ -129,9 +130,7 @@ EXCEPTION_DISPOSITION __cdecl _c_exception( //EAC does CFG redirection with SEH 
     struct _CONTEXT* ContextRecord,
     struct _DISPATCHER_CONTEXT* DispatcherContext
 ) {
-    printf("Exception, calling driver handler\n");
     return (EXCEPTION_DISPOSITION)__NtRoutine("__C_specific_handler", ExceptionRecord, EstablisherFrame, ContextRecord, DispatcherContext);
-
 }
 
 NTSTATUS h_RtlMultiByteToUnicodeN(
@@ -149,6 +148,9 @@ bool h_KeAreAllApcsDisabled() { //Track thread IRQL ideally
     return false;
 }
 
+bool h_KeAreApcsDisabled() {
+    return false;
+}
 
 
 NTSTATUS h_NtCreateFile(
@@ -183,7 +185,7 @@ NTSTATUS h_NtReadFile(
     PLARGE_INTEGER   ByteOffset,
     PULONG           Key
 
-) {
+){
     auto ret = __NtRoutine("NtReadFile", FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
     return ret;
 }
@@ -553,7 +555,7 @@ void h_RtlTimeToTimeFields(__int64 Time, __int64 TimeFields) {
 	__NtRoutine("RtlTimeToTimeFields", Time, TimeFields);
 }
 
-FunctionPrototype myProvider[] = {
+FunctionPrototype myProvider[512] = {
     {"RtlDuplicateUnicodeString", 1, h_RtlDuplicateUnicodeString},
     {"IoDeleteController", 1, h_IoDeleteController},
     {"SeQueryInformationToken", 1, h_SeQueryInformationToken},
@@ -594,6 +596,7 @@ FunctionPrototype myProvider[] = {
     {"__C_specific_handler", 1, _c_exception},
     {"RtlMultiByteToUnicodeN", 1,h_RtlMultiByteToUnicodeN},
     {"KeAreAllApcsDisabled", 1, h_KeAreAllApcsDisabled},
+    {"KeAreApcsDisabled", 1, h_KeAreApcsDisabled},
     {"ZwCreateFile", 1, h_NtCreateFile},
     {"ZwQueryInformationFile", 1, h_NtQueryInformationFile},
     {"ZwReadFile", 1, h_NtReadFile},
