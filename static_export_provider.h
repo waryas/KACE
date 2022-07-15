@@ -1,37 +1,37 @@
 #pragma once
 
 struct StaticExportPrototype {
-	const char* name;
-	void* ptr;
+    const char* name;
+    void* ptr;
 };
 
 #define MAX_STATIC_EXPORT 512
 
-
-#pragma section("hookaccess",read,write)
-#define MONITOR  extern "C" __declspec(dllexport, allocate("hookaccess")) 
+#pragma section("hookaccess", read, write)
+#define MONITOR extern "C" __declspec(dllexport, allocate("hookaccess"))
 
 MONITOR uint32_t InitSafeBootMode = 0;
 MONITOR boolean KdDebuggerNotPresent = true;
 
-MONITOR const char* SeExport = "\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x06"
-"\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x09\x00\x00\x00\x00\x00\x00\x00\x0a"
-"\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x00\x00\x00\x00\x0c"
-"\x00\x00\x00\x00\x00\x00\x00\x0d\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x00\x00\x00\x00\x12"
-"\x00\x00\x00\x00\x00\x00\x00\x13\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00\x00\x00\x00\x00\x16"
-"\x00\x00\x00\x00\x00\x00\x00\x17\x00\x00\x00\x00\x00\x00\x00\x18\x00\x00\x00\x00\x00\x00\x00\xc0\xcf\xc5\xda\x81\xc2\xff\xff\xc0"
-"\xef\x64\xdd\x0f\xb2\xff\xff\xa0\x5f\x65\xdd\x0f\xb2\xff\xff\xc0\x6f\x65\xdd\x0f\xb2\xff\xff\xf0\xf4\x63\xdd\x0f\xb2\xff\xff\xc0"
-"\xbf\xc1\xda\x81\xc2\xff\xff\x30\x2d\xc2\xda\x81\xc2\xff\xff\xa0\xbf\x64\xdd\x0f\xb2\xff\xff\xc0\xad\x65\xdd\x0f\xb2\xff\xff\xc0"
-"\x3f\x69\xdd\x0f\xb2\xff\xff\x50\xfc\x66\xdd\x0f\xb2\xff\xff\x60\x3a\xc0\xda\x81\xc2\xff\xff\xf0\xc1\xca\xda\x81\xc2\xff\xff\x50"
-"\xc3\xca\xda\x81\xc2\xff\xff\x30\xc2\xca\xda\x81\xc2\xff\xff\x50\xc4\xca\xda\x81\xc2\xff\xff\x30\xc4\xca\xda\x81\xc2\xff\xff\xb0"
-"\xc3\xca\xda\x81\xc2\xff\xff\xf0\xc0\xca\xda\x81\xc2\xff\xff\xd0\x6e\xc0\xda\x81\xc2\xff\xff\xc0\xdf\xc1\xda\x81\xc2\xff\xff\x80"
-"\x0b\xc4\xda\x81\xc2\xff\xff\x19\x00\x00\x00\x00\x00\x00\x00\x1a\x00\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x00\x00\x00\x00\xc0"
-"\x5f\xc1\xda\x81\xc2\xff\xff\x00\x3a\xc0\xda\x81\xc2\xff\xff\x1c\x00\x00\x00\x00\x00\x00\x00\x1d\x00\x00\x00\x00\x00\x00\x00\x1e"
-"\x00\x00\x00\x00\x00\x00\x00\x1f\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x21\x00\x00\x00\x00\x00\x00\x00\x22"
-"\x00\x00\x00\x00\x00\x00\x00\x23\x00\x00\x00\x00\x00\x00\x00\x30\x3a\xc0\xda\x81\xc2\xff\xff\x90\x3f\x67\xdd\x0f\xb2\xff\xff\xc0"
-"\x3f\x67\xdd\x0f\xb2\xff\xff\x40\x7e\x65\xdd\x0f\xb2\xff\xff\x70\x7e\x65\xdd\x0f\xb2\xff\xff\x90\xb0\x6a\xdd\x0f\xb2\xff\xff\xa0"
-"\xcf\x66\xdd\x0f\xb2\xff\xff\x50\xb4\x6a\xdd\x0f\xb2\xff\xff\x10\x12\x66\xdd\x0f\xb2\xff\xff\xd0\xb0\x6a\xdd\x0f\xb2\xff\xff\x90"
-"\x13\x66\xdd\x0f\xb2\xff\xff\x24\x00\x00\x00\x00\x00\x00\x00";
+MONITOR const char* SeExport
+    = "\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x06"
+      "\x00\x00\x00\x00\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x09\x00\x00\x00\x00\x00\x00\x00\x0a"
+      "\x00\x00\x00\x00\x00\x00\x00\x0f\x00\x00\x00\x00\x00\x00\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x00\x00\x00\x00\x0c"
+      "\x00\x00\x00\x00\x00\x00\x00\x0d\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x00\x00\x00\x00\x12"
+      "\x00\x00\x00\x00\x00\x00\x00\x13\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x15\x00\x00\x00\x00\x00\x00\x00\x16"
+      "\x00\x00\x00\x00\x00\x00\x00\x17\x00\x00\x00\x00\x00\x00\x00\x18\x00\x00\x00\x00\x00\x00\x00\xc0\xcf\xc5\xda\x81\xc2\xff\xff\xc0"
+      "\xef\x64\xdd\x0f\xb2\xff\xff\xa0\x5f\x65\xdd\x0f\xb2\xff\xff\xc0\x6f\x65\xdd\x0f\xb2\xff\xff\xf0\xf4\x63\xdd\x0f\xb2\xff\xff\xc0"
+      "\xbf\xc1\xda\x81\xc2\xff\xff\x30\x2d\xc2\xda\x81\xc2\xff\xff\xa0\xbf\x64\xdd\x0f\xb2\xff\xff\xc0\xad\x65\xdd\x0f\xb2\xff\xff\xc0"
+      "\x3f\x69\xdd\x0f\xb2\xff\xff\x50\xfc\x66\xdd\x0f\xb2\xff\xff\x60\x3a\xc0\xda\x81\xc2\xff\xff\xf0\xc1\xca\xda\x81\xc2\xff\xff\x50"
+      "\xc3\xca\xda\x81\xc2\xff\xff\x30\xc2\xca\xda\x81\xc2\xff\xff\x50\xc4\xca\xda\x81\xc2\xff\xff\x30\xc4\xca\xda\x81\xc2\xff\xff\xb0"
+      "\xc3\xca\xda\x81\xc2\xff\xff\xf0\xc0\xca\xda\x81\xc2\xff\xff\xd0\x6e\xc0\xda\x81\xc2\xff\xff\xc0\xdf\xc1\xda\x81\xc2\xff\xff\x80"
+      "\x0b\xc4\xda\x81\xc2\xff\xff\x19\x00\x00\x00\x00\x00\x00\x00\x1a\x00\x00\x00\x00\x00\x00\x00\x1b\x00\x00\x00\x00\x00\x00\x00\xc0"
+      "\x5f\xc1\xda\x81\xc2\xff\xff\x00\x3a\xc0\xda\x81\xc2\xff\xff\x1c\x00\x00\x00\x00\x00\x00\x00\x1d\x00\x00\x00\x00\x00\x00\x00\x1e"
+      "\x00\x00\x00\x00\x00\x00\x00\x1f\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\x00\x00\x21\x00\x00\x00\x00\x00\x00\x00\x22"
+      "\x00\x00\x00\x00\x00\x00\x00\x23\x00\x00\x00\x00\x00\x00\x00\x30\x3a\xc0\xda\x81\xc2\xff\xff\x90\x3f\x67\xdd\x0f\xb2\xff\xff\xc0"
+      "\x3f\x67\xdd\x0f\xb2\xff\xff\x40\x7e\x65\xdd\x0f\xb2\xff\xff\x70\x7e\x65\xdd\x0f\xb2\xff\xff\x90\xb0\x6a\xdd\x0f\xb2\xff\xff\xa0"
+      "\xcf\x66\xdd\x0f\xb2\xff\xff\x50\xb4\x6a\xdd\x0f\xb2\xff\xff\x10\x12\x66\xdd\x0f\xb2\xff\xff\xd0\xb0\x6a\xdd\x0f\xb2\xff\xff\x90"
+      "\x13\x66\xdd\x0f\xb2\xff\xff\x24\x00\x00\x00\x00\x00\x00\x00";
 
 //These are not analyzed yet to be correct type
 
@@ -108,83 +108,31 @@ MONITOR uint64_t TmTransactionManagerObjectType = 0;
 MONITOR uint64_t TmTransactionObjectType = 0;
 MONITOR uint64_t psMUITest = 0;
 
-
-
-
-StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT]{
-	{"SeExports", (PVOID)SeExport},
-	{"InitSafeBootMode", &InitSafeBootMode},
-	{"KdDebuggerNotPresent", &KdDebuggerNotPresent},
-	{"CcFastMdlReadWait", &CcFastMdlReadWait},
-	{"CmKeyObjectType", &CmKeyObjectType},
-	{"ExActivationObjectType", &ExActivationObjectType},
-	{"ExCompositionObjectType", &ExCompositionObjectType},
-	{"ExCoreMessagingObjectType", &ExCoreMessagingObjectType},
-	{"ExDesktopObjectType", &ExDesktopObjectType},
-	{"ExEventObjectType", &ExEventObjectType},
-	{"ExRawInputManagerObjectType", &ExRawInputManagerObjectType},
-	{"ExSemaphoreObjectType", &ExSemaphoreObjectType},
-	{"ExTimerObjectType", &ExTimerObjectType},
-	{"ExWindowStationObjectType", &ExWindowStationObjectType},
-	{"FsRtlLegalAnsiCharacterArray", &FsRtlLegalAnsiCharacterArray},
-	{"HalDispatchTable", &HalDispatchTable},
-	{"HalPrivateDispatchTable", &HalPrivateDispatchTable},	
-	{"IoAdapterObjectType", &IoAdapterObjectType},
-	{"IoCompletionObjectType", &IoCompletionObjectType},
-	{"IoDeviceHandlerObjectSize", &IoDeviceHandlerObjectSize},
-	{"IoDeviceHandlerObjectType", &IoDeviceHandlerObjectType},
-	{"IoDeviceObjectType", &IoDeviceObjectType},
-	{"IoDriverObjectType", &IoDriverObjectType},
-	{"IoFileObjectType", &IoFileObjectType},
-	{"IoReadOperationCount", &IoReadOperationCount},
-	{"IoReadTransferCount", &IoReadTransferCount},
-	{"IoStatisticsLock", &IoStatisticsLock},
-	{"IoWriteOperationCount", &IoWriteOperationCount},
-	{"IoWriteTransferCount", &IoWriteTransferCount},
-	{"KdComPortInUse", &KdComPortInUse},
-	{"KdDebuggerEnabled", &KdDebuggerEnabled},
-	{"KdEnteredDebugger", &KdEnteredDebugger},
-	{"KdEventLoggingEnabled", &KdEventLoggingEnabled},
-	{"KdHvComPortInUse", &KdHvComPortInUse},
-	{"KeDynamicPartitioningSupported", &KeDynamicPartitioningSupported},
-	{"KeLastBranchMSR", &KeLastBranchMSR},
-	{"KeLoaderBlock", &KeLoaderBlock},
-	{"KeNumberProcessors", &KeNumberProcessors},
-	{"KiBugCheckData", &KiBugCheckData},
-	{"LpcPortObjectType", &LpcPortObjectType},
-	{"Mm64BitPhysicalAddress", &Mm64BitPhysicalAddress},
-	{"MmBadPointer", &MmBadPointer},
-	{"MmHighestUserAddress", &MmHighestUserAddress},
-	{"MmSectionObjectType", &MmSectionObjectType},
-	{"MmSystemRangeStart", &MmSystemRangeStart},
-	{"MmUserProbeAddress", &MmUserProbeAddress},
-	{"NlsAnsiCodePage", &NlsAnsiCodePage},
-	{"NlsMbCodePageTag", &NlsMbCodePageTag},
-	{"NlsMbOemCodePageTag", &NlsMbOemCodePageTag},
-	{"NlsOemCodePage", &NlsOemCodePage},
-	{"NtBuildGUID", &NtBuildGUID},
-	{"NtBuildLab", &NtBuildLab},
-	{"NtBuildNumber", &NtBuildNumber},
-	{"NtGlobalFlag", &NtGlobalFlag},
-	{"POGOBuffer", &POGOBuffer},
-	{"PsInitialSystemProcess", &PsInitialSystemProcess},
-	{"PsJobType", &PsJobType},
-	{"PsLoadedModuleList", &PsLoadedModuleList},
-	{"PsLoadedModuleResource", &PsLoadedModuleResource},
-	{"PsPartitionType", &PsPartitionType},
-	{"PsProcessType", &PsProcessType},
-	{"PsSiloContextNonPagedType", &PsSiloContextNonPagedType},
-	{"PsSiloContextPagedType", &PsSiloContextPagedType},
-	{"PsThreadType", &PsThreadType},
-	{"PsUILanguageComitted", &PsUILanguageComitted},
-	{"SeILSigningPolicyPtr", &SeILSigningPolicyPtr},
-	{"SePublicDefaultDacl", &SePublicDefaultDacl},
-	{"SeSystemDefaultDacl", &SeSystemDefaultDacl},
-	{"SeSystemDefaultSd", &SeSystemDefaultSd},
-	{"SeTokenObjectType", &SeTokenObjectType},
-	{"TmEnlistmentObjectType", &TmEnlistmentObjectType},
-	{"TmResourceManagerObjectType", &TmResourceManagerObjectType},
-	{"TmTransactionManagerObjectType", &TmTransactionManagerObjectType},
-	{"TmTransactionObjectType", &TmTransactionObjectType},
-	{"psMUITest", &psMUITest}
-}; 
+StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT] { { "SeExports", (PVOID)SeExport }, { "InitSafeBootMode", &InitSafeBootMode },
+    { "KdDebuggerNotPresent", &KdDebuggerNotPresent }, { "CcFastMdlReadWait", &CcFastMdlReadWait }, { "CmKeyObjectType", &CmKeyObjectType },
+    { "ExActivationObjectType", &ExActivationObjectType }, { "ExCompositionObjectType", &ExCompositionObjectType },
+    { "ExCoreMessagingObjectType", &ExCoreMessagingObjectType }, { "ExDesktopObjectType", &ExDesktopObjectType },
+    { "ExEventObjectType", &ExEventObjectType }, { "ExRawInputManagerObjectType", &ExRawInputManagerObjectType },
+    { "ExSemaphoreObjectType", &ExSemaphoreObjectType }, { "ExTimerObjectType", &ExTimerObjectType },
+    { "ExWindowStationObjectType", &ExWindowStationObjectType }, { "FsRtlLegalAnsiCharacterArray", &FsRtlLegalAnsiCharacterArray },
+    { "HalDispatchTable", &HalDispatchTable }, { "HalPrivateDispatchTable", &HalPrivateDispatchTable }, { "IoAdapterObjectType", &IoAdapterObjectType },
+    { "IoCompletionObjectType", &IoCompletionObjectType }, { "IoDeviceHandlerObjectSize", &IoDeviceHandlerObjectSize },
+    { "IoDeviceHandlerObjectType", &IoDeviceHandlerObjectType }, { "IoDeviceObjectType", &IoDeviceObjectType },
+    { "IoDriverObjectType", &IoDriverObjectType }, { "IoFileObjectType", &IoFileObjectType }, { "IoReadOperationCount", &IoReadOperationCount },
+    { "IoReadTransferCount", &IoReadTransferCount }, { "IoStatisticsLock", &IoStatisticsLock }, { "IoWriteOperationCount", &IoWriteOperationCount },
+    { "IoWriteTransferCount", &IoWriteTransferCount }, { "KdComPortInUse", &KdComPortInUse }, { "KdDebuggerEnabled", &KdDebuggerEnabled },
+    { "KdEnteredDebugger", &KdEnteredDebugger }, { "KdEventLoggingEnabled", &KdEventLoggingEnabled }, { "KdHvComPortInUse", &KdHvComPortInUse },
+    { "KeDynamicPartitioningSupported", &KeDynamicPartitioningSupported }, { "KeLastBranchMSR", &KeLastBranchMSR }, { "KeLoaderBlock", &KeLoaderBlock },
+    { "KeNumberProcessors", &KeNumberProcessors }, { "KiBugCheckData", &KiBugCheckData }, { "LpcPortObjectType", &LpcPortObjectType },
+    { "Mm64BitPhysicalAddress", &Mm64BitPhysicalAddress }, { "MmBadPointer", &MmBadPointer }, { "MmHighestUserAddress", &MmHighestUserAddress },
+    { "MmSectionObjectType", &MmSectionObjectType }, { "MmSystemRangeStart", &MmSystemRangeStart }, { "MmUserProbeAddress", &MmUserProbeAddress },
+    { "NlsAnsiCodePage", &NlsAnsiCodePage }, { "NlsMbCodePageTag", &NlsMbCodePageTag }, { "NlsMbOemCodePageTag", &NlsMbOemCodePageTag },
+    { "NlsOemCodePage", &NlsOemCodePage }, { "NtBuildGUID", &NtBuildGUID }, { "NtBuildLab", &NtBuildLab }, { "NtBuildNumber", &NtBuildNumber },
+    { "NtGlobalFlag", &NtGlobalFlag }, { "POGOBuffer", &POGOBuffer }, { "PsInitialSystemProcess", &PsInitialSystemProcess }, { "PsJobType", &PsJobType },
+    { "PsLoadedModuleList", &PsLoadedModuleList }, { "PsLoadedModuleResource", &PsLoadedModuleResource }, { "PsPartitionType", &PsPartitionType },
+    { "PsProcessType", &PsProcessType }, { "PsSiloContextNonPagedType", &PsSiloContextNonPagedType },
+    { "PsSiloContextPagedType", &PsSiloContextPagedType }, { "PsThreadType", &PsThreadType }, { "PsUILanguageComitted", &PsUILanguageComitted },
+    { "SeILSigningPolicyPtr", &SeILSigningPolicyPtr }, { "SePublicDefaultDacl", &SePublicDefaultDacl }, { "SeSystemDefaultDacl", &SeSystemDefaultDacl },
+    { "SeSystemDefaultSd", &SeSystemDefaultSd }, { "SeTokenObjectType", &SeTokenObjectType }, { "TmEnlistmentObjectType", &TmEnlistmentObjectType },
+    { "TmResourceManagerObjectType", &TmResourceManagerObjectType }, { "TmTransactionManagerObjectType", &TmTransactionManagerObjectType },
+    { "TmTransactionObjectType", &TmTransactionObjectType }, { "psMUITest", &psMUITest } };
