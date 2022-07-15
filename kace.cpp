@@ -290,7 +290,9 @@ struct stuff {
 };
 stuff padding = { {0,0,0,0} };
 
-const wchar_t* randomStr = L"LOLOLOL\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+const wchar_t* driverName = L"\\Driver\\vgk";
+const wchar_t *registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\vgk";
+
 
 int fakeDriverEntry() {
 
@@ -303,13 +305,13 @@ int fakeDriverEntry() {
 
 
 	drvObj.Size = sizeof(drvObj);
-	drvObj.DriverName.Buffer = (WCHAR*)randomStr;
-	drvObj.DriverName.Length = lstrlenW(randomStr);
-	drvObj.DriverName.MaximumLength = 16;
+	drvObj.DriverName.Buffer = (WCHAR*)driverName;
+	drvObj.DriverName.Length = lstrlenW(drvObj.DriverName.Buffer)*2;
+	drvObj.DriverName.MaximumLength = lstrlenW(drvObj.DriverName.Buffer)*2;
 
-	RegistryPath.Buffer = (WCHAR*)randomStr;
-	RegistryPath.Length = lstrlenW(randomStr);
-	RegistryPath.MaximumLength = 16;
+	RegistryPath.Buffer = (WCHAR*)registryBuffer;
+	RegistryPath.Length = lstrlenW(RegistryPath.Buffer)*2;
+	RegistryPath.MaximumLength = lstrlenW(RegistryPath.Buffer)*2;
 	//memset((void*)&drvObj, 0xFF, sizeof(drvObj));
 
 	memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
@@ -358,7 +360,7 @@ int main(int argc, char* argv[]) {
 
 
 
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "faceit", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
