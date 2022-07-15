@@ -33,7 +33,7 @@ uint64_t passthrough(...)
 
 uintptr_t lastPG = 0;
 
-LONG MyExceptionHandler(EXCEPTION_POINTERS* e)
+LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 	auto offset = GetMainModule()->base - ep;
@@ -314,27 +314,16 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e)
 	return 0;
 }
 
-
-UNICODE_STRING Derp = {0};
-
-struct stuff
-{
-	uint64_t pad[4] = {0};
-};
-
-stuff padding = {{0, 0, 0, 0}};
-
 const wchar_t* randomStr =
 	L"LOLOLOL\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
 
-int fakeDriverEntry()
+DWORD FakeDriverEntry(LPVOID)
 {
 	FixMainModuleSEH(); //Needed for EAC, they use __try/__except(1) redirection
 
-	AddVectoredExceptionHandler(true, MyExceptionHandler);
+	AddVectoredExceptionHandler(true, ExceptionHandler);
 
 	printf("Calling the driver entrypoint\n");
-
 
 	drvObj.Size = sizeof(drvObj);
 	drvObj.DriverName.Buffer = (WCHAR*)randomStr;
@@ -376,10 +365,8 @@ int fakeDriverEntry()
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	printf("Done! = %llx\n", result);
-	exit(0);
 	return 0;
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -393,15 +380,25 @@ int main(int argc, char* argv[])
 
 	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
-
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 
-	CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)fakeDriverEntry, nullptr, 0, nullptr);
+	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
 	while (true)
 	{
 		Sleep(1000);
+
+		DWORD ExitCode;
+		if(GetExitCodeThread(ThreadHandle, &ExitCode))
+		{
+			if(ExitCode != STILL_ACTIVE)
+			{
+				break;
+			}
+		}
 	}
+
+	CloseHandle(ThreadHandle);
 
 	return 0;
 }
