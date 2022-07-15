@@ -12,6 +12,10 @@
 
 #include "nmd.h"
 
+#include "static_export_provider.h"
+
+#define MONITOR_ACCESS 1 //This will monitor every read/write with a page_guard - SLOW - Better debugging
+
 #include "memory_layout.h"
 
 #include "ntoskrnl_struct.h"
@@ -45,6 +49,8 @@ uint64_t passthrough(...) {
 
 //POC STAGE, NEED TO MAKE THIS DYNAMIC - Most performance issue come from this, also for some reason i only got this to work in Visual studio, not outside of it.
 
+uintptr_t lastPG = 0;
+
 LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 	auto offset = GetMainModule()->base - ep;
@@ -63,6 +69,24 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 		//	e->ContextRecord->Rip += 4;
 		//	return EXCEPTION_CONTINUE_EXECUTION;
 		//}
+	}
+	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE) {
+		e->ContextRecord->EFlags |= 0x100ui32;
+		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
+		auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
+		if (read_module) {
+			printf("Reading %s+0x%08x\n", read_module->name, e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
+		}
+		else {
+			printf("Reading unknown data\n");
+		}
+		return EXCEPTION_CONTINUE_EXECUTION;
+	}
+	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
+	{
+		DWORD oldProtect;
+		VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READONLY | PAGE_GUARD, &oldProtect);
+		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 	else if (e->ExceptionRecord->ExceptionCode = EXCEPTION_ACCESS_VIOLATION) {
 		uint8_t* bufferopcode = (uint8_t*)e->ContextRecord->Rip;
@@ -205,7 +229,7 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 				}
 
 			}
-			
+
 			if (bufferopcode[0] == 0xa1
 				&& bufferopcode[1] == 0x6c
 				&& bufferopcode[2] == 0x02
@@ -219,8 +243,19 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 				e->ContextRecord->Rip += 9;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
-			else {
-				
+			else if (e->ExceptionRecord->ExceptionInformation[1] <= 0x100000 && e->ExceptionRecord->ExceptionInformation[1] > 0x0) { //If we get here, it's gonna crash but at least dump the name of the exported variable it's trying to access so we can prototype it
+
+				auto mod = GetMainModule();
+				auto pe_imports = mod->pedata->imports();
+
+				for (auto imports = pe_imports.cbegin(); imports < pe_imports.cend(); imports++) {
+					for (auto entry = imports->entries().cbegin(); entry < imports->entries().cend(); entry++) {
+						if (entry->iat_value() == e->ExceptionRecord->ExceptionInformation[1]) {
+							printf("Accessing Exported Variable : %s\n", entry->name().c_str());
+						}
+					}
+				}
+				printf("NOT_IMPLEMENTED OR CRASH\n");
 			}
 			break;
 		case EXECUTE_VIOLATION:
@@ -230,7 +265,7 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 				redirectRip = FindFunctionInModulesFromIAT(ep);
 			else //EAT execution
 				redirectRip = FindFunctionInModulesFromEAT(ep);
-			
+
 
 			if (!redirectRip)
 				exit(0);
@@ -302,8 +337,9 @@ int fakeDriverEntry() {
 	FakeSystemProcess.WoW64Process = 0;
 	FakeSystemProcess.CreateTime.QuadPart = GetTickCount64();
 
-	DriverEntry(&drvObj, RegistryPath);
-	printf("Done!\n");
+	auto result = DriverEntry(&drvObj, RegistryPath);
+	printf("Done! = %llx\n", result);
+	exit(0);
 	return 0;
 
 }
@@ -312,18 +348,18 @@ int fakeDriverEntry() {
 int main() {
 	LoadModule("c:\\EMU\\cng.sys", "c:\\windows\\system32\\drivers\\cng.sys", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", "c:\\windows\\system32\\ntoskrnl.exe", "ntoskrnl.exe", false);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
 	LoadModule("c:\\EMU\\fltmgr.sys", "c:\\windows\\system32\\drivers\\fltmgr.sys", "FLTMGR.SYS", false);
-	
-	
 
-	//DriverEntry = (proxyCall)LoadPE("c:\\EMU\\VGK.sys", true);
+
+
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 
 	CreateThread(0, 4096, (LPTHREAD_START_ROUTINE)fakeDriverEntry, 0, 0, 0);
-	
+
 	while (1) {
 		Sleep(1000);
 	}

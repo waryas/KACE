@@ -35,5 +35,8 @@
     <ClInclude Include="nmd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="static_export_provider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -136,6 +136,7 @@
     <ClInclude Include="ntoskrnl_provider.h" />
     <ClInclude Include="ntoskrnl_struct.h" />
     <ClInclude Include="nt_define.h" />
+    <ClInclude Include="static_export_provider.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
