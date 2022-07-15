@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ntoskrnl_struct.h"
+
 _ETHREAD FakeKernelThread = { 0 };
 _EPROCESS FakeSystemProcess = { 0 };
 
