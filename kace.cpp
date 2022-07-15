@@ -14,7 +14,7 @@
 
 #include "static_export_provider.h"
 
-#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
+//#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 #include "memory_layout.h"
 
@@ -72,13 +72,28 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE) {
 		e->ContextRecord->EFlags |= 0x100ui32;
+		DWORD oldProtect = 0;
+					
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
-		auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
-		if (read_module) {
-			printf("Reading %s+0x%08x\n", read_module->name, e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
-		}
-		else {
-			printf("Reading unknown data\n");
+		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode)) {
+			auto hooked_section = self_data->exported_functions();
+			for (auto entry = hooked_section.cbegin(); entry < hooked_section.cend(); entry++) {
+				if (entry->address() + (uintptr_t)GetModuleHandle(NULL) == e->ExceptionRecord->ExceptionInformation[1]) {
+					printf("Driver is accessing %s\n", entry->name().c_str());
+					break;
+				}
+			}
+		} else {
+			SetVariableInModulesEAT(e->ExceptionRecord->ExceptionInformation[1]);
+			
+			auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
+			if (read_module) {
+				printf("Reading %s+0x%llx\n", read_module->name, e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
+			}
+			else {
+				printf("Reading unknown data\n");
+			}
+			lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		}
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
@@ -86,6 +101,7 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 	{
 		DWORD oldProtect;
 		VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READONLY | PAGE_GUARD, &oldProtect);
+		lastPG = 0;
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 	else if (e->ExceptionRecord->ExceptionCode = EXCEPTION_ACCESS_VIOLATION) {
@@ -243,20 +259,7 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 				e->ContextRecord->Rip += 9;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
-			else if (e->ExceptionRecord->ExceptionInformation[1] <= 0x100000 && e->ExceptionRecord->ExceptionInformation[1] > 0x0) { //If we get here, it's gonna crash but at least dump the name of the exported variable it's trying to access so we can prototype it
 
-				auto mod = GetMainModule();
-				auto pe_imports = mod->pedata->imports();
-
-				for (auto imports = pe_imports.cbegin(); imports < pe_imports.cend(); imports++) {
-					for (auto entry = imports->entries().cbegin(); entry < imports->entries().cend(); entry++) {
-						if (entry->iat_value() == e->ExceptionRecord->ExceptionInformation[1]) {
-							printf("Accessing Exported Variable : %s\n", entry->name().c_str());
-						}
-					}
-				}
-				printf("NOT_IMPLEMENTED OR CRASH\n");
-			}
 			break;
 		case EXECUTE_VIOLATION:
 			uintptr_t redirectRip = 0;
@@ -345,11 +348,13 @@ int fakeDriverEntry() {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+	HookSelf(argv[0]);
 	LoadModule("c:\\EMU\\cng.sys", "c:\\windows\\system32\\drivers\\cng.sys", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", "c:\\windows\\system32\\ntoskrnl.exe", "ntoskrnl.exe", false);
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
 	LoadModule("c:\\EMU\\fltmgr.sys", "c:\\windows\\system32\\drivers\\fltmgr.sys", "FLTMGR.SYS", false);
+	LoadModule("c:\\EMU\\CI.dll", "c:\\windows\\system32\\CI.dll", "CI.dll", false);
 
 
 

@@ -722,8 +722,10 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName) {
 		}
 	}
 
-	if (funcptr) //Was it static exported variable
+	if (funcptr) {//Was it static exported variable 
+		printf("Prototyped Variable\n");
 		return funcptr;
+	}
 
 	for (int i = 0; i < 512; i++) {
 		if (!myProvider[i].name)

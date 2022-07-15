@@ -31,7 +31,7 @@ struct ModuleManager {
 	std::unique_ptr<LIEF::PE::Binary> pedata;
 } MappedModules[MAX_MODULES] = { 0 };
 
-
+std::unique_ptr<LIEF::PE::Binary> self_data;
 
 
 enum TYPE_ARGUMENT {
@@ -126,7 +126,7 @@ void __declspec(noinline) FixSecurityCookie(uint8_t* buffer, uint64_t origBase) 
 	auto load_cfg = (IMAGE_LOAD_CONFIG_DIRECTORY64*)((uintptr_t)buffer + load_cfg_dir.VirtualAddress);
 	UINT64 cookie_va;
 	if ((cookie_va = static_cast<UINT64>(load_cfg->SecurityCookie)) == 0)
-		return ;
+		return;
 
 	uint64_t* cookie = (uint64_t*)load_cfg->SecurityCookie;
 	*cookie ^= GetTickCount64();
@@ -253,6 +253,7 @@ bool FixImport(uint8_t* buffer, uint64_t origBase) {
 }
 
 
+
 ModuleManager* FindModule(uintptr_t ptr) {
 	for (int i = 0; i < MAX_MODULES; i++) {
 		if (!MappedModules[i].name)
@@ -303,7 +304,7 @@ uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 
 			for (auto imports = pe_imports.cbegin(); imports < pe_imports.cend(); imports++) {
 				for (auto entry = imports->entries().cbegin(); entry < imports->entries().cend(); entry++) {
-					
+
 					if (entry->iat_value() == ptr) {
 						printf("Resolving %s::%s - ", imports->name().c_str(), entry->name().c_str());
 						for (int k = 0; k < 512; k++) {
@@ -360,6 +361,47 @@ int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other
 	auto ret = rtlinsert((PVOID)mod->base, mod->size);
 	return ret;
 }
+
+
+uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
+
+
+	for (int i = 0; i < MAX_MODULES; i++) {
+
+		if (!MappedModules[i].name)
+			return 0;
+
+		if (!MappedModules[i].isMainModule) {
+			if (MappedModules[i].base <= ptr && ptr <= MappedModules[i].base + MappedModules[i].size) {
+
+				auto offset = ptr - MappedModules[i].base;
+				auto funcs = MappedModules[i].pedata->exported_functions();
+
+				for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
+					if (function->address() == offset) {
+						printf("Reading %s::%s - ", MappedModules[i].name, function->name().c_str());
+						for (int k = 0; k < NELEMS(staticExportProvider); k++) {
+							if (!staticExportProvider[k].name)
+								break;
+							if (!_stricmp(staticExportProvider[k].name, function->name().c_str())) {
+								DWORD oldAccess;
+								VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
+								*(uint64_t*)ptr = *(uint64_t*)staticExportProvider[k].ptr;
+								VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
+							}
+						}
+						break;
+					}
+					
+				}
+
+			}
+		}
+	}
+
+	return 0;
+}
+
 
 uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
@@ -421,6 +463,21 @@ uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 	return 0;
 }
 
+
+void HookSelf(char* path) {
+	if (!path) {
+		printf("HookSelf wrong parameters\n");
+		exit(0);
+	}
+
+	self_data = LIEF::PE::Parser::parse(path);
+	DWORD oldProtect;
+	auto hookPage = PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode); //BEGINNING OF MONITOR SECTION
+
+	VirtualProtect((PVOID)hookPage, 0x1000, PAGE_READONLY | PAGE_GUARD, &oldProtect);
+	return;
+}
+
 uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name, bool isMainModule) {
 	uintptr_t ep = 0;
 	if (!path || !spoofedpath || !name) {
@@ -440,7 +497,7 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 		MappedModules[i].fakepath = spoofedpath;
 		MappedModules[i].realpath = path;
 		MappedModules[i].isMainModule = isMainModule;
-		
+
 		MappedModules[i].pedata = LIEF::PE::Parser::parse(MappedModules[i].realpath);
 
 		f = fopen(MappedModules[i].realpath, "rb+");
@@ -471,12 +528,13 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 
 			if (MappedModules[i].isMainModule)
 				VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
-			else
+			else {
 #ifdef MONITOR_ACCESS
 				VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
 #else
 				VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
 #endif
+			}
 		}
 
 
@@ -485,6 +543,35 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 			FixImport((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->imagebase());
 			FixSecurityCookie((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->imagebase());
 		}
+		else { //PAGE_GUARD EXPORTED VARIABLE 
+
+			auto funcs = MappedModules[i].pedata->exported_functions();
+			for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
+				//
+				for (auto section = pe_sections.cbegin(); section < pe_sections.cend(); section++) {
+					if (section->virtual_address() <= function->address() && function->address() <= section->virtual_address() + section->virtual_size()
+						&& !(section->characteristics() & 0x20000000)) {
+						
+						DWORD oldAccess;
+						VirtualProtect((PVOID)PAGE_ALIGN_DOWN(MappedModules[i].base + function->address()), 0x1000, PAGE_READONLY | PAGE_GUARD, &oldAccess);
+					}
+				}
+			}
+
+			/* USE THIS TO DUMP EXPORTED VARIABLE FROM KERNEL
+			auto funcs = MappedModules[i].pedata->exported_functions();
+			for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
+				//
+				for (auto section = pe_sections.cbegin(); section < pe_sections.cend(); section++) {
+					if (section->virtual_address() <= function->address() && function->address() <= section->virtual_address() + section->virtual_size()
+						&& !(section->characteristics() & 0x20000000)) {
+						printf("DbgPrint(\"%s - %%d bytes - %%llx\",sizeof(%s), *(uint64_t*)%s )\n", function->name().c_str(), function->name().c_str(), function->name().c_str());
+					}
+				}
+			}
+			*/
+		}
+
 
 		free(image_to_execute);
 		loaded = true;
