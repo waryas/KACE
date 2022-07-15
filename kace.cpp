@@ -14,7 +14,7 @@
 
 #include "static_export_provider.h"
 
-#define MONITOR_ACCESS 1 //This will monitor every read/write with a page_guard - SLOW - Better debugging
+#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 #include "memory_layout.h"
 

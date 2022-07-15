@@ -472,7 +472,11 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 			if (MappedModules[i].isMainModule)
 				VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
 			else
+#ifdef MONITOR_ACCESS
 				VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
+#else
+				VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
+#endif
 		}
 
 
