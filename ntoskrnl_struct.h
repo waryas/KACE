@@ -1,7 +1,5 @@
-
-#include <windows.h>
-
 #pragma once
+#include <windows.h>
 
 //Our emulation is simulating the struct of Windows 10 | 2016 2110 21H2 (November 2021 Update) x64 - Make sure you use ntoskrnl.exe of that version
 

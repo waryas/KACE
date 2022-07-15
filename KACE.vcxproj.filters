@@ -1,14 +1,40 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="memory_layout.h" />
-    <ClInclude Include="nmd.h" />
-    <ClInclude Include="nt_define.h" />
-    <ClInclude Include="ntoskrnl_provider.h" />
-    <ClInclude Include="ntoskrnl_struct.h" />
-    <ClInclude Include="static_export_provider.h" />
+    <ClInclude Include="module_layout.h">
+      <Filter>modules</Filter>
+    </ClInclude>
+    <ClInclude Include="ntoskrnl_provider.h">
+      <Filter>ntoskrnl</Filter>
+    </ClInclude>
+    <ClInclude Include="static_export_provider.h">
+      <Filter>definitions</Filter>
+    </ClInclude>
+    <ClInclude Include="nt_define.h">
+      <Filter>definitions</Filter>
+    </ClInclude>
+    <ClInclude Include="ntoskrnl_struct.h">
+      <Filter>definitions</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />
+    <ClCompile Include="image_layout.cpp">
+      <Filter>modules</Filter>
+    </ClCompile>
+    <ClCompile Include="ntoskrnl_provider.cpp">
+      <Filter>ntoskrnl</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="modules">
+      <UniqueIdentifier>{62ab9661-2d91-4e31-9f1a-14158f0bfb14}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ntoskrnl">
+      <UniqueIdentifier>{d43dd6dd-6dfd-4856-a924-a669e914842b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="definitions">
+      <UniqueIdentifier>{c53be779-1cb9-4510-a953-229a70cb3088}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

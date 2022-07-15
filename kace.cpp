@@ -6,15 +6,10 @@
 
 #include "nt_define.h"
 
-#include "LIEF/LIEF.hpp"
 
 #include "static_export_provider.h"
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
-
-#include "memory_layout.h"
-
-#include "ntoskrnl_struct.h"
 #include "ntoskrnl_provider.h"
 
 using proxyCall = uint64_t(__fastcall*)(...);

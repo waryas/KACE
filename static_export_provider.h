@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 struct StaticExportPrototype {
 	const char* name;
@@ -7,9 +8,8 @@ struct StaticExportPrototype {
 
 #define MAX_STATIC_EXPORT 512
 
-
 #pragma section("hookaccess",read,write)
-#define MONITOR  extern "C" __declspec(dllexport, allocate("hookaccess")) 
+#define MONITOR  extern "C" __declspec(dllexport, allocate("hookaccess")) inline
 
 MONITOR uint32_t InitSafeBootMode = 0;
 MONITOR boolean KdDebuggerNotPresent = true;
@@ -109,9 +109,7 @@ MONITOR uint64_t TmTransactionObjectType = 0;
 MONITOR uint64_t psMUITest = 0;
 
 
-
-
-StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT]{
+inline StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT]{
 	{"SeExports", (PVOID)SeExport},
 	{"InitSafeBootMode", &InitSafeBootMode},
 	{"KdDebuggerNotPresent", &KdDebuggerNotPresent},

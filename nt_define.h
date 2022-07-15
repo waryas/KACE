@@ -1,6 +1,9 @@
 #pragma once
-#pragma once
+
 #include <Windows.h>
+#include <cstdint>
+#include <utility>
+
 #pragma pack(push, 8)
 typedef struct _SYSTEM_MODULE_ENTRY
 {
@@ -33,7 +36,7 @@ typedef UNICODE_STRING* PUNICODE_STRING;
 
 #define NtCurrentProcess() ( HANDLE(-1) )
 #define SeLoadDriverPrivilege 10ull
-#define SystemModuleInformation 0xBull
+#define SystemModuleInformation 0xBull//y
 #define AdjustCurrentProcess 0ull
 #define STATUS_SUCCESS 0
 #pragma pack(pop)

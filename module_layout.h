@@ -1,5 +1,12 @@
 #pragma once
 
+
+#include "nt_define.h"
+#include "static_export_provider.h"
+#include "LIEF/LIEF.hpp"
+#include <cstdint>
+#include <memory>
+
 #define PAGE_SHIFT              12
 #define PAGE_SIZE               (1ULL << PAGE_SHIFT)
 #define PAGE_MASK               (~(PAGE_SIZE-1))
@@ -10,14 +17,16 @@
 #define KB 1024
 #define MB 1024 * KB
 #define GB 1024 * MB
-#define MEMORY_ALLOCATION 1 * MB
+#define MEMORY_ALLOCATION (1 * MB)
 
 #include <malloc.h>
+
+
 
 #define MAX_MODULES 64
 
 template <typename T> T makepointer(uint8_t* buffer, uint64_t offset) {
-	return (T)((uint64_t)buffer + offset);
+	return (T)(reinterpret_cast<uint64_t>(buffer) + offset);
 }
 
 inline struct ModuleManager {
@@ -73,7 +82,8 @@ inline struct HandleManager { //For tracking of handle
 	HandleManager* next;
 } HandleAccess = { 0 };
 
-int fsize(FILE* fp) {
+inline int fsize(FILE* fp)
+{
 	int prev = ftell(fp);
 	fseek(fp, 0L, SEEK_END);
 	int sz = ftell(fp);
@@ -97,7 +107,7 @@ typedef struct
 						 difference to the 64-bit field at
 						 offset. */
 
-void __declspec(noinline) FixSecurityCookie(uint8_t* buffer, uint64_t origBase) {
+inline void __declspec(noinline) FixSecurityCookie(uint8_t* buffer, uint64_t origBase) {
 	PIMAGE_DOS_HEADER			pDosHeader;
 	PIMAGE_NT_HEADERS			pNtHeaders;
 	pDosHeader = (PIMAGE_DOS_HEADER)buffer;
@@ -117,7 +127,7 @@ void __declspec(noinline) FixSecurityCookie(uint8_t* buffer, uint64_t origBase) 
 	return;
 }
 
-uint64_t ApplyRelocation(uint8_t* buffer, uint64_t origBase) {
+inline uint64_t ApplyRelocation(uint8_t* buffer, uint64_t origBase) {
 	PIMAGE_DOS_HEADER			pDosHeader;
 	PIMAGE_NT_HEADERS			pNtHeaders;
 	DWORD64						x;
@@ -171,7 +181,7 @@ uint64_t ApplyRelocation(uint8_t* buffer, uint64_t origBase) {
 	return 1;
 }
 
-bool FixImport(uint8_t* buffer, uint64_t origBase) {
+inline bool FixImport(uint8_t* buffer, uint64_t origBase) {
 
 	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)buffer;
 	PIMAGE_NT_HEADERS pImageNtHeader = makepointer<PIMAGE_NT_HEADERS>(buffer, pDosHeader->e_lfanew);
@@ -232,7 +242,7 @@ bool FixImport(uint8_t* buffer, uint64_t origBase) {
 
 }
 
-ModuleManager* FindModule(uintptr_t ptr) {
+inline ModuleManager* FindModule(uintptr_t ptr) {
 	for (int i = 0; i < MAX_MODULES; i++) {
 		if (!MappedModules[i].name)
 			return 0;
@@ -242,7 +252,7 @@ ModuleManager* FindModule(uintptr_t ptr) {
 	return 0;
 }
 
-ModuleManager* GetMainModule() {
+inline ModuleManager* GetMainModule() {
 	for (int i = 0; i < MAX_MODULES; i++) {
 		if (!MappedModules[i].name)
 			return 0;
@@ -252,7 +262,7 @@ ModuleManager* GetMainModule() {
 	return 0;
 }
 
-uint64_t GetModuleBase(const char* name) {
+inline uint64_t GetModuleBase(const char* name) {
 	for (int i = 0; i < MAX_MODULES; i++) {
 		if (!MappedModules[i].name)
 			return 0;
@@ -262,11 +272,11 @@ uint64_t GetModuleBase(const char* name) {
 	return 0;
 }
 
-static HMODULE ntdll = LoadLibraryA("ntdll.dll");
+inline HMODULE ntdll = LoadLibraryA("ntdll.dll");
 
 extern FunctionPrototype myProvider[512];
 
-uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
+inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 	uintptr_t funcptr = 0;
 	for (int i = 0; i < MAX_MODULES; i++) {
 
@@ -323,9 +333,9 @@ uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 	return 0;
 }
 
-typedef int(__fastcall* RtlInsertInvertedFunctionTable)(PVOID BaseAddress, ULONG uImageSize);
+using RtlInsertInvertedFunctionTable = int(__fastcall* )(PVOID BaseAddress, ULONG uImageSize);
 
-int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other windows : RtlInsertInvertedFunctionTable in ntdll.dll
+inline int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other windows : RtlInsertInvertedFunctionTable in ntdll.dll
 	auto ntdllbase = LoadLibraryA("ntdll.dll");
 	auto x = GetProcAddress(ntdllbase, "AlpcGetMessageFromCompletionList");
 	RtlInsertInvertedFunctionTable rtlinsert = (RtlInsertInvertedFunctionTable)((DWORD64)x - 0x170);
@@ -335,7 +345,7 @@ int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other
 	return ret;
 }
 
-uintptr_t SetVariableInModulesEAT(uintptr_t ptr)
+inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr)
 {
 
 	for (int i = 0; i < MAX_MODULES; i++) {
@@ -374,7 +384,7 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr)
 	return 0;
 }
 
-uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
+inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
 
 	uintptr_t funcptr = 0;
@@ -434,7 +444,7 @@ uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 	return 0;
 }
 
-void HookSelf(char* path) {
+inline void HookSelf(char* path) {
 	if (!path) {
 		printf("HookSelf wrong parameters\n");
 		exit(0);
@@ -448,7 +458,7 @@ void HookSelf(char* path) {
 	return;
 }
 
-uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name, bool isMainModule) {
+inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name, bool isMainModule) {
 	uintptr_t ep = 0;
 	if (!path || !spoofedpath || !name) {
 		printf("LoadModule wrong parameters\n");
