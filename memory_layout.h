@@ -12,7 +12,6 @@
 #define GB 1024 * MB
 #define MEMORY_ALLOCATION 1 * MB
 
-
 #include <malloc.h>
 
 #define MAX_MODULES 64
@@ -21,7 +20,7 @@ template <typename T> T makepointer(uint8_t* buffer, uint64_t offset) {
 	return (T)((uint64_t)buffer + offset);
 }
 
-struct ModuleManager {
+inline struct ModuleManager {
 	const char* name;
 	const char* fakepath;
 	const char* realpath;
@@ -29,10 +28,9 @@ struct ModuleManager {
 	uintptr_t size;
 	bool isMainModule;
 	std::unique_ptr<LIEF::PE::Binary> pedata;
-} MappedModules[MAX_MODULES] = { 0 };
+} MappedModules[MAX_MODULES] = { };
 
-std::unique_ptr<LIEF::PE::Binary> self_data;
-
+inline std::unique_ptr<LIEF::PE::Binary> self_data;
 
 enum TYPE_ARGUMENT {
 	TINT8 = 0x0,
@@ -45,14 +43,12 @@ enum TYPE_ARGUMENT {
 	TUNICODESTRING = 0x7
 };
 
-
 struct ArgumentPrototype {
 	const char* name;
 	TYPE_ARGUMENT type; //Actually wasn't needed, will probably remove this
 	uint64_t value;
 
 };
-
 
 struct FunctionPrototype {
 	const char* name;
@@ -61,8 +57,7 @@ struct FunctionPrototype {
 	ArgumentPrototype args[15];
 };
 
-
-struct MemoryMapping { //For symbolic tracking, was used in the unicorn version, will redevelop it soon
+inline struct MemoryMapping { //For symbolic tracking, was used in the unicorn version, will redevelop it soon
 	char* regionName;
 	uintptr_t realMemory;
 	uintptr_t guestBase;
@@ -70,20 +65,13 @@ struct MemoryMapping { //For symbolic tracking, was used in the unicorn version,
 	MemoryMapping* next;
 } MemAccess = { 0 };
 
-struct HandleManager { //For tracking of handle
+inline struct HandleManager { //For tracking of handle
 	char* handleName;
 	HANDLE realHandle;
 	HANDLE guestHandle;
 	size_t allocSize;
 	HandleManager* next;
 } HandleAccess = { 0 };
-
-
-uint8_t* image_to_execute = nullptr;
-
-
-#define NELEMS(x)  (sizeof(x) / sizeof((x)[0]))
-
 
 int fsize(FILE* fp) {
 	int prev = ftell(fp);
@@ -92,9 +80,6 @@ int fsize(FILE* fp) {
 	fseek(fp, prev, SEEK_SET); //go back to where we were
 	return sz;
 }
-
-
-
 
 typedef struct
 {
@@ -111,8 +96,6 @@ typedef struct
 #define IMAGE_REL_BASED_DIR64	       10 /* The base relocation applies the
 						 difference to the 64-bit field at
 						 offset. */
-
-
 
 void __declspec(noinline) FixSecurityCookie(uint8_t* buffer, uint64_t origBase) {
 	PIMAGE_DOS_HEADER			pDosHeader;
@@ -188,9 +171,6 @@ uint64_t ApplyRelocation(uint8_t* buffer, uint64_t origBase) {
 	return 1;
 }
 
-
-
-
 bool FixImport(uint8_t* buffer, uint64_t origBase) {
 
 	PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER)buffer;
@@ -252,8 +232,6 @@ bool FixImport(uint8_t* buffer, uint64_t origBase) {
 
 }
 
-
-
 ModuleManager* FindModule(uintptr_t ptr) {
 	for (int i = 0; i < MAX_MODULES; i++) {
 		if (!MappedModules[i].name)
@@ -283,9 +261,6 @@ uint64_t GetModuleBase(const char* name) {
 	}
 	return 0;
 }
-
-
-
 
 static HMODULE ntdll = LoadLibraryA("ntdll.dll");
 
@@ -348,9 +323,7 @@ uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 	return 0;
 }
 
-
 typedef int(__fastcall* RtlInsertInvertedFunctionTable)(PVOID BaseAddress, ULONG uImageSize);
-
 
 int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other windows : RtlInsertInvertedFunctionTable in ntdll.dll
 	auto ntdllbase = LoadLibraryA("ntdll.dll");
@@ -362,9 +335,8 @@ int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other
 	return ret;
 }
 
-
-uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
-
+uintptr_t SetVariableInModulesEAT(uintptr_t ptr)
+{
 
 	for (int i = 0; i < MAX_MODULES; i++) {
 
@@ -380,7 +352,7 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 				for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
 					if (function->address() == offset) {
 						printf("Reading %s::%s - ", MappedModules[i].name, function->name().c_str());
-						for (int k = 0; k < NELEMS(staticExportProvider); k++) {
+						for (int k = 0; k < std::size(staticExportProvider); k++) {
 							if (!staticExportProvider[k].name)
 								break;
 							if (!_stricmp(staticExportProvider[k].name, function->name().c_str())) {
@@ -402,7 +374,6 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 	return 0;
 }
 
-
 uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
 
@@ -422,7 +393,7 @@ uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
 					if (function->address() == offset) {
 						printf("Resolving %s::%s - ", MappedModules[i].name, function->name().c_str());
-						for (int k = 0; k < NELEMS(myProvider); k++) {
+						for (int k = 0; k < std::size(myProvider); k++) {
 							if (!myProvider[k].name)
 								break;
 							if (!_stricmp(myProvider[k].name, function->name().c_str())) {
@@ -463,7 +434,6 @@ uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 	return 0;
 }
 
-
 void HookSelf(char* path) {
 	if (!path) {
 		printf("HookSelf wrong parameters\n");
@@ -486,7 +456,7 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 	}
 	bool loaded = false;
 
-	for (int i = 0; i < MAX_MODULES; i++) {
+	for (int i = 0; i < MAX_MODULES; ++i) {
 		if (MappedModules[i].name)
 			continue;
 
@@ -504,7 +474,7 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 		image_size = fsize(f);
 
 
-		image_to_execute = (uint8_t*)malloc(image_size);
+		uint8_t* image_to_execute = (uint8_t*)malloc(image_size);
 
 		fread(image_to_execute, 1, image_size, f);
 		fclose(f);
@@ -546,9 +516,9 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 		else { //PAGE_GUARD EXPORTED VARIABLE 
 
 			auto funcs = MappedModules[i].pedata->exported_functions();
-			for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
+			for (auto function = funcs.cbegin(); function < funcs.cend(); ++function) {
 				//
-				for (auto section = pe_sections.cbegin(); section < pe_sections.cend(); section++) {
+				for (auto section = pe_sections.cbegin(); section < pe_sections.cend(); ++section) {
 					if (section->virtual_address() <= function->address() && function->address() <= section->virtual_address() + section->virtual_size()
 						&& !(section->characteristics() & 0x20000000)) {
 						
@@ -591,5 +561,3 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 	}
 	return ep;
 }
-
-

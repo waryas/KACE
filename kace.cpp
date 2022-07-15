@@ -1,16 +1,12 @@
 #include <iostream>
-#include <assert.h>
+#include <cassert>
 
-#include <string.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <cstring>
+#include <cstdlib>
 
 #include "nt_define.h"
 
 #include "LIEF/LIEF.hpp"
-
-#include "nmd.h"
 
 #include "static_export_provider.h"
 
@@ -21,28 +17,19 @@
 #include "ntoskrnl_struct.h"
 #include "ntoskrnl_provider.h"
 
+using proxyCall = uint64_t(__fastcall*)(...);
+proxyCall DriverEntry = nullptr;
 
 
-
-
-
-
-#pragma comment(lib,"E:\\src\\safe_capcom-master\\lib\\LIEF.lib")
-
-typedef uint64_t(__fastcall* proxyCall)(...);
-proxyCall DriverEntry = (proxyCall)0x0;
-
-
-
-_DRIVER_OBJECT drvObj = { 0 };
-UNICODE_STRING RegistryPath = { 0 };
-
+_DRIVER_OBJECT drvObj = {0};
+UNICODE_STRING RegistryPath = {0};
 
 
 #define READ_VIOLATION 0
 #define EXECUTE_VIOLATION 8
 
-uint64_t passthrough(...) {
+uint64_t passthrough(...)
+{
 	return 0;
 }
 
@@ -51,15 +38,19 @@ uint64_t passthrough(...) {
 
 uintptr_t lastPG = 0;
 
-LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
+LONG MyExceptionHandler(EXCEPTION_POINTERS* e)
+{
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 	auto offset = GetMainModule()->base - ep;
 
 	//printf("%llx - %llx\n", ep - db, ep - kb);
-	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION) {
+	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
+	{
 		auto ptr = *(uint32_t*)ep;
 		//printf("%08x\n", ptr);
-		if (ptr == 0xc0200f44) { // mov rax, cr8
+		if (ptr == 0xc0200f44)
+		{
+			// mov rax, cr8
 			e->ContextRecord->Rax = 0;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -70,27 +61,37 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 		//	return EXCEPTION_CONTINUE_EXECUTION;
 		//}
 	}
-	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE) {
+	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
+	{
 		e->ContextRecord->EFlags |= 0x100ui32;
 		DWORD oldProtect = 0;
-					
+
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
-		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode)) {
+		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode))
+		{
 			auto hooked_section = self_data->exported_functions();
-			for (auto entry = hooked_section.cbegin(); entry < hooked_section.cend(); entry++) {
-				if (entry->address() + (uintptr_t)GetModuleHandle(NULL) == e->ExceptionRecord->ExceptionInformation[1]) {
+			for (auto entry = hooked_section.cbegin(); entry < hooked_section.cend(); ++entry)
+			{
+				if (entry->address() + (uintptr_t)GetModuleHandle(nullptr) == e->ExceptionRecord->ExceptionInformation[
+					1])
+				{
 					printf("Driver is accessing %s\n", entry->name().c_str());
 					break;
 				}
 			}
-		} else {
+		}
+		else
+		{
 			SetVariableInModulesEAT(e->ExceptionRecord->ExceptionInformation[1]);
-			
+
 			auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
-			if (read_module) {
-				printf("Reading %s+0x%llx\n", read_module->name, e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
+			if (read_module)
+			{
+				printf("Reading %s+0x%llx\n", read_module->name,
+				       e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
 			}
-			else {
+			else
+			{
 				printf("Reading unknown data\n");
 			}
 			lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
@@ -104,146 +105,180 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 		lastPG = 0;
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
-	else if (e->ExceptionRecord->ExceptionCode = EXCEPTION_ACCESS_VIOLATION) {
-		uint8_t* bufferopcode = (uint8_t*)e->ContextRecord->Rip;
+	else if (e->ExceptionRecord->ExceptionCode = EXCEPTION_ACCESS_VIOLATION)
+	{
+		auto bufferopcode = (uint8_t*)e->ContextRecord->Rip;
 		auto addr_access = e->ExceptionRecord->ExceptionInformation[1];
-		switch (e->ExceptionRecord->ExceptionInformation[0]) {
+		switch (e->ExceptionRecord->ExceptionInformation[0])
+		{
 		case READ_VIOLATION:
 
-			if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->ExceptionInformation[1] <= 0xFFFFF78000001000) {
-
+			if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->
+				ExceptionInformation[1] <= 0xFFFFF78000001000)
+			{
 				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
 				auto offset_shared = read_addr - 0xFFFFF78000000000;
 
-				if (e->ContextRecord->Rsi == read_addr) {
+				if (e->ContextRecord->Rsi == read_addr)
+				{
 					e->ContextRecord->Rsi = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rdx == read_addr) {
+				if (e->ContextRecord->Rdx == read_addr)
+				{
 					e->ContextRecord->Rdx = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rcx == read_addr) {
+				if (e->ContextRecord->Rcx == read_addr)
+				{
 					e->ContextRecord->Rcx = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rax == read_addr) {
+				if (e->ContextRecord->Rax == read_addr)
+				{
 					e->ContextRecord->Rax = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rbx == read_addr) {
+				if (e->ContextRecord->Rbx == read_addr)
+				{
 					e->ContextRecord->Rbx = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rdi == read_addr) {
+				if (e->ContextRecord->Rdi == read_addr)
+				{
 					e->ContextRecord->Rdi = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rsp == read_addr) {
+				if (e->ContextRecord->Rsp == read_addr)
+				{
 					e->ContextRecord->Rsp = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rbp == read_addr) {
+				if (e->ContextRecord->Rbp == read_addr)
+				{
 					e->ContextRecord->Rbp = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R8 == read_addr) {
+				if (e->ContextRecord->R8 == read_addr)
+				{
 					e->ContextRecord->R8 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R9 == read_addr) {
+				if (e->ContextRecord->R9 == read_addr)
+				{
 					e->ContextRecord->R9 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R10 == read_addr) {
+				if (e->ContextRecord->R10 == read_addr)
+				{
 					e->ContextRecord->R10 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R11 == read_addr) {
+				if (e->ContextRecord->R11 == read_addr)
+				{
 					e->ContextRecord->R11 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R12 == read_addr) {
+				if (e->ContextRecord->R12 == read_addr)
+				{
 					e->ContextRecord->R12 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R13 == read_addr) {
+				if (e->ContextRecord->R13 == read_addr)
+				{
 					e->ContextRecord->R13 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R14 == read_addr) {
+				if (e->ContextRecord->R14 == read_addr)
+				{
 					e->ContextRecord->R14 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R15 == read_addr) {
+				if (e->ContextRecord->R15 == read_addr)
+				{
 					e->ContextRecord->R15 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rsi == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rsi == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rsi = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rdx == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rdx == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rdx = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rcx == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rcx == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rcx = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rax == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rax == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rax = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rbx == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rbx == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rbx = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rdi == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rdi == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rdi = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rsp == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rsp == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rsp = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R8 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R8 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R8 = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R9 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R9 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R9 = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R10 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R10 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R10 = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R11 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R11 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R11 = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R12 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R12 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R12 = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R13 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R13 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R13 = 0x7FFE0000;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R14 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R14 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R14 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->R15 == 0xFFFFF78000000000) {
+				if (e->ContextRecord->R15 == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->R15 = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-				if (e->ContextRecord->Rbp == 0xFFFFF78000000000) {
+				if (e->ContextRecord->Rbp == 0xFFFFF78000000000)
+				{
 					e->ContextRecord->Rbp = 0x7FFE0000 + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
-
 			}
 
 			if (bufferopcode[0] == 0xa1
@@ -254,7 +289,9 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 				&& bufferopcode[5] == 0x80
 				&& bufferopcode[6] == 0xF7
 				&& bufferopcode[7] == 0xff
-				&& bufferopcode[8] == 0xff) { //A1 6C 02 00 00 80 F7 FF FF
+				&& bufferopcode[8] == 0xff)
+			{
+				//A1 6C 02 00 00 80 F7 FF FF
 				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
 				e->ContextRecord->Rip += 9;
 				return EXCEPTION_CONTINUE_EXECUTION;
@@ -264,7 +301,7 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 		case EXECUTE_VIOLATION:
 			uintptr_t redirectRip = 0;
 			printf("%llx\n", ep);
-			if (ep <= 0x100000)//tried to execute a non-relocated IAT -- Dirty but does the trick for now
+			if (ep <= 0x100000) //tried to execute a non-relocated IAT -- Dirty but does the trick for now
 				redirectRip = FindFunctionInModulesFromIAT(ep);
 			else //EAT execution
 				redirectRip = FindFunctionInModulesFromEAT(ep);
@@ -277,24 +314,26 @@ LONG MyExceptionHandler(EXCEPTION_POINTERS* e) {
 			return EXCEPTION_CONTINUE_EXECUTION;
 			break;
 		}
-
 	}
 
 	return 0;
 }
 
 
-UNICODE_STRING Derp = { 0 };
-struct stuff {
-	uint64_t pad[4] = { 0 };
+UNICODE_STRING Derp = {0};
+
+struct stuff
+{
+	uint64_t pad[4] = {0};
 };
-stuff padding = { {0,0,0,0} };
 
-const wchar_t* randomStr = L"LOLOLOL\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+stuff padding = {{0, 0, 0, 0}};
 
-int fakeDriverEntry() {
+const wchar_t* randomStr =
+	L"LOLOLOL\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
 
-
+int fakeDriverEntry()
+{
 	FixMainModuleSEH(); //Needed for EAC, they use __try/__except(1) redirection
 
 	AddVectoredExceptionHandler(true, MyExceptionHandler);
@@ -337,25 +376,24 @@ int fakeDriverEntry() {
 
 	FakeSystemProcess.UniqueProcessId = (void*)4;
 	FakeSystemProcess.Protection.Level = 7;
-	FakeSystemProcess.WoW64Process = 0;
+	FakeSystemProcess.WoW64Process = nullptr;
 	FakeSystemProcess.CreateTime.QuadPart = GetTickCount64();
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	printf("Done! = %llx\n", result);
 	exit(0);
 	return 0;
-
 }
 
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[])
+{
 	HookSelf(argv[0]);
-	LoadModule("c:\\EMU\\cng.sys", "c:\\windows\\system32\\drivers\\cng.sys", "cng.sys", false);
-	LoadModule("c:\\EMU\\ntoskrnl.exe", "c:\\windows\\system32\\ntoskrnl.exe", "ntoskrnl.exe", false);
+	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
+	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
-	LoadModule("c:\\EMU\\fltmgr.sys", "c:\\windows\\system32\\drivers\\fltmgr.sys", "FLTMGR.SYS", false);
-	LoadModule("c:\\EMU\\CI.dll", "c:\\windows\\system32\\CI.dll", "CI.dll", false);
-
+	LoadModule("c:\\EMU\\fltmgr.sys", R"(c:\windows\system32\drivers\fltmgr.sys)", "FLTMGR.SYS", false);
+	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "CI.dll", false);
 
 
 	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
@@ -363,9 +401,10 @@ int main(int argc, char* argv[]) {
 
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 
-	CreateThread(0, 4096, (LPTHREAD_START_ROUTINE)fakeDriverEntry, 0, 0, 0);
+	CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)fakeDriverEntry, nullptr, 0, nullptr);
 
-	while (1) {
+	while (true)
+	{
 		Sleep(1000);
 	}
 
