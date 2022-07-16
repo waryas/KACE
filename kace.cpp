@@ -374,8 +374,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\easyanticheat_2.sys", "c:\\EMU\\easyanticheat_2.sys", "EAC", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\easyanticheat_2.sys", "c:\\EMU\\easyanticheat_2.sys", "EAC", true);
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);

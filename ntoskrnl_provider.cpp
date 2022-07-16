@@ -651,7 +651,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	wchar_t* wStr = SystemRoutineName->Buffer;
 	PVOID funcptr = 0;
 	wcstombs(cStr, SystemRoutineName->Buffer, 256);
-	printf("%s - ", cStr);
+	printf("\t\t%s - ", cStr);
 
 
 	if (constantTimeExportProvider.contains(cStr)) {
@@ -671,16 +671,16 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 		if (funcptr == nullptr) {
 			
 #ifdef STUB_UNIMPLEMENTED
-			printf("Need prototype, using stub address.\n");
+			printf("\033[38;5;9mUSING STUB\033[0m\n");
 			funcptr = unimplemented_stub;
 #else
-			printf("Not implemented, exiting.");
+			printf("\033[38;5;9mNOT_IMPLEMENTED\033[0m\n");
 			funcptr = 0;
 			exit(0);
 #endif
 		}
 		else {
-			printf("\033[33mntdll.dll\033[0m\n");
+			printf(passthroughMsg);
 		}
 	}
 	else {
