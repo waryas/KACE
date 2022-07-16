@@ -18,4 +18,6 @@
 *.txt
 *.lib
 *.7z
+builds
+.vs
 x64/Release/KACE.exp
