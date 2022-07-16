@@ -5,6 +5,8 @@
 #include <cstdlib>
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
+
+#include "provider.h"
 #include "ntoskrnl_provider.h"
 
 using proxyCall = uint64_t(__fastcall*)(...);
@@ -372,7 +374,7 @@ int main(int argc, char* argv[])
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\esportal.sys", "c:\\EMU\\esportal.sys", "esportal", true);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "bedaisy", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 

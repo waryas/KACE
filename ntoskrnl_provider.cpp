@@ -50,7 +50,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 			auto ptr = (char*)SystemInformation;
 			//*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
 			;
-			RTL_PROCESS_MODULES *loadedmodules = (RTL_PROCESS_MODULES*)(SystemInformation);
+			RTL_PROCESS_MODULES* loadedmodules = (RTL_PROCESS_MODULES*)(SystemInformation);
 			// __NtRoutine("randededom", castTest->NumberOfModules);
 			for (int i = 0; i < loadedmodules->NumberOfModules; i++) {
 				char* modulename = PathFindFileNameA((LPCSTR)loadedmodules->Modules[i].FullPathName);

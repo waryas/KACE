@@ -1977,3 +1977,20 @@ typedef struct _OBJECT_ATTRIBUTES {
 } OBJECT_ATTRIBUTES;
 
 #define InitializeListHead(ListHead) ((ListHead)->Flink = (ListHead)->Blink = (ListHead)) //TY ReactOS
+
+enum _EVENT_TYPE {
+    NotificationEvent = 0,
+    SynchronizationEvent = 1
+};
+
+
+typedef struct _TIME_FIELDS {
+    SHORT Year;
+    SHORT Month;
+    SHORT Day;
+    SHORT Hour;
+    SHORT Minute;
+    SHORT Second;
+    SHORT Milliseconds;
+    SHORT Weekday;
+} TIME_FIELDS, * PTIME_FIELDS;
