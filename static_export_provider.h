@@ -2,6 +2,7 @@
 
 #include <unordered_map>
 
+
 #pragma section("hookaccess",read,write)
 #define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
 

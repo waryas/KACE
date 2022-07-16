@@ -744,6 +744,10 @@ NTSTATUS h_KeWaitForSingleObject(
 	return STATUS_SUCCESS;
 };
 
+ULONG h_KeQueryTimeIncrement() {
+	return 1000;
+}
+
 //todo impl might be broken
 NTSTATUS h_PsCreateSystemThread(
 	PHANDLE ThreadHandle, ULONG DesiredAccess,
@@ -751,7 +755,7 @@ NTSTATUS h_PsCreateSystemThread(
 	HANDLE ProcessHandle, void* ClientId, void* StartRoutine,
 	PVOID StartContext) {
 	//CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
-	return -1;
+	return 0;
 }
 
 //todo impl 
@@ -773,7 +777,9 @@ NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRIN
 
 
 
-
+BOOL h_IoIsSystemThread(_ETHREAD* thread) {
+	return true;
+}
 
 
 

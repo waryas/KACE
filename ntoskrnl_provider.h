@@ -36,6 +36,7 @@ BOOLEAN h_MmIsAddressValid(PVOID VirutalAddress);
 
 //Ke*
 
+ULONG h_KeQueryTimeIncrement();
 _ETHREAD* h_KeGetCurrentThread();
 void h_KeInitializeEvent(
 	_KEVENT* Event,
@@ -127,6 +128,8 @@ uint64_t h_ObfDereferenceObject(
 LONG_PTR h_ObfReferenceObject(PVOID Object);
 
 //Io
+
+BOOL h_IoIsSystemThread(_ETHREAD* thread);
 
 NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject,
 	ULONG           DeviceExtensionSize,
@@ -348,6 +351,7 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{ "ExFreePool", {1, h_DeAllocPool} },
 	{ "RtlRandomEx",{ 1, h_RtlRandomEx }},
 	{ "IoCreateDevice", {7, h_IoCreateDevice} },
+	{ "IoIsSystemThread", {1, h_IoIsSystemThread}},
 	{ "KeInitializeEvent",{ 3, h_KeInitializeEvent }},
 	{ "RtlGetVersion", {1, h_RtlGetVersion} },
 	{ "DbgPrint", {1, printf }},
@@ -393,4 +397,5 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{ "ObQueryNameString", { 1, h_ObQueryNameString } },
 	{ "PsGetProcessInheritedFromUniqueProcessId", { 1, h_PsGetProcessInheritedFromUniqueProcessId } },
 	{ "PsGetProcessPeb", { 1, h_PsGetProcessPeb } },
+	{"KeQueryTimeIncrement", {1, h_KeQueryTimeIncrement}}
 };

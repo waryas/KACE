@@ -122,6 +122,22 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				e->ContextRecord->Rip += 9;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
+			else if (bufferopcode[0] == 0x48
+				&& bufferopcode[1] == 0xA1
+				&& bufferopcode[2] == 0x20
+				&& bufferopcode[3] == 0x03
+				&& bufferopcode[4] == 0x00
+				&& bufferopcode[5] == 0x00
+				&& bufferopcode[6] == 0x80
+				&& bufferopcode[7] == 0xf7
+				&& bufferopcode[8] == 0xff
+				&& bufferopcode[9] == 0xff)
+			{
+				
+				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
+				e->ContextRecord->Rip += 10;
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
 			else if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->
 				ExceptionInformation[1] <= 0xFFFFF78000001000)
 			{
@@ -374,6 +390,10 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeCPU.IdleThread = (_KTHREAD*)&FakeKernelThread;
 	FakeCPU.CoresPerPhysicalProcessor = 1;
 	FakeCPU.LogicalProcessorsPerCore = 1;
+	FakeCPU.MajorVersion = 10;
+	FakeCPU.MinorVersion = 0;
+	FakeCPU.RspBase = __readgsqword(0x8);
+
 	
 	FakeKPCR.CurrentPrcb = &FakeCPU;
 	FakeKPCR.NtTib.StackBase = (PVOID)__readgsqword(0x8);
@@ -383,6 +403,8 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeKPCR.Used_Self = (void*)__readgsqword(0x30); //Usermode TEB is actually in kernel gs:0x30
 	FakeKPCR.Self = &FakeKPCR;
 
+	
+
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	printf("Done! = %llx\n", result);
 	return 0;
@@ -391,6 +413,7 @@ DWORD FakeDriverEntry(LPVOID)
 
 int main(int argc, char* argv[]) {
 
+	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
 	HookSelf(argv[0]);
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
