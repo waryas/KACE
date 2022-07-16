@@ -4,7 +4,6 @@
 
 #include "module_layout.h"
 #include "ntoskrnl_struct.h"
-#include "nt_define.h"
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 

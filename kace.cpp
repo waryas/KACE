@@ -4,14 +4,8 @@
 #include <cstring>
 #include <cstdlib>
 
-#include "nt_define.h"
-
-
-#include "static_export_provider.h"
-
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 #include "ntoskrnl_provider.h"
-#include "ntoskrnl_struct.h"
 
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
@@ -315,6 +309,9 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 const wchar_t* randomStr =
 	L"LOLOLOL\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+
+const wchar_t* driverName = L"\\Driver\\vgk";
+const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\vgk";
 
 DWORD FakeDriverEntry(LPVOID)
 {

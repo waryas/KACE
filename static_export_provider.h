@@ -9,10 +9,10 @@ struct StaticExportPrototype {
 #define MAX_STATIC_EXPORT 512
 
 #pragma section("hookaccess",read,write)
-#define MONITOR  extern "C" __declspec(dllexport, allocate("hookaccess")) inline
+#define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
 
 MONITOR uint32_t InitSafeBootMode = 0;
-MONITOR boolean KdDebuggerNotPresent = true;
+MONITOR unsigned char KdDebuggerNotPresent = true;
 
 MONITOR const char* SeExport
     = "\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00\x00\x00\x06"
@@ -109,7 +109,7 @@ MONITOR uint64_t TmTransactionManagerObjectType = 0;
 MONITOR uint64_t TmTransactionObjectType = 0;
 MONITOR uint64_t psMUITest = 0;
 
-StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT] { { "SeExports", (PVOID)SeExport }, { "InitSafeBootMode", &InitSafeBootMode },
+inline StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT] { { "SeExports", (PVOID)SeExport }, { "InitSafeBootMode", &InitSafeBootMode },
     { "KdDebuggerNotPresent", &KdDebuggerNotPresent }, { "CcFastMdlReadWait", &CcFastMdlReadWait }, { "CmKeyObjectType", &CmKeyObjectType },
     { "ExActivationObjectType", &ExActivationObjectType }, { "ExCompositionObjectType", &ExCompositionObjectType },
     { "ExCoreMessagingObjectType", &ExCoreMessagingObjectType }, { "ExDesktopObjectType", &ExDesktopObjectType },
