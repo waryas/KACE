@@ -289,8 +289,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			break;
 		case EXECUTE_VIOLATION:
 			uintptr_t redirectRip = 0;
-			printf("%llx\n", ep);
-			if (ep <= 0x100000) //tried to execute a non-relocated IAT -- Dirty but does the trick for now
+			if (ep <= 0x1000000) //tried to execute a non-relocated IAT -- Dirty but does the trick for now
 				redirectRip = FindFunctionInModulesFromIAT(ep);
 			else //EAT execution
 				redirectRip = FindFunctionInModulesFromEAT(ep);
@@ -369,11 +368,12 @@ int main(int argc, char* argv[])
 	HookSelf(argv[0]);
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
 	LoadModule("c:\\EMU\\fltmgr.sys", R"(c:\windows\system32\drivers\fltmgr.sys)", "FLTMGR.SYS", false);
-	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "CI.dll", false);
+	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
+	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
 
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\esportal.sys", "c:\\EMU\\esportal.sys", "esportal", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 

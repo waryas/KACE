@@ -12,6 +12,8 @@ inline _EPROCESS FakeSystemProcess = { 0 };
 
 VOID* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag);
 
+VOID* hM_AllocPool(uint32_t pooltype, size_t size);
+
 VOID h_DeAllocPoolTag(uintptr_t ptr, ULONG tag);
 
 VOID h_DeAllocPool(uintptr_t ptr);
@@ -343,7 +345,8 @@ inline FunctionPrototype myProvider[512] = {
     { "NtClose", 1, h_ZwClose, { { "KeyHandle", TBUFFER } } },
     { "ZwQuerySystemInformation", 4, h_NtQuerySystemInformation },
     { "NtQuerySystemInformation", 4, h_NtQuerySystemInformation },
-    { "ExAllocatePoolWithTag", 3, hM_AllocPoolTag },
+	{ "ExAllocatePoolWithTag", 3, hM_AllocPoolTag },
+	{ "ExAllocatePool", 2, hM_AllocPool },
     { "ExFreePoolWithTag", 2, h_DeAllocPoolTag },
     { "ExFreePool", 1, h_DeAllocPool },
     { "RtlRandomEx", 1, h_RtlRandomEx },

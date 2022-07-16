@@ -9,6 +9,16 @@ void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag)
 
 }
 
+
+void* hM_AllocPool(uint32_t pooltype, size_t size)
+{ //TODO tracking of alloc
+
+	auto ptr = malloc(size);
+	// memset(ptr, 0, size);
+	return ptr;
+
+}
+
 void h_DeAllocPoolTag(uintptr_t ptr, ULONG tag)
 {
 
@@ -604,7 +614,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	for (int i = 0; i < MAX_STATIC_EXPORT; i++) {
 		if (!staticExportProvider[i].name)
 			break;
-		if (strstr(staticExportProvider[i].name, cStr)) {
+		if (!_stricmp(staticExportProvider[i].name, cStr)) {
 			funcptr = staticExportProvider[i].ptr;
 			break;
 		}
@@ -618,7 +628,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	for (int i = 0; i < 512; i++) {
 		if (!myProvider[i].name)
 			break;
-		if (strstr(myProvider[i].name, cStr)) {
+		if (!_stricmp(myProvider[i].name, cStr)) {
 			funcptr = myProvider[i].hook;
 			break;
 		}

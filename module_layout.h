@@ -214,7 +214,7 @@ inline bool FixImport(uint8_t* buffer, uint64_t origBase) {
                 for (int i = 0; i < MAX_STATIC_EXPORT; i++) {
                     if (!staticExportProvider[i].name)
                         break;
-                    if (strstr(staticExportProvider[i].name, iName)) {
+                    if (!_stricmp(staticExportProvider[i].name, iName)) {
                         pIATThunk->u1.Function = (uintptr_t)staticExportProvider[i].ptr;
                         break;
                     }
@@ -257,7 +257,7 @@ inline uint64_t GetModuleBase(const char* name) {
     for (int i = 0; i < MAX_MODULES; i++) {
         if (!MappedModules[i].name)
             return 0;
-        if (strstr(MappedModules[i].name, name))
+        if (!_stricmp(MappedModules[i].name, name))
             return MappedModules[i].base;
     }
     return 0;
