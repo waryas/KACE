@@ -340,13 +340,16 @@ DWORD FakeDriverEntry(LPVOID)
 	//memset((void*)&drvObj, 0xFF, sizeof(drvObj));
 
 	memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
-
 	memset(&FakeSystemProcess, 0, sizeof(FakeSystemProcess));
+	memset(&FakeKPCR, 0, sizeof(FakeKPCR));
+	memset(&FakeCPU, 0, sizeof(FakeCPU));
 
 	InitializeListHead(&FakeKernelThread.Tcb.Header.WaitListHead);
 	InitializeListHead(&FakeSystemProcess.Pcb.Header.WaitListHead);
 
 	__writegsqword(0x188, (DWORD64)&FakeKernelThread); //Fake KTHREAD
+	__writegsqword(0x18, (DWORD64)&FakeKPCR); //Fake _KPCR
+	__writegsqword(0x20, (DWORD64)&FakeCPU); //Fake _KPRCB
 
 	FakeKernelThread.Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
 	FakeKernelThread.Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
@@ -367,6 +370,19 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeSystemProcess.WoW64Process = nullptr;
 	FakeSystemProcess.CreateTime.QuadPart = GetTickCount64();
 
+	FakeCPU.CurrentThread =  (_KTHREAD*)&FakeKernelThread;
+	FakeCPU.IdleThread = (_KTHREAD*)&FakeKernelThread;
+	FakeCPU.CoresPerPhysicalProcessor = 1;
+	FakeCPU.LogicalProcessorsPerCore = 1;
+	
+	FakeKPCR.CurrentPrcb = &FakeCPU;
+	FakeKPCR.NtTib.StackBase = (PVOID)__readgsqword(0x8);
+	FakeKPCR.NtTib.StackLimit = (PVOID)__readgsqword(0x10);
+	FakeKPCR.MajorVersion = 10;
+	FakeKPCR.MinorVersion = 0;
+	FakeKPCR.Used_Self = (void*)__readgsqword(0x30); //Usermode TEB is actually in kernel gs:0x30
+	FakeKPCR.Self = &FakeKPCR;
+
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	printf("Done! = %llx\n", result);
 	return 0;
@@ -386,8 +402,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "EAC", true);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 

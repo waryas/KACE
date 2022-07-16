@@ -55,7 +55,10 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 			RTL_PROCESS_MODULES* loadedmodules = (RTL_PROCESS_MODULES*)(SystemInformation);
 			// __NtRoutine("randededom", castTest->NumberOfModules);
 			for (int i = 0; i < loadedmodules->NumberOfModules; i++) {
-				char* modulename = PathFindFileNameA((LPCSTR)loadedmodules->Modules[i].FullPathName);
+				char* modulename = (char*)loadedmodules->Modules[i].FullPathName;
+				while (strstr(modulename, "\\"))
+					modulename++;
+
 				auto modulebase = GetModuleBase(modulename);
 				if (modulebase) {
 					printf("Patching %s base from %llx to %llx\n", modulename, loadedmodules->Modules[i].ImageBase, modulebase);

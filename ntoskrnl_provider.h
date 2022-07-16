@@ -9,7 +9,8 @@
 
 inline _ETHREAD FakeKernelThread = { 0 };
 inline _EPROCESS FakeSystemProcess = { 0 };
-
+inline _KPCR FakeKPCR = { 0 };
+inline _KPRCB FakeCPU = { 0 };
 
 //Ex*
 
