@@ -65,7 +65,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 					loadedmodules->Modules[i].ImageBase = modulebase;
 				}
 				else { //We're gonna pass the real module to the driver
-					loadedmodules->Modules[i].ImageBase = 0;
+					//loadedmodules->Modules[i].ImageBase = 0;
 					loadedmodules->Modules[i].LoadCount = 0;
 				}
 			}
@@ -829,3 +829,11 @@ NTSTATUS h_PsSetCreateThreadNotifyRoutine(PVOID NotifyRoutine) {
 
 NTSTATUS h_PsSetLoadImageNotifyRoutine(PVOID NotifyRoutine) { return STATUS_SUCCESS; }
 
+BOOLEAN h_ExAcquireResourceExclusiveLite(
+	_ERESOURCE* Resource,
+	BOOLEAN    Wait
+) {
+	//Resource->OwnerEntry.OwnerThread = (uint64_t)h_KeGetCurrentThread();
+
+	return true;
+}

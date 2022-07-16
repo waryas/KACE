@@ -371,7 +371,7 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeKernelThread.Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
 
 	FakeKernelThread.Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
-	FakeKernelThread.Cid.UniqueThread = (void*)0x1234; //PsGetThreadId
+	FakeKernelThread.Cid.UniqueThread = (void*)0x8; //PsGetThreadId
 
 	FakeKernelThread.Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
 	FakeKernelThread.Tcb.State = 1; //
