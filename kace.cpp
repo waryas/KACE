@@ -369,6 +369,7 @@ int main(int argc, char* argv[])
 	LoadModule("c:\\EMU\\fltmgr.sys", R"(c:\windows\system32\drivers\fltmgr.sys)", "FLTMGR.SYS", false);
 	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
 	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
+	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\esportal.sys", "c:\\EMU\\esportal.sys", "esportal", true);
 	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
