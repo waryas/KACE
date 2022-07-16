@@ -51,10 +51,9 @@ NTSTATUS h_IoCreateFileEx(
 	void* DriverContext
 );
 
-enum _EVENT_TYPE
-{
-	NotificationEvent = 0,
-	SynchronizationEvent = 1
+enum _EVENT_TYPE {
+    NotificationEvent = 0,
+    SynchronizationEvent = 1
 };
 
 void h_KeInitializeEvent(
@@ -103,15 +102,8 @@ NTSTATUS h_NtCreateFile(
 
 NTSTATUS h_NtReadFile(
 
-	HANDLE           FileHandle,
-	HANDLE           Event,
-	PVOID  ApcRoutine,
-	PVOID            ApcContext,
-	PVOID IoStatusBlock,
-	PVOID            Buffer,
-	ULONG            Length,
-	PLARGE_INTEGER   ByteOffset,
-	PULONG           Key
+    HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext, PVOID IoStatusBlock, PVOID Buffer, ULONG Length, PLARGE_INTEGER ByteOffset,
+    PULONG Key
 
 );
 
@@ -229,17 +221,16 @@ void h_IoDeleteController(PVOID ControllerObject);;
 
 NTSTATUS h_RtlDuplicateUnicodeString(int add_nul, const UNICODE_STRING* source, UNICODE_STRING* destination);
 
-typedef struct _TIME_FIELDS
-{
-	SHORT Year;
-	SHORT Month;
-	SHORT Day;
-	SHORT Hour;
-	SHORT Minute;
-	SHORT Second;
-	SHORT Milliseconds;
-	SHORT Weekday;
-} TIME_FIELDS, * PTIME_FIELDS;
+typedef struct _TIME_FIELDS {
+    SHORT Year;
+    SHORT Month;
+    SHORT Day;
+    SHORT Hour;
+    SHORT Minute;
+    SHORT Second;
+    SHORT Milliseconds;
+    SHORT Weekday;
+} TIME_FIELDS, *PTIME_FIELDS;
 
 void h_ExSystemTimeToLocalTime(PLARGE_INTEGER SystemTime, PLARGE_INTEGER LocalTime);
 
@@ -306,80 +297,77 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName);
 
 inline FunctionPrototype myProvider[512] = {
 
-	{"MmGetSystemRoutineAddress", 1, h_MmGetSystemRoutineAddress},
-	{"IoDeleteSymbolicLink", 1, h_IoDeleteSymbolicLink},
-	{"PsRemoveLoadImageNotifyRoutine", 1, h_PsRemoveLoadImageNotifyRoutine},
-	{"PsSetCreateProcessNotifyRoutineEx", 2, h_PsSetCreateProcessNotifyRoutineEx},
-	{"PsSetCreateProcessNotifyRoutine", 2, h_PsSetCreateProcessNotifyRoutineEx},
-	{"KeAcquireSpinLockRaiseToDpc", 1, h_KeAcquireSpinLockRaiseToDpc},
-	{"PsRemoveCreateThreadNotifyRoutine", 1 , h_PsRemoveLoadImageNotifyRoutine},
-	{"KeReleaseSpinLock", 2, h_KeReleaseSpinLock},
-	{"ExpInterlockedPopEntrySList", 1, h_ExpInterlockedPopEntrySList},
-	{"KeDelayExecutionThread", 3, h_KeDelayExecutionThread},
-	{"ExWaitForRundownProtectionRelease", 1, h_ExWaitForRundownProtectionRelease},
-	{"KeCancelTimer", 1, h_KeCancelTimer},
-	{"KeSetEvent", 3, h_KeSetEvent},
-	{"KeSetTimer", 3, h_KeSetTimer},
-	{"ExCreateCallback", 4 , h_ExCreateCallback},
-	{"IoCreateFileEx", 1 ,  h_IoCreateFileEx},
-	{"RtlDuplicateUnicodeString", 1, h_RtlDuplicateUnicodeString},
-	{"IoDeleteController", 1, h_IoDeleteController},
-	{"SeQueryInformationToken", 1, h_SeQueryInformationToken},
-	{"PsReferencePrimaryToken", 1, h_PsReferencePrimaryToken},
-	{"PsIsProtectedProcess", 1, h_PsIsProtectedProcess},
-	{"NtQueryInformationProcess", 1, h_NtQueryInformationProcess},
-	{"PsGetCurrentThreadProcessId", 1, h_PsGetCurrentThreadProcessId},
-	{"IoGetCurrentThreadProcessId", 1, h_PsGetCurrentThreadProcessId},
-	{"PsGetCurrentThreadId", 1, h_PsGetCurrentThreadId},
-	{"IoGetCurrentThreadId", 1, h_PsGetCurrentThreadId},
-	{"PsGetCurrentProcess", 1, h_PsGetCurrentProcess},
-	{"IoGetCurrentProcess", 1, h_PsGetCurrentProcess},
-	{"PsGetProcessId", 1, h_PsGetProcessId},
-	{"PsGetProcessWow64Process", 1, h_PsGetProcessWow64Process},
-	{"PsLookupProcessByProcessId", 1, h_PsLookupProcessByProcessId},
-	{"RtlCompareString", 1, h_RtlCompareString},
-	{"PsGetProcessCreateTimeQuadPart", 1, h_PsGetProcessCreateTimeQuadPart},
-	{"ObfReferenceObject", 1, h_ObfReferenceObject},
-	{"ExAcquireFastMutex", 1, h_ExAcquireFastMutex},
-	{"ExReleaseFastMutex", 1, h_ExReleaseFastMutex},
-	{"ZwQueryFullAttributesFile", 2, h_ZwQueryFullAttributesFile},
-	{"RtlWriteRegistryValue", 6, h_RtlWriteRegistryValue /*0x0 for passthrough*/, {{"RelativeInfo",TINT32}, {"Path",TWSTRING}, {"ValueName",TWSTRING}, {"ValueType",TINT32}, {"ValueData",TBUFFER}, {"ValueLength",TINT32}}},
-	{"RtlInitUnicodeString", 2, h_RtlInitUnicodeString, {{"DestinationString", TUNICODESTRING},{"SourceString", TUNICODESTRING}}},
-	{"ZwOpenKey", 3, h_ZwOpenKey, {{"KeyHandle", TBUFFER},{"DesiredAccess", TINT64},{"ObjectAttributes", TBUFFER}}},
-	{"ZwFlushKey", 1, h_ZwFlushKey, {{"KeyHandle", TBUFFER}}},
-	{"ZwClose", 1, h_ZwClose, {{"KeyHandle", TBUFFER}}},
-	{"NtClose", 1, h_ZwClose, {{"KeyHandle", TBUFFER}}},
-	{"ZwQuerySystemInformation", 4, h_NtQuerySystemInformation},
-	{"NtQuerySystemInformation", 4, h_NtQuerySystemInformation},
-	{"ExAllocatePoolWithTag", 3, hM_AllocPoolTag},
-	{"ExFreePoolWithTag", 2, h_DeAllocPoolTag},
-	{"ExFreePool", 1, h_DeAllocPool},
-	{"RtlRandomEx", 1, h_RtlRandomEx},
-	{"IoCreateDevice", 7, h_IoCreateDevice},
-	{"KeInitializeEvent", 3, h_KeInitializeEvent},
-	{"RtlGetVersion", 1, h_RtlGetVersion},
-	{"DbgPrint", 1, printf},
-	{"__C_specific_handler", 1, _c_exception},
-	{"RtlMultiByteToUnicodeN", 1,h_RtlMultiByteToUnicodeN},
-	{"KeAreAllApcsDisabled", 1, h_KeAreAllApcsDisabled},
-	{"KeAreApcsDisabled", 1, h_KeAreApcsDisabled},
-	{"ZwCreateFile", 1, h_NtCreateFile},
-	{"ZwQueryInformationFile", 1, h_NtQueryInformationFile},
-	{"ZwReadFile", 1, h_NtReadFile},
-	{"ZwQueryValueKey", 1, h_ZwQueryValueKey},
-	{"IoWMIOpenBlock", 1, h_IoWMIOpenBlock},
-	{"IoWMIQueryAllData", 1, h_IoWMIQueryAllData},
-	{"ObfDereferenceObject", 1, h_ObfDereferenceObject},
-	{"PsLookupThreadByThreadId", 1, h_PsLookupThreadByThreadId},
-	{"RtlDuplicateUnicodeString", 3 , h_RtlDuplicateUnicodeString },
-	{"ExSystemTimeToLocalTime", 2 , h_ExSystemTimeToLocalTime },
+    { "MmGetSystemRoutineAddress", 1, h_MmGetSystemRoutineAddress },
+    { "IoDeleteSymbolicLink", 1, h_IoDeleteSymbolicLink },
+    { "PsRemoveLoadImageNotifyRoutine", 1, h_PsRemoveLoadImageNotifyRoutine },
+    { "PsSetCreateProcessNotifyRoutineEx", 2, h_PsSetCreateProcessNotifyRoutineEx },
+    { "PsSetCreateProcessNotifyRoutine", 2, h_PsSetCreateProcessNotifyRoutineEx },
+    { "KeAcquireSpinLockRaiseToDpc", 1, h_KeAcquireSpinLockRaiseToDpc },
+    { "PsRemoveCreateThreadNotifyRoutine", 1, h_PsRemoveLoadImageNotifyRoutine },
+    { "KeReleaseSpinLock", 2, h_KeReleaseSpinLock },
+    { "ExpInterlockedPopEntrySList", 1, h_ExpInterlockedPopEntrySList },
+    { "KeDelayExecutionThread", 3, h_KeDelayExecutionThread },
+    { "ExWaitForRundownProtectionRelease", 1, h_ExWaitForRundownProtectionRelease },
+    { "KeCancelTimer", 1, h_KeCancelTimer },
+    { "KeSetEvent", 3, h_KeSetEvent },
+    { "KeSetTimer", 3, h_KeSetTimer },
+    { "ExCreateCallback", 4, h_ExCreateCallback },
+    { "IoCreateFileEx", 1, h_IoCreateFileEx },
+    { "RtlDuplicateUnicodeString", 1, h_RtlDuplicateUnicodeString },
+    { "IoDeleteController", 1, h_IoDeleteController },
+    { "SeQueryInformationToken", 1, h_SeQueryInformationToken },
+    { "PsReferencePrimaryToken", 1, h_PsReferencePrimaryToken },
+    { "PsIsProtectedProcess", 1, h_PsIsProtectedProcess },
+    { "NtQueryInformationProcess", 1, h_NtQueryInformationProcess },
+    { "PsGetCurrentThreadProcessId", 1, h_PsGetCurrentThreadProcessId },
+    { "IoGetCurrentThreadProcessId", 1, h_PsGetCurrentThreadProcessId },
+    { "PsGetCurrentThreadId", 1, h_PsGetCurrentThreadId },
+    { "IoGetCurrentThreadId", 1, h_PsGetCurrentThreadId },
+    { "PsGetCurrentProcess", 1, h_PsGetCurrentProcess },
+    { "IoGetCurrentProcess", 1, h_PsGetCurrentProcess },
+    { "PsGetProcessId", 1, h_PsGetProcessId },
+    { "PsGetProcessWow64Process", 1, h_PsGetProcessWow64Process },
+    { "PsLookupProcessByProcessId", 1, h_PsLookupProcessByProcessId },
+    { "RtlCompareString", 1, h_RtlCompareString },
+    { "PsGetProcessCreateTimeQuadPart", 1, h_PsGetProcessCreateTimeQuadPart },
+    { "ObfReferenceObject", 1, h_ObfReferenceObject },
+    { "ExAcquireFastMutex", 1, h_ExAcquireFastMutex },
+    { "ExReleaseFastMutex", 1, h_ExReleaseFastMutex },
+    { "ZwQueryFullAttributesFile", 2, h_ZwQueryFullAttributesFile },
+    { "RtlWriteRegistryValue", 6, h_RtlWriteRegistryValue /*0x0 for passthrough*/,
+        { { "RelativeInfo", TINT32 }, { "Path", TWSTRING }, { "ValueName", TWSTRING }, { "ValueType", TINT32 }, { "ValueData", TBUFFER },
+            { "ValueLength", TINT32 } } },
+    { "RtlInitUnicodeString", 2, h_RtlInitUnicodeString, { { "DestinationString", TUNICODESTRING }, { "SourceString", TUNICODESTRING } } },
+    { "ZwOpenKey", 3, h_ZwOpenKey, { { "KeyHandle", TBUFFER }, { "DesiredAccess", TINT64 }, { "ObjectAttributes", TBUFFER } } },
+    { "ZwFlushKey", 1, h_ZwFlushKey, { { "KeyHandle", TBUFFER } } },
+    { "ZwClose", 1, h_ZwClose, { { "KeyHandle", TBUFFER } } },
+    { "NtClose", 1, h_ZwClose, { { "KeyHandle", TBUFFER } } },
+    { "ZwQuerySystemInformation", 4, h_NtQuerySystemInformation },
+    { "NtQuerySystemInformation", 4, h_NtQuerySystemInformation },
+    { "ExAllocatePoolWithTag", 3, hM_AllocPoolTag },
+    { "ExFreePoolWithTag", 2, h_DeAllocPoolTag },
+    { "ExFreePool", 1, h_DeAllocPool },
+    { "RtlRandomEx", 1, h_RtlRandomEx },
+    { "IoCreateDevice", 7, h_IoCreateDevice },
+    { "KeInitializeEvent", 3, h_KeInitializeEvent },
+    { "RtlGetVersion", 1, h_RtlGetVersion },
+    { "DbgPrint", 1, printf },
+    { "__C_specific_handler", 1, _c_exception },
+    { "RtlMultiByteToUnicodeN", 1, h_RtlMultiByteToUnicodeN },
+    { "KeAreAllApcsDisabled", 1, h_KeAreAllApcsDisabled },
+    { "KeAreApcsDisabled", 1, h_KeAreApcsDisabled },
+    { "ZwCreateFile", 1, h_NtCreateFile },
+    { "ZwQueryInformationFile", 1, h_NtQueryInformationFile },
+    { "ZwReadFile", 1, h_NtReadFile },
+    { "ZwQueryValueKey", 1, h_ZwQueryValueKey },
+    { "IoWMIOpenBlock", 1, h_IoWMIOpenBlock },
+    { "IoWMIQueryAllData", 1, h_IoWMIQueryAllData },
+    { "ObfDereferenceObject", 1, h_ObfDereferenceObject },
+    { "PsLookupThreadByThreadId", 1, h_PsLookupThreadByThreadId },
+    { "RtlDuplicateUnicodeString", 3, h_RtlDuplicateUnicodeString },
+    { "ExSystemTimeToLocalTime", 2, h_ExSystemTimeToLocalTime },
 
-
-
-
-	//{"wcscat_s", 3 , h_ExSystemTimeToLocalTime },
-	{"RtlTimeToTimeFields", 2 , h_RtlTimeToTimeFields },
-
-
+    //{"wcscat_s", 3 , h_ExSystemTimeToLocalTime },
+    { "RtlTimeToTimeFields", 2, h_RtlTimeToTimeFields },
 
 };

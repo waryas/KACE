@@ -11,6 +11,7 @@
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 #include "ntoskrnl_provider.h"
+#include "ntoskrnl_struct.h"
 
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
@@ -27,7 +28,6 @@ uint64_t passthrough(...)
 {
 	return 0;
 }
-
 
 //POC STAGE, NEED TO MAKE THIS DYNAMIC - Most performance issue come from this, also for some reason i only got this to work in Visual studio, not outside of it.
 
@@ -301,9 +301,8 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			else //EAT execution
 				redirectRip = FindFunctionInModulesFromEAT(ep);
 
-
-			if (!redirectRip)
-				exit(0);
+            if (!redirectRip)
+                exit(0);
 
 			e->ContextRecord->Rip = redirectRip;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -311,7 +310,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		}
 	}
 
-	return 0;
+    return 0;
 }
 
 const wchar_t* randomStr =
@@ -323,40 +322,40 @@ DWORD FakeDriverEntry(LPVOID)
 
 	AddVectoredExceptionHandler(true, ExceptionHandler);
 
-	printf("Calling the driver entrypoint\n");
+    printf("Calling the driver entrypoint\n");
 
 	drvObj.Size = sizeof(drvObj);
 	drvObj.DriverName.Buffer = (WCHAR*)randomStr;
 	drvObj.DriverName.Length = lstrlenW(randomStr);
 	drvObj.DriverName.MaximumLength = 16;
 
-	RegistryPath.Buffer = (WCHAR*)randomStr;
-	RegistryPath.Length = lstrlenW(randomStr);
-	RegistryPath.MaximumLength = 16;
-	//memset((void*)&drvObj, 0xFF, sizeof(drvObj));
+    RegistryPath.Buffer = (WCHAR*)registryBuffer;
+    RegistryPath.Length = lstrlenW(RegistryPath.Buffer) * 2;
+    RegistryPath.MaximumLength = lstrlenW(RegistryPath.Buffer) * 2;
+    //memset((void*)&drvObj, 0xFF, sizeof(drvObj));
 
-	memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
+    memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
 
-	memset(&FakeSystemProcess, 0, sizeof(FakeSystemProcess));
+    memset(&FakeSystemProcess, 0, sizeof(FakeSystemProcess));
 
-	InitializeListHead(&FakeKernelThread.Tcb.Header.WaitListHead);
-	InitializeListHead(&FakeSystemProcess.Pcb.Header.WaitListHead);
+    InitializeListHead(&FakeKernelThread.Tcb.Header.WaitListHead);
+    InitializeListHead(&FakeSystemProcess.Pcb.Header.WaitListHead);
 
-	__writegsqword(0x188, (DWORD64)&FakeKernelThread); //Fake KTHREAD
+    __writegsqword(0x188, (DWORD64)&FakeKernelThread); //Fake KTHREAD
 
-	FakeKernelThread.Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
-	FakeKernelThread.Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
+    FakeKernelThread.Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
+    FakeKernelThread.Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
 
-	FakeKernelThread.Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
-	FakeKernelThread.Cid.UniqueThread = (void*)0x1234; //PsGetThreadId
+    FakeKernelThread.Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
+    FakeKernelThread.Cid.UniqueThread = (void*)0x1234; //PsGetThreadId
 
-	FakeKernelThread.Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
-	FakeKernelThread.Tcb.State = 1; //
-	FakeKernelThread.Tcb.InitialStack = (void*)0x1000;
-	FakeKernelThread.Tcb.StackBase = (void*)0x1500;
-	FakeKernelThread.Tcb.StackLimit = (void*)0x2000;
-	FakeKernelThread.Tcb.ThreadLock = 11;
-	FakeKernelThread.Tcb.LockEntries = (_KLOCK_ENTRY*)22;
+    FakeKernelThread.Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
+    FakeKernelThread.Tcb.State = 1; //
+    FakeKernelThread.Tcb.InitialStack = (void*)0x1000;
+    FakeKernelThread.Tcb.StackBase = (void*)0x1500;
+    FakeKernelThread.Tcb.StackLimit = (void*)0x2000;
+    FakeKernelThread.Tcb.ThreadLock = 11;
+    FakeKernelThread.Tcb.LockEntries = (_KLOCK_ENTRY*)22;
 
 	FakeSystemProcess.UniqueProcessId = (void*)4;
 	FakeSystemProcess.Protection.Level = 7;
