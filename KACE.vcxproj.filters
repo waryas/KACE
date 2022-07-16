@@ -5,16 +5,19 @@
       <Filter>modules</Filter>
     </ClInclude>
     <ClInclude Include="ntoskrnl_provider.h">
-      <Filter>ntoskrnl</Filter>
-    </ClInclude>
-    <ClInclude Include="static_export_provider.h">
-      <Filter>definitions</Filter>
+      <Filter>provider\ntoskrnl</Filter>
     </ClInclude>
     <ClInclude Include="nt_define.h">
       <Filter>definitions</Filter>
     </ClInclude>
+    <ClInclude Include="provider.h">
+      <Filter>provider</Filter>
+    </ClInclude>
     <ClInclude Include="ntoskrnl_struct.h">
-      <Filter>definitions</Filter>
+      <Filter>provider\ntoskrnl</Filter>
+    </ClInclude>
+    <ClInclude Include="static_export_provider.h">
+      <Filter>provider\ntoskrnl</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -23,18 +26,24 @@
       <Filter>modules</Filter>
     </ClCompile>
     <ClCompile Include="ntoskrnl_provider.cpp">
-      <Filter>ntoskrnl</Filter>
+      <Filter>provider\ntoskrnl</Filter>
+    </ClCompile>
+    <ClCompile Include="provider.cpp">
+      <Filter>provider</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="modules">
       <UniqueIdentifier>{62ab9661-2d91-4e31-9f1a-14158f0bfb14}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ntoskrnl">
-      <UniqueIdentifier>{d43dd6dd-6dfd-4856-a924-a669e914842b}</UniqueIdentifier>
-    </Filter>
     <Filter Include="definitions">
       <UniqueIdentifier>{c53be779-1cb9-4510-a953-229a70cb3088}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="provider">
+      <UniqueIdentifier>{94c7dbe9-4cfe-4aa7-ba40-ca0876a8abaa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="provider\ntoskrnl">
+      <UniqueIdentifier>{d43dd6dd-6dfd-4856-a924-a669e914842b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

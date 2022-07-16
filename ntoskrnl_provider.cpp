@@ -1,4 +1,6 @@
+#include "provider.h"
 #include "ntoskrnl_provider.h"
+
 
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag)
 { //TODO tracking of alloc
@@ -667,8 +669,15 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	if (funcptr == nullptr) {
 		funcptr = GetProcAddress(ntdll, cStr);
 		if (funcptr == nullptr) {
-			printf("Need prototype\n");
+			
+#ifdef STUB_UNIMPLEMENTED
+			printf("Need prototype, using stub address.\n");
+			funcptr = unimplemented_stub;
+#else
+			printf("Not implemented, exiting.");
+			funcptr = 0;
 			exit(0);
+#endif
 		}
 		else {
 			printf("NTDLL.dll Function\n");

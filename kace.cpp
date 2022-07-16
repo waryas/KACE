@@ -9,6 +9,7 @@
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
+
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
 
@@ -296,8 +297,15 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			else //EAT execution
 				redirectRip = FindFunctionInModulesFromEAT(ep);
 
-            if (!redirectRip)
-                exit(0);
+            if (!redirectRip) {
+#ifdef STUB_UNIMPLEMENTED
+				printf("!!!CALLING STUB!!! NOT IMPLEMENTED\n");
+				redirectRip = (uintptr_t)unimplemented_stub;
+#else
+				printf("Exiting...\n");
+				exit(0);
+#endif
+			}
 
 			e->ContextRecord->Rip = redirectRip;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -362,8 +370,7 @@ DWORD FakeDriverEntry(LPVOID)
 	return 0;
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	HookSelf(argv[0]);
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);

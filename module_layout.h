@@ -290,8 +290,7 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
                                 printf("not prototyped - ntdll.dll equivalent found\n");
                                 return funcptr;
                             }
-                            printf("needs to be protyped - exiting...\n");
-                            exit(0);
+                            printf("UNIMPLEMENTED\n");
                             return 0;
                             //We found the name but it's not prototyped
                         }
@@ -301,8 +300,7 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
                                 printf("not prototyped - ntdll.dll equivalent found\n");
                                 return funcptr;
                             }
-                            printf("needs to be protyped - exiting...\n");
-                            exit(0);
+                            printf("UNIMPLEMENTED\n");
                             return 0;
                         }
                     }
@@ -394,8 +392,8 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
                                 printf("not prototyped - ntdll.dll equivalent found\n");
                                 return funcptr;
                             }
-                            printf("needs to be protyped - exiting...\n");
-                            exit(0);
+                            printf("Unimplemented\n");
+                            
                             return 0;
                             
                         }
@@ -405,8 +403,7 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
                                 printf("not prototyped - ntdll.dll equivalent found\n");
                                 return funcptr;
                             }
-                            printf("needs to be protyped - exiting...\n");
-                            exit(0);
+                            printf("Unimplemented\n");
                             return 0;
                         }
                     }
