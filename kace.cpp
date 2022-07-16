@@ -306,9 +306,6 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
     return 0;
 }
 
-const wchar_t* randomStr =
-	L"LOLOLOL\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-
 const wchar_t* driverName = L"\\Driver\\vgk";
 const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\vgk";
 
@@ -321,8 +318,8 @@ DWORD FakeDriverEntry(LPVOID)
     printf("Calling the driver entrypoint\n");
 
 	drvObj.Size = sizeof(drvObj);
-	drvObj.DriverName.Buffer = (WCHAR*)randomStr;
-	drvObj.DriverName.Length = lstrlenW(randomStr);
+	drvObj.DriverName.Buffer = (WCHAR*)driverName;
+	drvObj.DriverName.Length = lstrlenW(driverName);
 	drvObj.DriverName.MaximumLength = 16;
 
     RegistryPath.Buffer = (WCHAR*)registryBuffer;
@@ -373,7 +370,8 @@ int main(int argc, char* argv[])
 	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
 	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
 
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\esportal.sys", "c:\\EMU\\esportal.sys", "esportal", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\esportal.sys", "c:\\EMU\\esportal.sys", "esportal", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 
