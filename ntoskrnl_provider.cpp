@@ -267,6 +267,51 @@ NTSTATUS h_PsLookupThreadByThreadId(HANDLE ThreadId, PVOID* Thread)
 	return 0;
 }
 
+HANDLE h_PsGetThreadId(_ETHREAD* Thread) {
+	if (Thread)
+		return Thread->Cid.UniqueThread;
+	else
+		return 0;
+}
+
+_PEB* h_PsGetProcessPeb(_EPROCESS* process) {
+	return process->Peb;
+}
+
+HANDLE h_PsGetProcessInheritedFromUniqueProcessId(_EPROCESS* Process) {
+	return Process->InheritedFromUniqueProcessId;
+}
+
+
+NTSTATUS h_IoQueryFileDosDeviceName(PVOID fileObject, PVOID* name_info) {
+	typedef struct _OBJECT_NAME_INFORMATION {
+		UNICODE_STRING Name;
+	} aids;
+	static aids n;
+	name_info = (PVOID*)&n;
+
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS h_ObOpenObjectByPointer(
+	PVOID           Object,
+	ULONG           HandleAttributes,
+	PVOID   PassedAccessState,
+	ACCESS_MASK     DesiredAccess,
+	uint64_t    ObjectType,
+	uint64_t AccessMode,
+	PHANDLE         Handle
+) {
+	return STATUS_SUCCESS;
+}
+
+
+NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, PULONG ReturnLength) {
+	printf("Unimplemented function call detected\n");
+	return STATUS_SUCCESS;
+}
+
+
 void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex)
 {
 	auto fm = &FastMutex[0];
@@ -463,11 +508,6 @@ int h_swprintf_s(wchar_t* buffer, size_t sizeOfBuffer, const wchar_t* format, ..
 	return swprintf_s(buffer, sizeOfBuffer, format, L"A", L"2", L"3", L"4", L"5");
 }
 
-int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list argptr)
-{
-
-	return _vsnwprintf(buffer, count, format, argptr);
-}
 
 errno_t h_wcscpy_s(wchar_t* dest, rsize_t dest_size, const wchar_t* src)
 {
@@ -611,13 +651,9 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	wcstombs(cStr, SystemRoutineName->Buffer, 256);
 	printf("%s - ", cStr);
 
-	for (int i = 0; i < MAX_STATIC_EXPORT; i++) {
-		if (!staticExportProvider[i].name)
-			break;
-		if (!_stricmp(staticExportProvider[i].name, cStr)) {
-			funcptr = staticExportProvider[i].ptr;
-			break;
-		}
+
+	if (constantTimeExportProvider.contains(cStr)) {
+		funcptr = constantTimeExportProvider[cStr];
 	}
 
 	if (funcptr) {//Was it static exported variable 
@@ -625,14 +661,9 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 		return funcptr;
 	}
 
-	for (int i = 0; i < 512; i++) {
-		if (!myProvider[i].name)
-			break;
-		if (!_stricmp(myProvider[i].name, cStr)) {
-			funcptr = myProvider[i].hook;
-			break;
-		}
-	}
+	if (myConstantProvider.contains(cStr))
+		funcptr = myConstantProvider[cStr].hook;
+
 	if (funcptr == nullptr) {
 		funcptr = GetProcAddress(ntdll, cStr);
 		if (funcptr == nullptr) {
@@ -649,3 +680,129 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 
 	return funcptr;
 }
+
+HANDLE h_PsGetThreadProcessId(_ETHREAD* Thread) {
+	if (Thread) {
+		Thread->Cid.UniqueProcess;
+	}return 0;
+}
+
+HANDLE h_PsGetThreadProcess(_ETHREAD* Thread) {
+	if (Thread) {
+		//todo impl
+		printf("h_PsGetThreadProcess un impl!\n");
+		return 0;
+	} return 0;
+}
+
+void h_ProbeForRead(void* address, size_t len, ULONG align) { printf("ProbeForRead -> %p(len: %d) align: %d\n", address, len, align); }
+void h_ProbeForWrite(void* address, size_t len, ULONG align) { printf("ProbeForWrite -> %p(len: %d) align: %d\n", address, len, align); }
+
+
+
+
+int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list argptr)
+{
+
+	return _vsnwprintf(buffer, count, format, argptr);
+}
+
+
+
+
+//todo fix mutex bs
+void h_KeInitializeMutex(PVOID Mutex, ULONG level)
+{
+
+}
+
+LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { return 0; }
+
+//todo object might be invalid
+NTSTATUS h_KeWaitForSingleObject(
+	PVOID Object,
+	void* WaitReason,
+	void* WaitMode, BOOLEAN Alertable,
+	PLARGE_INTEGER Timeout) {
+	return STATUS_SUCCESS;
+};
+
+//todo impl might be broken
+NTSTATUS h_PsCreateSystemThread(
+	PHANDLE ThreadHandle, ULONG DesiredAccess,
+	void* ObjectAttributes,
+	HANDLE ProcessHandle, void* ClientId, void* StartRoutine,
+	PVOID StartContext) {
+	CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
+	return STATUS_SUCCESS;
+}
+
+//todo impl 
+NTSTATUS h_PsTerminateSystemThread(
+	NTSTATUS exitstatus) {
+	printf("thread boom\n"); __debugbreak(); int* a = 0; *a = 1; return 0;
+}
+
+//todo impl
+void h_IofCompleteRequest(void* pirp, CHAR boost) {
+
+}
+
+//todo impl
+NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRING DeviceName) {
+	return STATUS_SUCCESS;
+}
+
+
+
+
+
+
+
+
+void h_IoDeleteDevice(_DEVICE_OBJECT* obj) {
+
+}
+
+//todo definitely will blowup
+void* h_IoGetTopLevelIrp() {
+	printf("IoGetTopLevelIrp blows up sorry\n");
+	static int irp = 0;
+	return &irp;
+}
+
+NTSTATUS h_ObReferenceObjectByHandle(
+	HANDLE handle,
+	ACCESS_MASK DesiredAccess,
+	GUID* ObjectType,
+	uint64_t AccessMode,
+	PVOID* Object,
+	void* HandleInformation) {
+	printf("h_ObReferenceObjectByHandle blows up sorry\n");
+	return STATUS_SUCCESS;
+}
+
+//todo more logic required
+NTSTATUS h_ObRegisterCallbacks(PVOID CallbackRegistration, PVOID* RegistrationHandle) {
+	*RegistrationHandle = (PVOID)0xDEADBEEFCAFE;
+	return STATUS_SUCCESS;
+}
+
+void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) {
+
+}
+
+void* h_ObGetFilterVersion(void* arg) {
+	return 0;
+}
+
+BOOLEAN h_MmIsAddressValid(PVOID VirutalAddress) {
+	return true; // rand() % 2 :troll:
+}
+
+NTSTATUS h_PsSetCreateThreadNotifyRoutine(PVOID NotifyRoutine) {
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS h_PsSetLoadImageNotifyRoutine(PVOID NotifyRoutine) { return STATUS_SUCCESS; }
+

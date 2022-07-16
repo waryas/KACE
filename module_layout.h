@@ -22,6 +22,8 @@
 
 #define MAX_MODULES 64
 
+
+
 template <typename T>
 T makepointer(uint8_t* buffer, uint64_t offset) {
     return (T)(reinterpret_cast<uint64_t>(buffer) + offset);
@@ -64,6 +66,12 @@ struct FunctionPrototype {
     ArgumentPrototype args[15];
 };
 
+struct ConstantFunctionPrototype {
+    uint8_t argumentCount; //Used for unicorn version
+    void* hook;
+    ArgumentPrototype args[15];
+};
+
 inline struct MemoryMapping { //For symbolic tracking, was used in the unicorn version, will redevelop it soon
     char* regionName;
     uintptr_t realMemory;
@@ -87,6 +95,8 @@ inline int fsize(FILE* fp) {
     fseek(fp, prev, SEEK_SET); //go back to where we were
     return sz;
 }
+
+extern std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider;
 
 typedef struct {
     WORD offset : 12;
@@ -206,30 +216,18 @@ inline bool FixImport(uint8_t* buffer, uint64_t origBase) {
         for (; pOriginalThunk->u1.AddressOfData; pOriginalThunk++, pIATThunk++) {
             FARPROC lpFunction = NULL;
             if (IMAGE_SNAP_BY_ORDINAL(pOriginalThunk->u1.Ordinal)) {
-                //lpFunction = pfnGetProcAddress(hMod, (LPCSTR)IMAGE_ORDINAL(pOriginalThunk->u1.Ordinal));
+             
             } else {
                 PIMAGE_IMPORT_BY_NAME pImageImportByName = makepointer<PIMAGE_IMPORT_BY_NAME>(buffer, pOriginalThunk->u1.AddressOfData);
                 auto iName = (LPCSTR)&pImageImportByName->Name;
-
-                for (int i = 0; i < MAX_STATIC_EXPORT; i++) {
-                    if (!staticExportProvider[i].name)
-                        break;
-                    if (!_stricmp(staticExportProvider[i].name, iName)) {
-                        pIATThunk->u1.Function = (uintptr_t)staticExportProvider[i].ptr;
-                        break;
-                    }
+                if (constantTimeExportProvider.contains(iName)) {
+                    pIATThunk->u1.Function = (uintptr_t)constantTimeExportProvider[iName];
                 }
-                //lpFunction = pfnGetProcAddress(hMod, (LPCSTR) & (pImageImportByName->Name));
+            
             }
-
-            //pIATThunk->u1.Function = (ULONGLONG)lpFunction;
-            //printf("OAT : AddressOfData : %llx - ForwarderString : %llx - Function : %llx - Ordinal : %llx\n", pOriginalThunk->u1.AddressOfData, pOriginalThunk->u1.ForwarderString, pOriginalThunk->u1.Function, pOriginalThunk->u1.Ordinal);
-
-            //pIATThunk->u1.AddressOfData += (uint64_t)dm;
-            //printf("IAT : ddressOfData : %llx - ForwarderString : %llx - Function : %llx - Ordinal : %llx\n", pIATThunk->u1.AddressOfData, pIATThunk->u1.ForwarderString, pIATThunk->u1.Function, pIATThunk->u1.Ordinal);
         }
     }
-    //exit(0);
+    
     return true;
 }
 
@@ -265,10 +263,10 @@ inline uint64_t GetModuleBase(const char* name) {
 
 inline HMODULE ntdll = LoadLibraryA("ntdll.dll");
 
-extern FunctionPrototype myProvider[512];
 
 inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
     uintptr_t funcptr = 0;
+
     for (int i = 0; i < MAX_MODULES; i++) {
 
         if (!MappedModules[i].name)
@@ -277,47 +275,43 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
         if (MappedModules[i].isMainModule) {
 
             auto pe_imports = MappedModules[i].pedata->imports();
-
             for (auto imports = pe_imports.cbegin(); imports < pe_imports.cend(); imports++) {
                 for (auto entry = imports->entries().cbegin(); entry < imports->entries().cend(); entry++) {
-
                     if (entry->iat_value() == ptr) {
                         printf("Resolving %s::%s - ", imports->name().c_str(), entry->name().c_str());
-                        for (int k = 0; k < 512; k++) {
-                            if (!myProvider[k].name)
-                                break;
-                            if (!_stricmp(myProvider[k].name, entry->name().c_str())) {
-                                funcptr = (uintptr_t)myProvider[k].hook;
-                                if (funcptr) {
-                                    printf("Prototyped\n");
-                                } else {
-                                    funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
-                                    if (funcptr)
-                                        printf("/!\\PASSTHROUGH TO NTDLL -UNTESTED- /!\\\n");
-                                    else {
-                                        printf("Needs to be prototyped\n");
-                                        return 0;
-                                    }
-                                }
+                        if (myConstantProvider.contains(entry->name())) {
+                            funcptr = (uintptr_t)myConstantProvider[entry->name()].hook;
+                            if (funcptr) {
+                                printf("prototyped\n");
                                 return funcptr;
                             }
-                        }
-                        if (!funcptr) {
                             funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
-                            if (funcptr)
-                                printf("/!\\PASSTHROUGH TO NTDLL -UNTESTED- /!\\\n");
-                            else {
-                                printf("Needs to be prototyped\n");
-                                return 0;
+                            if (funcptr) {
+                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                return funcptr;
                             }
-                            return funcptr;
+                            printf("needs to be protyped - exiting...\n");
+                            exit(0);
+                            return 0;
+                            //We found the name but it's not prototyped
+                        }
+                        else {
+                            funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
+                            if (funcptr) {
+                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                return funcptr;
+                            }
+                            printf("needs to be protyped - exiting...\n");
+                            exit(0);
+                            return 0;
                         }
                     }
                 }
             }
+            break;
         }
-    }
 
+    }
     return 0;
 }
 
@@ -345,20 +339,20 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 
                 auto offset = ptr - MappedModules[i].base;
                 auto funcs = MappedModules[i].pedata->exported_functions();
-
+                //auto test = MappedModules[i].pedata->get_export();
+                
+                
                 for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
                     if (function->address() == offset) {
                         printf("Reading %s::%s - ", MappedModules[i].name, function->name().c_str());
-                        for (int k = 0; k < std::size(staticExportProvider); k++) {
-                            if (!staticExportProvider[k].name)
-                                break;
-                            if (!_stricmp(staticExportProvider[k].name, function->name().c_str())) {
-                                DWORD oldAccess;
-                                VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
-                                *(uint64_t*)ptr = *(uint64_t*)staticExportProvider[k].ptr;
-                                VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
-                            }
+
+                        if (constantTimeExportProvider.contains(function->name())) {
+                            DWORD oldAccess;
+                            VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
+                            *(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[function->name()];
+                            VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
                         }
+
                         break;
                     }
                 }
@@ -387,41 +381,39 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
                     if (function->address() == offset) {
                         printf("Resolving %s::%s - ", MappedModules[i].name, function->name().c_str());
-                        for (int k = 0; k < std::size(myProvider); k++) {
-                            if (!myProvider[k].name)
-                                break;
-                            if (!_stricmp(myProvider[k].name, function->name().c_str())) {
-                                funcptr = (uintptr_t)myProvider[k].hook;
-                                if (funcptr) {
-                                    printf("Prototyped\n");
-                                } else {
-                                    funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
-                                    if (funcptr)
-                                        printf("/!\\PASSTHROUGH TO NTDLL -UNTESTED- /!\\\n");
-                                    else {
-                                        printf("Needs to be prototyped\n");
-                                        return 0;
-                                    }
-                                }
+
+
+                        if (myConstantProvider.contains(function->name())) {
+                            funcptr = (uintptr_t)myConstantProvider[function->name()].hook;
+                            if (funcptr) {
+                                printf("prototyped\n");
                                 return funcptr;
                             }
-                        }
-                        if (!funcptr) {
                             funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
-                            if (funcptr)
-                                printf("/!\\PASSTHROUGH TO NTDLL -UNTESTED- /!\\\n");
-                            else {
-                                printf("Needs to be prototyped\n");
-                                return 0;
+                            if (funcptr) {
+                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                return funcptr;
                             }
-                            return funcptr;
+                            printf("needs to be protyped - exiting...\n");
+                            exit(0);
+                            return 0;
+                            
+                        }
+                        else {
+                            funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
+                            if (funcptr) {
+                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                return funcptr;
+                            }
+                            printf("needs to be protyped - exiting...\n");
+                            exit(0);
+                            return 0;
                         }
                     }
                 }
             }
-        }
+        }   
     }
-
     return 0;
 }
 

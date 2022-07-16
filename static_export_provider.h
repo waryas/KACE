@@ -1,12 +1,6 @@
 #pragma once
-#include <cstdint>
 
-struct StaticExportPrototype {
-    const char* name;
-    void* ptr;
-};
-
-#define MAX_STATIC_EXPORT 512
+#include <unordered_map>
 
 #pragma section("hookaccess",read,write)
 #define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
@@ -109,14 +103,19 @@ MONITOR uint64_t TmTransactionManagerObjectType = 0;
 MONITOR uint64_t TmTransactionObjectType = 0;
 MONITOR uint64_t psMUITest = 0;
 
-inline StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT] { { "SeExports", (PVOID)SeExport }, { "InitSafeBootMode", &InitSafeBootMode },
-    { "KdDebuggerNotPresent", &KdDebuggerNotPresent }, { "CcFastMdlReadWait", &CcFastMdlReadWait }, { "CmKeyObjectType", &CmKeyObjectType },
-    { "ExActivationObjectType", &ExActivationObjectType }, { "ExCompositionObjectType", &ExCompositionObjectType },
-    { "ExCoreMessagingObjectType", &ExCoreMessagingObjectType }, { "ExDesktopObjectType", &ExDesktopObjectType },
-    { "ExEventObjectType", &ExEventObjectType }, { "ExRawInputManagerObjectType", &ExRawInputManagerObjectType },
-    { "ExSemaphoreObjectType", &ExSemaphoreObjectType }, { "ExTimerObjectType", &ExTimerObjectType },
-    { "ExWindowStationObjectType", &ExWindowStationObjectType }, { "FsRtlLegalAnsiCharacterArray", &FsRtlLegalAnsiCharacterArray },
-    { "HalDispatchTable", &HalDispatchTable }, { "HalPrivateDispatchTable", &HalPrivateDispatchTable }, { "IoAdapterObjectType", &IoAdapterObjectType },
+MONITOR uint64_t undeclaredExport = 0; //For undeclared variable, we will hook it through this
+
+
+inline std::unordered_map<std::string, void*> constantTimeExportProvider = {
+    { "SeExports", (PVOID)SeExport },
+    { "InitSafeBootMode", &InitSafeBootMode }, { "KdDebuggerNotPresent", &KdDebuggerNotPresent }, { "CcFastMdlReadWait", &CcFastMdlReadWait },
+    { "CmKeyObjectType", &CmKeyObjectType }, { "ExActivationObjectType", &ExActivationObjectType },
+    { "ExCompositionObjectType", &ExCompositionObjectType }, { "ExCoreMessagingObjectType", &ExCoreMessagingObjectType },
+    { "ExDesktopObjectType", &ExDesktopObjectType }, { "ExEventObjectType", &ExEventObjectType },
+    { "ExRawInputManagerObjectType", &ExRawInputManagerObjectType }, { "ExSemaphoreObjectType", &ExSemaphoreObjectType },
+    { "ExTimerObjectType", &ExTimerObjectType }, { "ExWindowStationObjectType", &ExWindowStationObjectType },
+    { "FsRtlLegalAnsiCharacterArray", &FsRtlLegalAnsiCharacterArray }, { "HalDispatchTable", &HalDispatchTable },
+    { "HalPrivateDispatchTable", &HalPrivateDispatchTable }, { "IoAdapterObjectType", &IoAdapterObjectType },
     { "IoCompletionObjectType", &IoCompletionObjectType }, { "IoDeviceHandlerObjectSize", &IoDeviceHandlerObjectSize },
     { "IoDeviceHandlerObjectType", &IoDeviceHandlerObjectType }, { "IoDeviceObjectType", &IoDeviceObjectType },
     { "IoDriverObjectType", &IoDriverObjectType }, { "IoFileObjectType", &IoFileObjectType }, { "IoReadOperationCount", &IoReadOperationCount },
@@ -136,4 +135,5 @@ inline StaticExportPrototype staticExportProvider[MAX_STATIC_EXPORT] { { "SeExpo
     { "SeILSigningPolicyPtr", &SeILSigningPolicyPtr }, { "SePublicDefaultDacl", &SePublicDefaultDacl }, { "SeSystemDefaultDacl", &SeSystemDefaultDacl },
     { "SeSystemDefaultSd", &SeSystemDefaultSd }, { "SeTokenObjectType", &SeTokenObjectType }, { "TmEnlistmentObjectType", &TmEnlistmentObjectType },
     { "TmResourceManagerObjectType", &TmResourceManagerObjectType }, { "TmTransactionManagerObjectType", &TmTransactionManagerObjectType },
-    { "TmTransactionObjectType", &TmTransactionObjectType }, { "psMUITest", &psMUITest } };
+    { "TmTransactionObjectType", &TmTransactionObjectType }, {"psMUITest", &psMUITest}
+};
