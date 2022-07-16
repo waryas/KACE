@@ -22,6 +22,10 @@
 
 #define MAX_MODULES 64
 
+extern const char* prototypedMsg;
+extern const char* passthroughMsg;
+extern const char* notimplementedMsg;
+
 
 
 template <typename T>
@@ -278,29 +282,29 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
             for (auto imports = pe_imports.cbegin(); imports < pe_imports.cend(); imports++) {
                 for (auto entry = imports->entries().cbegin(); entry < imports->entries().cend(); entry++) {
                     if (entry->iat_value() == ptr) {
-                        printf("Resolving %s::%s - ", imports->name().c_str(), entry->name().c_str());
+                        printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", imports->name().c_str(), entry->name().c_str());
                         if (myConstantProvider.contains(entry->name())) {
                             funcptr = (uintptr_t)myConstantProvider[entry->name()].hook;
                             if (funcptr) {
-                                printf("prototyped\n");
+                                printf(prototypedMsg);
                                 return funcptr;
                             }
                             funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
                             if (funcptr) {
-                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                printf(passthroughMsg);
                                 return funcptr;
                             }
-                            printf("UNIMPLEMENTED\n");
+                            printf(notimplementedMsg);
                             return 0;
                             //We found the name but it's not prototyped
                         }
                         else {
                             funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
                             if (funcptr) {
-                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                printf(passthroughMsg);
                                 return funcptr;
                             }
-                            printf("UNIMPLEMENTED\n");
+                            printf(notimplementedMsg);
                             return 0;
                         }
                     }
@@ -345,10 +349,15 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
                         printf("Reading %s::%s - ", MappedModules[i].name, function->name().c_str());
 
                         if (constantTimeExportProvider.contains(function->name())) {
+                            printf(prototypedMsg);
                             DWORD oldAccess;
                             VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
                             *(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[function->name()];
                             VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
+                        }
+                        else {
+                            printf(notimplementedMsg);
+                            exit(0);
                         }
 
                         break;
@@ -378,21 +387,21 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
                 for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
 
                     if (function->address() == offset) {
-                        printf("Resolving %s::%s - ", MappedModules[i].name, function->name().c_str());
+                        printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", MappedModules[i].name, function->name().c_str());
 
 
                         if (myConstantProvider.contains(function->name())) {
                             funcptr = (uintptr_t)myConstantProvider[function->name()].hook;
                             if (funcptr) {
-                                printf("prototyped\n");
+                                printf(prototypedMsg);
                                 return funcptr;
                             }
                             funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
                             if (funcptr) {
-                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                printf(passthroughMsg);
                                 return funcptr;
                             }
-                            printf("Unimplemented\n");
+                            printf(notimplementedMsg);
                             
                             return 0;
                             
@@ -400,10 +409,10 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
                         else {
                             funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
                             if (funcptr) {
-                                printf("not prototyped - ntdll.dll equivalent found\n");
+                                printf(passthroughMsg);
                                 return funcptr;
                             }
-                            printf("Unimplemented\n");
+                            printf(notimplementedMsg);
                             return 0;
                         }
                     }

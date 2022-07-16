@@ -14,8 +14,8 @@ using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
 
 
-_DRIVER_OBJECT drvObj = {0};
-UNICODE_STRING RegistryPath = {0};
+_DRIVER_OBJECT drvObj = { 0 };
+UNICODE_STRING RegistryPath = { 0 };
 
 
 #define READ_VIOLATION 0
@@ -35,11 +35,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 	auto offset = GetMainModule()->base - ep;
 
-	//printf("%llx - %llx\n", ep - db, ep - kb);
+
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
 	{
 		auto ptr = *(uint32_t*)ep;
-		//printf("%08x\n", ptr);
 		if (ptr == 0xc0200f44)
 		{
 			// mov rax, cr8
@@ -47,11 +46,6 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
-		//if (ptr[0] == 0x44 && ptr[1] == 0x0F && ptr[2] == 0x20 && ptr[3] == 0xc0) { // mov rax, cr8
-		//	e->ContextRecord->Rax = 0; // IRQL = PASSIVE_LEVEL
-		//	e->ContextRecord->Rip += 4;
-		//	return EXCEPTION_CONTINUE_EXECUTION;
-		//}
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
 	{
@@ -64,8 +58,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			auto hooked_section = self_data->exported_functions();
 			for (auto entry = hooked_section.cbegin(); entry < hooked_section.cend(); ++entry)
 			{
-				if (entry->address() + (uintptr_t)GetModuleHandle(nullptr) == e->ExceptionRecord->ExceptionInformation[
-					1])
+				if (entry->address() + (uintptr_t)GetModuleHandle(nullptr) == e->ExceptionRecord->ExceptionInformation[1])
 				{
 					printf("Driver is accessing %s\n", entry->name().c_str());
 					break;
@@ -80,7 +73,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (read_module)
 			{
 				printf("Reading %s+0x%llx\n", read_module->name,
-				       e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
+					e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
 			}
 			else
 			{
@@ -297,9 +290,8 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			else //EAT execution
 				redirectRip = FindFunctionInModulesFromEAT(ep);
 
-            if (!redirectRip) {
+			if (!redirectRip) {
 #ifdef STUB_UNIMPLEMENTED
-				printf("!!!CALLING STUB!!! NOT IMPLEMENTED\n");
 				redirectRip = (uintptr_t)unimplemented_stub;
 #else
 				printf("Exiting...\n");
@@ -311,10 +303,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			return EXCEPTION_CONTINUE_EXECUTION;
 			break;
 		}
-	}
+		}
 
-    return 0;
-}
+	return 0;
+	}
 
 const wchar_t* driverName = L"\\Driver\\vgk";
 const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\vgk";
@@ -325,40 +317,40 @@ DWORD FakeDriverEntry(LPVOID)
 
 	AddVectoredExceptionHandler(true, ExceptionHandler);
 
-    printf("Calling the driver entrypoint\n");
+	printf("Calling the driver entrypoint\n");
 
 	drvObj.Size = sizeof(drvObj);
 	drvObj.DriverName.Buffer = (WCHAR*)driverName;
 	drvObj.DriverName.Length = lstrlenW(driverName);
 	drvObj.DriverName.MaximumLength = 16;
 
-    RegistryPath.Buffer = (WCHAR*)registryBuffer;
-    RegistryPath.Length = lstrlenW(RegistryPath.Buffer) * 2;
-    RegistryPath.MaximumLength = lstrlenW(RegistryPath.Buffer) * 2;
-    //memset((void*)&drvObj, 0xFF, sizeof(drvObj));
+	RegistryPath.Buffer = (WCHAR*)registryBuffer;
+	RegistryPath.Length = lstrlenW(RegistryPath.Buffer) * 2;
+	RegistryPath.MaximumLength = lstrlenW(RegistryPath.Buffer) * 2;
+	//memset((void*)&drvObj, 0xFF, sizeof(drvObj));
 
-    memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
+	memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
 
-    memset(&FakeSystemProcess, 0, sizeof(FakeSystemProcess));
+	memset(&FakeSystemProcess, 0, sizeof(FakeSystemProcess));
 
-    InitializeListHead(&FakeKernelThread.Tcb.Header.WaitListHead);
-    InitializeListHead(&FakeSystemProcess.Pcb.Header.WaitListHead);
+	InitializeListHead(&FakeKernelThread.Tcb.Header.WaitListHead);
+	InitializeListHead(&FakeSystemProcess.Pcb.Header.WaitListHead);
 
-    __writegsqword(0x188, (DWORD64)&FakeKernelThread); //Fake KTHREAD
+	__writegsqword(0x188, (DWORD64)&FakeKernelThread); //Fake KTHREAD
 
-    FakeKernelThread.Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
-    FakeKernelThread.Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
+	FakeKernelThread.Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
+	FakeKernelThread.Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
 
-    FakeKernelThread.Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
-    FakeKernelThread.Cid.UniqueThread = (void*)0x1234; //PsGetThreadId
+	FakeKernelThread.Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
+	FakeKernelThread.Cid.UniqueThread = (void*)0x1234; //PsGetThreadId
 
-    FakeKernelThread.Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
-    FakeKernelThread.Tcb.State = 1; //
-    FakeKernelThread.Tcb.InitialStack = (void*)0x1000;
-    FakeKernelThread.Tcb.StackBase = (void*)0x1500;
-    FakeKernelThread.Tcb.StackLimit = (void*)0x2000;
-    FakeKernelThread.Tcb.ThreadLock = 11;
-    FakeKernelThread.Tcb.LockEntries = (_KLOCK_ENTRY*)22;
+	FakeKernelThread.Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
+	FakeKernelThread.Tcb.State = 1; //
+	FakeKernelThread.Tcb.InitialStack = (void*)0x1000;
+	FakeKernelThread.Tcb.StackBase = (void*)0x1500;
+	FakeKernelThread.Tcb.StackLimit = (void*)0x2000;
+	FakeKernelThread.Tcb.ThreadLock = 11;
+	FakeKernelThread.Tcb.LockEntries = (_KLOCK_ENTRY*)22;
 
 	FakeSystemProcess.UniqueProcessId = (void*)4;
 	FakeSystemProcess.Protection.Level = 7;
@@ -370,18 +362,21 @@ DWORD FakeDriverEntry(LPVOID)
 	return 0;
 }
 
+
 int main(int argc, char* argv[]) {
+
+
 	HookSelf(argv[0]);
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
 	LoadModule("c:\\EMU\\fltmgr.sys", R"(c:\windows\system32\drivers\fltmgr.sys)", "FLTMGR.SYS", false);
 	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
 	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\esportal.sys", "c:\\EMU\\esportal.sys", "esportal", true);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\easyanticheat_2.sys", "c:\\EMU\\easyanticheat_2.sys", "EAC", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 
@@ -392,9 +387,9 @@ int main(int argc, char* argv[]) {
 		Sleep(1000);
 
 		DWORD ExitCode;
-		if(GetExitCodeThread(ThreadHandle, &ExitCode))
+		if (GetExitCodeThread(ThreadHandle, &ExitCode))
 		{
-			if(ExitCode != STILL_ACTIVE)
+			if (ExitCode != STILL_ACTIVE)
 			{
 				break;
 			}

@@ -499,7 +499,7 @@ struct _KTHREAD {
         };
         struct {
             UCHAR SchedulerApcFill4[72]; //0x288
-            VOID* LegoData; //0x2d0
+            VOID* LegoData; //0x2d0 
         };
         struct {
             UCHAR SchedulerApcFill5[83]; //0x288

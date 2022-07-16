@@ -659,7 +659,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	}
 
 	if (funcptr) {//Was it static exported variable 
-		printf("Prototyped Variable\n");
+		printf(prototypedMsg);
 		return funcptr;
 	}
 
@@ -680,11 +680,11 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 #endif
 		}
 		else {
-			printf("NTDLL.dll Function\n");
+			printf("\033[33mntdll.dll\033[0m\n");
 		}
 	}
 	else {
-		printf("Prototyped Function\n");
+		printf(prototypedMsg);
 	}
 
 	return funcptr;
