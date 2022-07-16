@@ -357,7 +357,7 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
                         }
                         else {
                             printf(notimplementedMsg);
-                            exit(0);
+                            //exit(0);
                         }
 
                         break;
@@ -489,6 +489,13 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
             else {
 #ifdef MONITOR_ACCESS
                 VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
+#elif MONITOR_DATA_ACCESS 1
+                if (section->name() != ".rdata" && section->name() != ".idata" && section->name() != ".edata" && section->name() != ".text") {
+                    VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
+                }
+                else {
+                    VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
+                }
 #else
                 VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
 #endif

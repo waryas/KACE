@@ -6,6 +6,9 @@
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
+//#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
+
+
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
@@ -39,15 +42,22 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
 	{
 		auto ptr = *(uint32_t*)ep;
-		if (ptr == 0xc0200f44)
+		if (ptr == 0xc0200f44) //mov eax, cr8
+		{
+			// mov rax, cr8
+			e->ContextRecord->Rax = 0;
+			e->ContextRecord->Rip += 4;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		} else if (ptr == 0x00200f44) // mov rax, cr8
 		{
 			// mov rax, cr8
 			e->ContextRecord->Rax = 0;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+			/*44 0f 20 00*/
 	}
-	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
+	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE )
 	{
 		e->ContextRecord->EFlags |= 0x100ui32;
 		DWORD oldProtect = 0;
@@ -58,9 +68,9 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			auto hooked_section = self_data->exported_functions();
 			for (auto entry = hooked_section.cbegin(); entry < hooked_section.cend(); ++entry)
 			{
-				if (entry->address() + (uintptr_t)GetModuleHandle(nullptr) == e->ExceptionRecord->ExceptionInformation[1])
+				if (entry->address() + (uintptr_t)GetModuleHandle(nullptr) == e->ExceptionRecord->ExceptionInformation[1]) 
 				{
-					printf("Driver is accessing %s\n", entry->name().c_str());
+					printf("\033[38;5;46m[Accessing]\033[0m %s\n", entry->name().c_str());
 					break;
 				}
 			}
@@ -97,8 +107,22 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
 		case READ_VIOLATION:
-
-			if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->
+			if (bufferopcode[0] == 0xa1
+				&& bufferopcode[1] == 0x6c
+				&& bufferopcode[2] == 0x02
+				&& bufferopcode[3] == 0x00
+				&& bufferopcode[4] == 0x00
+				&& bufferopcode[5] == 0x80
+				&& bufferopcode[6] == 0xF7
+				&& bufferopcode[7] == 0xff
+				&& bufferopcode[8] == 0xff)
+			{
+				//A1 6C 02 00 00 80 F7 FF FF
+				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
+				e->ContextRecord->Rip += 9;
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+			else if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->
 				ExceptionInformation[1] <= 0xFFFFF78000001000)
 			{
 				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
@@ -266,21 +290,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				}
 			}
 
-			if (bufferopcode[0] == 0xa1
-				&& bufferopcode[1] == 0x6c
-				&& bufferopcode[2] == 0x02
-				&& bufferopcode[3] == 0x00
-				&& bufferopcode[4] == 0x00
-				&& bufferopcode[5] == 0x80
-				&& bufferopcode[6] == 0xF7
-				&& bufferopcode[7] == 0xff
-				&& bufferopcode[8] == 0xff)
-			{
-				//A1 6C 02 00 00 80 F7 FF FF
-				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
-				e->ContextRecord->Rip += 9;
-				return EXCEPTION_CONTINUE_EXECUTION;
-			}
+
 
 			break;
 		case EXECUTE_VIOLATION:
@@ -373,10 +383,11 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
 	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
+	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\easyanticheat_2.sys", "c:\\EMU\\easyanticheat_2.sys", "EAC", true);
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "EAC", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 

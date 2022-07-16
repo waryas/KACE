@@ -62,7 +62,8 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 					loadedmodules->Modules[i].ImageBase = modulebase;
 				}
 				else { //We're gonna pass the real module to the driver
-
+					loadedmodules->Modules[i].ImageBase = 0;
+					loadedmodules->Modules[i].LoadCount = 0;
 				}
 			}
 			printf("base of system is : %llx\n", *(uint64_t*)(ptr + 0x18));
@@ -117,11 +118,10 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 
 void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
 {
-
+	
 	/* Initialize the Dispatcher Header */
 	Event->Header.SignalState = State;
-	Event->Header.WaitListHead.Blink = &Event->Header.WaitListHead;
-	Event->Header.WaitListHead.Flink = &Event->Header.WaitListHead;
+	InitializeListHead(&Event->Header.WaitListHead);
 	Event->Header.Type = Type;
 	*(WORD*)((char*)&Event->Header.Lock + 1) = 0x600; //saw this on ida, someone explain me
 }
@@ -466,15 +466,20 @@ PACCESS_TOKEN h_PsReferencePrimaryToken(_EPROCESS* Process)
 	return a1;
 }
 
+TOKEN_PRIVILEGES kernelToken[31] = {0};
+
 NTSTATUS h_SeQueryInformationToken(PACCESS_TOKEN Token, TOKEN_INFORMATION_CLASS TokenInformationClass,
 	PVOID* TokenInformation)
 {
 	//TODO NOT IMPLEMENTED
 	printf("Token : %llx - Class : %08x\n", Token, TokenInformationClass);
 	if (TokenInformationClass == 0x19) { //IsAppContainer
-		*(DWORD*)TokenInformation = 1; //We are not a appcontainer.
+		*(DWORD*)TokenInformation = 0; //We are not a appcontainer.
 	}
-	return 0;
+	else if (TokenInformationClass == 0x3) {
+		return 0xC0000002;
+	}
+	return 0xC0000022;
 }
 
 void h_IoDeleteController(PVOID ControllerObject)
@@ -742,8 +747,8 @@ NTSTATUS h_PsCreateSystemThread(
 	void* ObjectAttributes,
 	HANDLE ProcessHandle, void* ClientId, void* StartRoutine,
 	PVOID StartContext) {
-	CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
-	return STATUS_SUCCESS;
+	//CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
+	return -1;
 }
 
 //todo impl 
@@ -788,7 +793,7 @@ NTSTATUS h_ObReferenceObjectByHandle(
 	PVOID* Object,
 	void* HandleInformation) {
 	printf("h_ObReferenceObjectByHandle blows up sorry\n");
-	return STATUS_SUCCESS;
+	return -1;
 }
 
 //todo more logic required
