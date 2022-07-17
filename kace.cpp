@@ -8,7 +8,7 @@
 
 //#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-
+#include "pefile.h"
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
@@ -65,18 +65,23 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode))
 		{
-			auto hooked_section = self_data->exported_functions();
-			for (auto entry = hooked_section.cbegin(); entry < hooked_section.cend(); ++entry)
-			{
-				if (entry->address() + (uintptr_t)GetModuleHandle(nullptr) == e->ExceptionRecord->ExceptionInformation[1]) 
-				{
-					printf("\033[38;5;46m[Accessing]\033[0m %s\n", entry->name().c_str());
-					break;
+			auto accessedChar = self_data->GetExport(e->ExceptionRecord->ExceptionInformation[1] - (uintptr_t)GetModuleHandle(nullptr));
+			auto readAddr = e->ExceptionRecord->ExceptionInformation[1];
+			if (!accessedChar) { //?
+				while (!accessedChar) {
+					readAddr--;
+					accessedChar = self_data->GetExport(readAddr - (uintptr_t)GetModuleHandle(nullptr));
 				}
+				printf("\033[38;5;46m[Accessing]\033[0m %s:+0x%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
 			}
+			else {
+				printf("\033[38;5;46m[Accessing]\033[0m %s\n", accessedChar);
+			}
+
 		}
 		else
 		{
+
 			SetVariableInModulesEAT(e->ExceptionRecord->ExceptionInformation[1]);
 
 			auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
@@ -89,8 +94,9 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			{
 				printf("Reading unknown data\n");
 			}
-			lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
+			
 		}
+		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
@@ -407,6 +413,7 @@ DWORD FakeDriverEntry(LPVOID)
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	printf("Done! = %llx\n", result);
+	system("pause");
 	return 0;
 }
 
@@ -415,7 +422,23 @@ int main(int argc, char* argv[]) {
 
 	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
+	printf("Opening a new console\n");
+
+	FreeConsole();
+	AllocConsole();
+	DWORD dwMode;
+
+	auto hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+	GetConsoleMode(hOut, &dwMode);
+	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+	SetConsoleMode(hOut, dwMode);
+
+	
+
 	HookSelf(argv[0]);
+
+
+
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
 	LoadModule("c:\\EMU\\fltmgr.sys", R"(c:\windows\system32\drivers\fltmgr.sys)", "FLTMGR.SYS", false);

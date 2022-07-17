@@ -1,8 +1,8 @@
 #pragma once
 
-#include "LIEF/LIEF.hpp"
 #include "nt_define.h"
 #include "static_export_provider.h"
+#include "pefile.h"
 #include <cstdint>
 #include <memory>
 
@@ -40,10 +40,10 @@ inline struct ModuleManager {
     uintptr_t base;
     uintptr_t size;
     bool isMainModule;
-    std::unique_ptr<LIEF::PE::Binary> pedata;
+    PEFile* pedata;
 } MappedModules[MAX_MODULES] = {};
 
-inline std::unique_ptr<LIEF::PE::Binary> self_data;
+inline PEFile* self_data;
 
 enum TYPE_ARGUMENT
 {
@@ -102,10 +102,7 @@ inline int fsize(FILE* fp) {
 
 extern std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider;
 
-typedef struct {
-    WORD offset : 12;
-    WORD type : 4;
-} IMAGE_RELOC, *PIMAGE_RELOC;
+
 
 #define IMAGE_REL_BASED_ABSOLUTE                                                                                                                          \
     0 /* The base relocation is skipped.
@@ -166,15 +163,15 @@ inline uint64_t ApplyRelocation(uint8_t* buffer, uint64_t origBase) {
             case IMAGE_REL_BASED_ABSOLUTE:
                 break;
             case IMAGE_REL_BASED_HIGHLOW:
-                //*((DWORD*)(x + pReloc->offset)) += (DWORD)iRelocOffset;
+                *((DWORD*)(x + pReloc->offset)) += (DWORD)iRelocOffset;
                 break;
 
             case 1:
-                //*((WORD*)(x + pReloc->offset)) += HIWORD(iRelocOffset);
+                *((WORD*)(x + pReloc->offset)) += HIWORD(iRelocOffset);
                 break;
 
             case 2:
-                //*((WORD*)(x + pReloc->offset)) += LOWORD(iRelocOffset);
+                *((WORD*)(x + pReloc->offset)) += LOWORD(iRelocOffset);
                 break;
 
             default:
@@ -277,42 +274,30 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
             return 0;
 
         if (MappedModules[i].isMainModule) {
-
-            auto pe_imports = MappedModules[i].pedata->imports();
-            for (auto imports = pe_imports.cbegin(); imports < pe_imports.cend(); imports++) {
-                for (auto entry = imports->entries().cbegin(); entry < imports->entries().cend(); entry++) {
-                    if (entry->iat_value() == ptr) {
-                        printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", imports->name().c_str(), entry->name().c_str());
-                        if (myConstantProvider.contains(entry->name())) {
-                            funcptr = (uintptr_t)myConstantProvider[entry->name()].hook;
-                            if (funcptr) {
-                                printf(prototypedMsg);
-                                return funcptr;
-                            }
-                            funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
-                            if (funcptr) {
-                                printf(passthroughMsg);
-                                return funcptr;
-                            }
-                            printf(notimplementedMsg);
-                            return 0;
-                            //We found the name but it's not prototyped
-                        }
-                        else {
-                            funcptr = (uintptr_t)GetProcAddress(ntdll, entry->name().c_str());
-                            if (funcptr) {
-                                printf(passthroughMsg);
-                                return funcptr;
-                            }
-                            printf(notimplementedMsg);
-                            return 0;
-                        }
+            auto Import = MappedModules[i].pedata->GetImport(ptr);
+            if (Import) { //Found in IAT
+                printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", Import->library.c_str(), Import->name.c_str());
+                if (myConstantProvider.contains(Import->name)) {
+                    funcptr = (uintptr_t)myConstantProvider[Import->name].hook;
+                    if (funcptr) {
+                        printf(prototypedMsg);
+                        return funcptr;
                     }
                 }
+                funcptr = (uintptr_t)GetProcAddress(ntdll, Import->name.c_str());
+                if (funcptr) {
+                    printf(passthroughMsg);
+                    return funcptr;
+                }
+                printf(notimplementedMsg);
+                return 0;
+            }
+            else { //Not Found in IAT
+                printf("Contact Waryas; Should never get there\n");
+                exit(0);
             }
             break;
         }
-
     }
     return 0;
 }
@@ -340,29 +325,26 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
             if (MappedModules[i].base <= ptr && ptr <= MappedModules[i].base + MappedModules[i].size) {
 
                 auto offset = ptr - MappedModules[i].base;
-                auto funcs = MappedModules[i].pedata->exported_functions();
-                //auto test = MappedModules[i].pedata->get_export();
-                
-                
-                for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
-                    if (function->address() == offset) {
-                        printf("Reading %s::%s - ", MappedModules[i].name, function->name().c_str());
+                auto variableName = MappedModules[i].pedata->GetExport(offset);
 
-                        if (constantTimeExportProvider.contains(function->name())) {
-                            printf(prototypedMsg);
-                            DWORD oldAccess;
-                            VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
-                            *(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[function->name()];
-                            VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
-                        }
-                        else {
-                            printf(notimplementedMsg);
-                            //exit(0);
-                        }
-
-                        break;
-                    }
+                if (!variableName) {
+                    printf("Reading a non exported value\n");
+                    return 0;
                 }
+                else {
+                    printf("Reading %s::%s - ", MappedModules[i].name, variableName);
+                    if (constantTimeExportProvider.contains(variableName)) {
+                        printf(prototypedMsg);
+                        DWORD oldAccess;
+                        VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
+                        *(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[variableName];
+                        VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
+                    }
+                    else {
+                        printf(notimplementedMsg);
+                        //exit(0);
+                    }
+                } 
             }
         }
     }
@@ -382,40 +364,28 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
             if (MappedModules[i].base <= ptr && ptr <= MappedModules[i].base + MappedModules[i].size) {
 
                 auto offset = ptr - MappedModules[i].base;
-                auto funcs = MappedModules[i].pedata->exported_functions();
+                auto functionName = MappedModules[i].pedata->GetExport(offset);
 
-                for (auto function = funcs.cbegin(); function < funcs.cend(); function++) {
-
-                    if (function->address() == offset) {
-                        printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", MappedModules[i].name, function->name().c_str());
-
-
-                        if (myConstantProvider.contains(function->name())) {
-                            funcptr = (uintptr_t)myConstantProvider[function->name()].hook;
-                            if (funcptr) {
-                                printf(prototypedMsg);
-                                return funcptr;
-                            }
-                            funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
-                            if (funcptr) {
-                                printf(passthroughMsg);
-                                return funcptr;
-                            }
-                            printf(notimplementedMsg);
-                            
-                            return 0;
-                            
-                        }
-                        else {
-                            funcptr = (uintptr_t)GetProcAddress(ntdll, function->name().c_str());
-                            if (funcptr) {
-                                printf(passthroughMsg);
-                                return funcptr;
-                            }
-                            printf(notimplementedMsg);
-                            return 0;
+                if (!functionName) {
+                    printf("Executing a non exported function\n");
+                    exit(0);
+                }
+                else {
+                    printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", MappedModules[i].name, functionName);
+                    if (myConstantProvider.contains(functionName)) {
+                        funcptr = (uintptr_t)myConstantProvider[functionName].hook;
+                        if (funcptr) {
+                            printf(prototypedMsg);
+                            return funcptr;
                         }
                     }
+                    funcptr = (uintptr_t)GetProcAddress(ntdll, functionName);
+                    if (funcptr) {
+                        printf(passthroughMsg);
+                        return funcptr;
+                    }
+                    printf(notimplementedMsg);
+                    return 0;
                 }
             }
         }   
@@ -429,7 +399,8 @@ inline void HookSelf(char* path) {
         exit(0);
     }
 
-    self_data = LIEF::PE::Parser::parse(path);
+    self_data = PEFile::Open(path);
+
     DWORD oldProtect;
     auto hookPage = PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode); //BEGINNING OF MONITOR SECTION
 
@@ -457,7 +428,7 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
         MappedModules[i].realpath = path;
         MappedModules[i].isMainModule = isMainModule;
 
-        MappedModules[i].pedata = LIEF::PE::Parser::parse(MappedModules[i].realpath);
+        MappedModules[i].pedata = PEFile::Open(MappedModules[i].realpath);
 
         f = fopen(MappedModules[i].realpath, "rb+");
         image_size = fsize(f);
@@ -467,60 +438,76 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
         fread(image_to_execute, 1, image_size, f);
         fclose(f);
 
-        MappedModules[i].base = (uintptr_t)_aligned_malloc(MappedModules[i].pedata->virtual_size(), 0x10000);
-        MappedModules[i].size = MappedModules[i].pedata->virtual_size();
+        MappedModules[i].base = (uintptr_t)_aligned_malloc(MappedModules[i].pedata->GetVirtualSize(), 0x10000);
+        MappedModules[i].size = MappedModules[i].pedata->GetVirtualSize();
         memset((PVOID)MappedModules[i].base, 0, MappedModules[i].size); //Important, space should be padded with 0
         memcpy((PVOID)MappedModules[i].base, image_to_execute, 0x1000);
 
-        auto pe_sections = MappedModules[i].pedata->sections();
 
-        for (auto section = pe_sections.cbegin(); section < pe_sections.cend(); section++) {
-
-            auto sectionSize = PAGE_ALIGN(section->virtual_size());
-            auto sectionRawSize = section->size();
-
-            memset((PVOID)(MappedModules[i].base + section->virtual_address()), 0, sectionSize);
-            memcpy((PVOID)(MappedModules[i].base + section->virtual_address()), image_to_execute + section->offset(), sectionRawSize);
-
+        auto section = MappedModules[i].pedata->sections.begin();
+        while (section != MappedModules[i].pedata->sections.end()) {
             DWORD oldAccess;
+            auto SectionName = section->first;
+            auto SectionData = section->second;
+            auto sectionSize = PAGE_ALIGN(SectionData.virtual_size);
+            auto sectionRawSize = SectionData.raw_size;
+
+            memset((PVOID)(MappedModules[i].base + SectionData.virtual_address), 0, sectionSize);
+            memcpy((PVOID)(MappedModules[i].base + SectionData.virtual_address), image_to_execute + SectionData.raw_address, sectionRawSize);
 
             if (MappedModules[i].isMainModule)
-                VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
+                VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
             else {
 #ifdef MONITOR_ACCESS
                 VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
-#elif MONITOR_DATA_ACCESS 1
+#elif MONITOR_DATA_ACCESS 1 //THIS NEEDS A REWORK
                 if (section->name() != ".rdata" && section->name() != ".idata" && section->name() != ".edata" && section->name() != ".text") {
                     VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
-                }
+            }
                 else {
                     VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
                 }
 #else
-                VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
+                VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY, &oldAccess);
 #endif
             }
+
+            section++;
         }
+//        auto pe_sections = MappedModules[i].pedata->sections();
+
 
         if (MappedModules[i].isMainModule) {
-            ApplyRelocation((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->imagebase());
-            FixImport((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->imagebase());
-            FixSecurityCookie((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->imagebase());
-        } else { //PAGE_GUARD EXPORTED VARIABLE
+            ApplyRelocation((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->GetImageBase());
+            FixImport((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->GetImageBase());
+            FixSecurityCookie((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->GetImageBase());
+        } else { //PAGE_GUARD EXPORTED VARIABLE || Ideally USE PDB for non exported variable access too
+            //ApplyRelocation((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->GetImageBase());
+            //FixSecurityCookie((uint8_t*)MappedModules[i].base, MappedModules[i].pedata->GetImageBase());
+            auto AllExports = MappedModules[i].pedata->GetAllExports();
 
-            auto funcs = MappedModules[i].pedata->exported_functions();
-            for (auto function = funcs.cbegin(); function < funcs.cend(); ++function) {
-                //
-                for (auto section = pe_sections.cbegin(); section < pe_sections.cend(); ++section) {
-                    if (section->virtual_address() <= function->address() && function->address() <= section->virtual_address() + section->virtual_size()
-                        && !(section->characteristics() & 0x20000000)) {
+            auto exports = AllExports.begin();
 
+            while (exports != AllExports.end()) {
+                auto funcPtr = exports->first;
+                auto section = MappedModules[i].pedata->sections.begin();
+
+                while (section != MappedModules[i].pedata->sections.end()) {
+                    auto sectionName = section->first;
+                    auto sectionData = section->second;
+
+                    if ((sectionData.virtual_address <= funcPtr) &&
+                        (funcPtr <= sectionData.virtual_address + sectionData.virtual_size) &&
+                        !(sectionData.characteristics & 0x20000000)) {
                         DWORD oldAccess;
-                        VirtualProtect((PVOID)PAGE_ALIGN_DOWN(MappedModules[i].base + function->address()), 0x1000, PAGE_READONLY | PAGE_GUARD,
-                            &oldAccess);
+                        VirtualProtect((PVOID)PAGE_ALIGN_DOWN(MappedModules[i].base + funcPtr), 0x1, PAGE_READONLY | PAGE_GUARD, &oldAccess);
                     }
+
+                    section++;
                 }
+                exports++;
             }
+
 
             /* USE THIS TO DUMP EXPORTED VARIABLE FROM KERNEL
 			auto funcs = MappedModules[i].pedata->exported_functions();
@@ -539,7 +526,7 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
         free(image_to_execute);
         loaded = true;
 
-        ep = MappedModules[i].base + MappedModules[i].pedata->optional_header().addressof_entrypoint();
+        ep = MappedModules[i].base + MappedModules[i].pedata->GetEP();
         break;
     }
     if (!loaded) {

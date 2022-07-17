@@ -1,3 +1,4 @@
+#include "pefile.h"
 #include "provider.h"
 #include <stdio.h>
 

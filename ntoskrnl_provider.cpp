@@ -1,3 +1,4 @@
+#include "pefile.h"
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
@@ -597,6 +598,7 @@ LONG h_KeSetEvent(_KEVENT* Event, LONG Increment, BOOLEAN Wait)
 {
 	LONG PreviousState;
 	_KTHREAD* Thread;
+	
 
 	/*
 	 * Check if this is an signaled notification event without an upcoming wait.
