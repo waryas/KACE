@@ -114,10 +114,28 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength, void* CreateFileType, PVOID InternalParameters, ULONG Options,
 	void* DriverContext)
 {
+	
+	PUNICODE_STRING OLDBuffer;
+	OLDBuffer = ObjectAttributes->ObjectName;
+	UNICODE_STRING TempBuffer;
+	TempBuffer.Buffer = (wchar_t*)malloc(512);
+	memset(TempBuffer.Buffer, 0, 512);
+	wcscat(TempBuffer.Buffer, L"\\??\\C:\\kace");
+	wcscat(TempBuffer.Buffer, OLDBuffer->Buffer);
+	TempBuffer.Buffer[12] = 'c';
+	TempBuffer.Buffer[13] = 'a';
+	TempBuffer.Buffer[16] = 'a';
+	TempBuffer.Length = wcslen(TempBuffer.Buffer) * 2;
+	TempBuffer.MaximumLength = wcslen(TempBuffer.Buffer) * 2;
+	ObjectAttributes->ObjectName = &TempBuffer;
+	ObjectAttributes->Attributes = 0x00000040;
 	printf("Creating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, Disposition, CreateOptions, EaBuffer, EaLength);
 	printf("Return : %x\n", ret);
-	return ret;
+	ObjectAttributes->ObjectName = OLDBuffer;
+	free(TempBuffer.Buffer);
+
+	return 0;
 }
 
 void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
@@ -504,8 +522,7 @@ NTSTATUS h_RtlDuplicateUnicodeString(int add_nul, const UNICODE_STRING* source, 
 
 void h_ExSystemTimeToLocalTime(PLARGE_INTEGER SystemTime, PLARGE_INTEGER LocalTime)
 {
-
-	//LocalTime->QuadPart = SystemTime->QuadPart - 10;
+	memcpy(LocalTime, SystemTime, sizeof(LARGE_INTEGER));
 }
 
 int h_vswprintf_s(wchar_t* buffer, size_t numberOfElements, const wchar_t* format, va_list argptr)
@@ -513,16 +530,31 @@ int h_vswprintf_s(wchar_t* buffer, size_t numberOfElements, const wchar_t* forma
 	return vswprintf_s(buffer, numberOfElements, format, argptr);
 }
 
+
 int h_swprintf_s(wchar_t* buffer, size_t sizeOfBuffer, const wchar_t* format, ...)
 {
-	//TOFIX
-	return swprintf_s(buffer, sizeOfBuffer, format, L"A", L"2", L"3", L"4", L"5");
+	va_list ap;
+	va_start(ap, format);
+
+	auto ret = vswprintf_s(buffer, sizeOfBuffer, format, ap);
+	va_end(ap);
+
+	return ret;
 }
 
 
 errno_t h_wcscpy_s(wchar_t* dest, rsize_t dest_size, const wchar_t* src)
 {
 	return wcscpy_s(dest, dest_size, src);
+}
+
+errno_t h_wcscat_s(
+	wchar_t* strDestination,
+	size_t numberOfElements,
+	const wchar_t* strSource
+) {
+	return wcscat_s(strDestination, numberOfElements, strSource);
+
 }
 
 void h_RtlTimeToTimeFields(long long Time, long long TimeFields)
@@ -533,18 +565,18 @@ void h_RtlTimeToTimeFields(long long Time, long long TimeFields)
 
 BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 {
-
 	return 0;
 }
 
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context)
 {
-
 	printf("BroadcastFunction: %p\n", BroadcastFunction);
 	printf("Content: %p\n", Context);
-	//return ((__int64(__fastcall *)(ULONG_PTR))BroadcastFunction)(Context);
+	auto ret = ((__int64(__fastcall *)(ULONG_PTR))BroadcastFunction)(Context);
+	printf("IPI Returned : %llx\n", ret);
+	return ret;
 
-	return 0;
+	//return 0;
 }
 
 _SLIST_ENTRY* h_ExpInterlockedPopEntrySList(PSLIST_HEADER SListHead)

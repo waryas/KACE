@@ -284,7 +284,11 @@ errno_t h_wcscpy_s(
 	rsize_t dest_size,
 	const wchar_t* src
 );
-
+errno_t h_wcscat_s(
+	wchar_t* strDestination,
+	size_t numberOfElements,
+	const wchar_t* strSource
+);
 
 //SEH Handler
 
@@ -401,5 +405,10 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{ "PsGetProcessInheritedFromUniqueProcessId", { 1, h_PsGetProcessInheritedFromUniqueProcessId } },
 	{ "PsGetProcessPeb", { 1, h_PsGetProcessPeb } },
 	{ "KeQueryTimeIncrement", {1, h_KeQueryTimeIncrement} },
-	{ "ExAcquireResourceExclusiveLite", {1, h_ExAcquireResourceExclusiveLite} }
+	{ "ExAcquireResourceExclusiveLite", {1, h_ExAcquireResourceExclusiveLite} },
+	{"swprintf_s", {1, h_swprintf_s}},
+	{ "wcscpy_s", {1, h_wcscpy_s}},
+	{"wcscat_s", {1, h_wcscat_s}},
+	{ "KeIpiGenericCall", {1, h_KeIpiGenericCall} }
+	
 };

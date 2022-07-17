@@ -33,6 +33,11 @@ uint64_t passthrough(...)
 
 uintptr_t lastPG = 0;
 
+
+//From waryas machine, no hv, clean install
+uint64_t cr0 = 0x80050033;
+uint64_t cr4 = 0x370678;
+
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
@@ -42,6 +47,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
 	{
 		auto ptr = *(uint32_t*)ep;
+		auto ptrBuffer = (unsigned char*)ep;
 		if (ptr == 0xc0200f44) //mov eax, cr8
 		{
 			// mov rax, cr8
@@ -55,7 +61,25 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
-			/*44 0f 20 00*/
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC1) {
+			e->ContextRecord->Rcx = cr0;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+		else if (ptrBuffer[0] == 0xFA) { //CLEAR INTERRUPT
+			e->ContextRecord->Rip += 1;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+		else if (ptrBuffer[0] == 0xFB) { //RESTORE INTERRUPT
+			e->ContextRecord->Rip += 1;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFE) { //mov dr7, rsi
+			e->ContextRecord->Dr7 = e->ContextRecord->Rsi;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+			
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE )
 	{
@@ -448,8 +472,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\bedaisy.sys", "c:\\EMU\\bedaisy.sys", "bedaisy", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
 	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
 	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
 
