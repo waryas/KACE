@@ -584,7 +584,7 @@ int main(int argc, char* argv[]) {
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\KMDFDriver2.sys", "c:\\EMU\\KMDFDriver2.sys", "VGK", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 	
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 

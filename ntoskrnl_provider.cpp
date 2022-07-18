@@ -692,6 +692,8 @@ NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEG
 
 ULONG h_DbgPrompt(PCCH Prompt, PCH Response, ULONG Length)
 {
+	uint64_t a = (uint64_t)h_DbgPrompt >> 60 <<32  / h_KeDelayExecutionThread(0, 0, 0);
+	printf("%d", a);
 	strcpy(Response, "Your mom\n");
 	return 0x3000;
 }
