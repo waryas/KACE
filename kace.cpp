@@ -8,7 +8,7 @@
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
+#define MONITOR_DATA_ACCESS//This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 #include "pefile.h"
 #include "provider.h"
@@ -66,12 +66,14 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		if (ptr == 0xc0200f44) //mov eax, cr8
 		{
 			// mov rax, cr8
+			printf("Reading IRQL\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		} else if (ptr == 0x00200f44) // mov rax, cr8
 		{
 			// mov rax, cr8
+			printf("Reading IRQL\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -172,6 +174,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
 				printf("--CHECKING FOR PATCHGUARD--\n");
 				e->ContextRecord->Rip += 2;
+				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else if (bufferopcode[0] == 0xa1
 				&& bufferopcode[1] == 0x6c
@@ -396,7 +399,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			break;
 		}
 		}
-
+		printf("IM HERE\n");
 	return 0;
 	}
 
@@ -454,12 +457,12 @@ DWORD FakeDriverEntry(LPVOID)
 
 	FakeCPU.CurrentThread =  (_KTHREAD*)&FakeKernelThread;
 	FakeCPU.IdleThread = (_KTHREAD*)&FakeKernelThread;
-	FakeCPU.CoresPerPhysicalProcessor = 1;
-	FakeCPU.LogicalProcessorsPerCore = 1;
+	FakeCPU.CoresPerPhysicalProcessor = 2;
+	FakeCPU.LogicalProcessorsPerCore = 2;
 	FakeCPU.MajorVersion = 10;
 	FakeCPU.MinorVersion = 0;
 	FakeCPU.RspBase = __readgsqword(0x8);
-
+	
 	
 	FakeKPCR.CurrentPrcb = &FakeCPU;
 	FakeKPCR.NtTib.StackBase = (PVOID)__readgsqword(0x8);
@@ -470,6 +473,7 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeKPCR.Self = &FakeKPCR;
 
 	
+	__writeeflags(0x10286);
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	spdlog::info("Done! = {}", result);

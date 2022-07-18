@@ -412,6 +412,7 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{ "wcscpy_s", {1, h_wcscpy_s}},
 	{"wcscat_s", {1, h_wcscat_s}},
 	{ "KeIpiGenericCall", {1, h_KeIpiGenericCall} },
-	{ "KeInitializeTimer", {1, h_KeInitializeTimer} }
+	{ "KeInitializeTimer", {1, h_KeInitializeTimer} },
+	{ "DbgPrompt", {1, h_DbgPrompt}}
 	
 };

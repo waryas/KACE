@@ -179,6 +179,7 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
 	InitializeListHead(&Event->Header.WaitListHead);
 	Event->Header.Type = Type;
 	*(WORD*)((char*)&Event->Header.Lock + 1) = 0x600; //saw this on ida, someone explain me
+	printf("Callback object : %llx", Event);
 }
 
 NTSTATUS h_RtlGetVersion(RTL_OSVERSIONINFOW* lpVersionInformation)
@@ -631,7 +632,10 @@ void h_RtlTimeToTimeFields(long long Time, long long TimeFields)
 
 BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 {
-	return 0;
+	printf("Timer object : %llx", Timer);
+	printf("DPC object : %llx", Dpc);
+	memcpy(&Timer->DueTime, &DueTime, sizeof(DueTime));
+	return true;
 }
 
 void h_KeInitializeTimer(_KTIMER* Timer) {
@@ -662,12 +666,16 @@ typedef struct _CALLBACK_OBJECT
 	UCHAR reserved[3];
 } CALLBACK_OBJECT;
 
+CALLBACK_OBJECT test = { 0 };
+
 NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool Create, bool AllowMultipleCallbacks)
 {
 	OBJECT_ATTRIBUTES* oa = (OBJECT_ATTRIBUTES*)ObjectAttributes;
-	_CALLBACK_OBJECT* co = (_CALLBACK_OBJECT * )CallbackObject;
-
-	return STATUS_SUCCESS;
+	_CALLBACK_OBJECT** co = (_CALLBACK_OBJECT ** )CallbackObject;
+	printf("Callback object : %llx", CallbackObject);
+	printf("*Callback object : %llx", *co);
+	*co = (_CALLBACK_OBJECT*)0x10e4e9c820;
+	return 0;
 }
 
 NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval)
@@ -678,8 +686,8 @@ NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEG
 
 ULONG h_DbgPrompt(PCCH Prompt, PCH Response, ULONG Length)
 {
-
-	return 0;
+	strcpy(Response, "Your mom\n");
+	return 0x3000;
 }
 
 NTSTATUS h_IoDeleteSymbolicLink(PUNICODE_STRING SymbolicLinkName)
@@ -731,22 +739,47 @@ LONG h_KeSetEvent(_KEVENT* Event, LONG Increment, BOOLEAN Wait)
 	return PreviousState;
 }
 
+#define STATUS_SUCCESS                ((NTSTATUS)0x00000000L)
+#define STATUS_BUFFER_OVERFLOW        ((NTSTATUS)0x80000005L)
+#define STATUS_UNSUCCESSFUL           ((NTSTATUS)0xC0000001L)
+#define STATUS_NOT_IMPLEMENTED        ((NTSTATUS)0xC0000002L)
+#define STATUS_INFO_LENGTH_MISMATCH   ((NTSTATUS)0xC0000004L)
+#ifndef STATUS_INVALID_PARAMETER
+// It is now defined in Windows 2008 SDK.
+#define STATUS_INVALID_PARAMETER      ((NTSTATUS)0xC000000DL)
+#endif
+#define STATUS_CONFLICTING_ADDRESSES  ((NTSTATUS)0xC0000018L)
+#define STATUS_ACCESS_DENIED          ((NTSTATUS)0xC0000022L)
+#define STATUS_BUFFER_TOO_SMALL       ((NTSTATUS)0xC0000023L)
+#define STATUS_OBJECT_NAME_NOT_FOUND  ((NTSTATUS)0xC0000034L)
+#define STATUS_PROCEDURE_NOT_FOUND    ((NTSTATUS)0xC000007AL)
+#define STATUS_INVALID_IMAGE_FORMAT   ((NTSTATUS)0xC000007BL)
+#define STATUS_NO_TOKEN               ((NTSTATUS)0xC000007CL)
+
+#define CURRENT_PROCESS ((HANDLE) -1)
+#define CURRENT_THREAD  ((HANDLE) -2)
+#define NtCurrentProcess CURRENT_PROCESS
+
 NTSTATUS h_PsRemoveLoadImageNotifyRoutine(void* NotifyRoutine)
 {
 
-	return STATUS_SUCCESS;
+	return STATUS_PROCEDURE_NOT_FOUND;
 }
 
 NTSTATUS h_PsSetCreateProcessNotifyRoutineEx(void* NotifyRoutine, BOOLEAN Remove)
 {
-
-	return STATUS_SUCCESS;
+	if (Remove) {
+		return STATUS_INVALID_PARAMETER;
+	}
+	else {
+		return STATUS_SUCCESS;
+	}
 }
 
 UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock)
 {
-
-	return 0;
+	
+	return (UCHAR)0x00;
 }
 
 void h_KeReleaseSpinLock(PKSPIN_LOCK SpinLock, UCHAR NewIrql)
@@ -848,7 +881,7 @@ int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list 
 //todo fix mutex bs
 void h_KeInitializeMutex(PVOID Mutex, ULONG level)
 {
-
+	
 }
 
 LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { return 0; }
