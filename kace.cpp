@@ -34,6 +34,16 @@ uint64_t passthrough(...)
 	return 0;
 }
 
+char tempBuffer[512] = { 0 };
+
+void custom_printf(const char* buffer, ...) {
+	va_list args;
+	va_start(args, buffer);
+	vsprintf(tempBuffer, buffer, args);
+	spdlog::info(tempBuffer);
+	va_end(args);
+}
+
 //POC STAGE, NEED TO MAKE THIS DYNAMIC - Most performance issue come from this, also for some reason i only got this to work in Visual studio, not outside of it.
 
 uintptr_t lastPG = 0;
@@ -501,8 +511,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
+	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
 	
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 

@@ -560,7 +560,23 @@ void h_ExSystemTimeToLocalTime(PLARGE_INTEGER SystemTime, PLARGE_INTEGER LocalTi
 
 int h_vswprintf_s(wchar_t* buffer, size_t numberOfElements, const wchar_t* format, va_list argptr)
 {
-	return vswprintf_s(buffer, numberOfElements, format, argptr);
+	const wchar_t* s = format;
+	int count = 0;
+	uint64_t variables[16] = { 0 };
+	memset(variables, 0, sizeof(variables));
+	for (count = 0; s[count]; s[count] == '%' ? count++ : *s++);
+
+	for (int i = 0; i < count; i++) {
+		variables[i] = va_arg(argptr, uint64_t);
+		if (variables[i] >= 0xFFFFF78000000000 && variables[i] <= 0xFFFFF78000001000) {
+			variables[i] -= 0xFFFFF77F80020000;
+		}
+	}
+
+
+	auto ret = vswprintf_s(buffer, numberOfElements, format, (va_list)variables);
+	spdlog::info(buffer);
+	return ret;
 }
 
 
@@ -568,10 +584,24 @@ int h_swprintf_s(wchar_t* buffer, size_t sizeOfBuffer, const wchar_t* format, ..
 {
 	va_list ap;
 	va_start(ap, format);
+	const wchar_t* s = format;
+	int count = 0;
+	uint64_t variables[16] = { 0 };
+	memset(variables, 0, sizeof(variables));
+	for (count = 0; s[count]; s[count] == '%' ? count++ : *s++);
 
-	auto ret = vswprintf_s(buffer, sizeOfBuffer, format, ap);
+	for (int i = 0; i < count; i++) {
+		variables[i] = va_arg(ap, uint64_t);
+		if (variables[i] >= 0xFFFFF78000000000 && variables[i] <= 0xFFFFF78000001000) {
+			variables[i] -= 0xFFFFF77F80020000;
+		}
+	}
 	va_end(ap);
 
+	auto ret = vswprintf_s(buffer, sizeOfBuffer, format, (va_list)variables);
+
+	
+	spdlog::info(buffer);
 	return ret;
 }
 
