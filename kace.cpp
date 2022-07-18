@@ -455,9 +455,10 @@ int main(int argc, char* argv[]) {
 
 	//logging setup
 
-    auto logger = spdlog::basic_logger_mt("console and file logger", "kace_log.txt");
-
-	spdlog::set_default_logger(logger);
+	// Uncomment to log to a file
+    //auto logger = spdlog::basic_logger_mt("console and file logger", "kace_log.txt");
+	//
+	//spdlog::set_default_logger(logger);
 
     spdlog::set_pattern("[kace-%t] %v");
     spdlog::info("Loading modules");
