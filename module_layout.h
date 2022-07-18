@@ -464,13 +464,13 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
                 VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
             else {
 #ifdef MONITOR_ACCESS
-                VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
+                VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
 #elif MONITOR_DATA_ACCESS 1 //THIS NEEDS A REWORK
-                if (section->name() != ".rdata" && section->name() != ".idata" && section->name() != ".edata" && section->name() != ".text") {
-                    VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
+                if (SectionName != ".rdata" && SectionName != ".idata" && SectionName != ".edata" && SectionName != ".text") {
+                    VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
             }
                 else {
-                    VirtualProtect((PVOID)(MappedModules[i].base + section->virtual_address()), sectionSize, PAGE_READONLY, &oldAccess);
+                    VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY, &oldAccess);
                 }
 #else
                 VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY, &oldAccess);

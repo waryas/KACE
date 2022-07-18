@@ -68,10 +68,42 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 				}
 				else { //We're gonna pass the real module to the driver
 					//loadedmodules->Modules[i].ImageBase = 0;
-					loadedmodules->Modules[i].LoadCount = 0;
+					//loadedmodules->Modules[i].LoadCount = 0;
 				}
 			}
 		    spdlog::info("base of system is : {:p}", (PVOID)*reinterpret_cast<uint64_t*>(ptr + 0x18));
+
+		} else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
+			auto ptr = (char*)SystemInformation;
+			//*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
+			_SYSTEM_MODULE_EX* pMods = (_SYSTEM_MODULE_EX*)(SystemInformation);
+			ulong SizeRead = 0;
+			ulong NumModules = 0;
+
+			while ((SizeRead + sizeof(_SYSTEM_MODULE_EX)) <= *ReturnLength)
+			{
+				
+
+				char* modulename = (char*)pMods->FullDllName;
+				while (strstr(modulename, "\\"))
+					modulename++;
+
+				auto modulebase = GetModuleBase(modulename);
+				if (modulebase) {
+					printf("Patching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
+					pMods->ImageBase = (PVOID)modulebase;
+				}
+				else { //We're gonna pass the real module to the driver
+					//loadedmodules->Modules[i].ImageBase = 0;
+					pMods->LoadCount = 0;
+				}
+
+				NumModules++;
+				pMods++;
+				SizeRead += sizeof(_SYSTEM_MODULE_EX);
+			}
+
+			printf("base of system is : %llx\n", *(uint64_t*)(ptr + 0x18));
 
 		}
 		else if (SystemInformationClass == 0x5a) {
@@ -569,6 +601,9 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 	return 0;
 }
 
+void h_KeInitializeTimer(_KTIMER* Timer) {
+	InitializeListHead(&Timer->TimerListEntry);
+}
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context)
 {
     spdlog::info("BroadcastFunction: {:p}", static_cast<const void*>(BroadcastFunction));
@@ -585,8 +620,19 @@ _SLIST_ENTRY* h_ExpInterlockedPopEntrySList(PSLIST_HEADER SListHead)
 	return 0;
 }
 
+typedef struct _CALLBACK_OBJECT
+{
+	ULONG Signature;
+	KSPIN_LOCK Lock;
+	LIST_ENTRY RegisteredCallbacks;
+	BOOLEAN AllowMultipleCallbacks;
+	UCHAR reserved[3];
+} CALLBACK_OBJECT;
+
 NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool Create, bool AllowMultipleCallbacks)
 {
+	OBJECT_ATTRIBUTES* oa = (OBJECT_ATTRIBUTES*)ObjectAttributes;
+	_CALLBACK_OBJECT* co = (_CALLBACK_OBJECT * )CallbackObject;
 
 	return STATUS_SUCCESS;
 }

@@ -61,6 +61,7 @@ LONG h_KeReleaseMutex(
 );
 UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock);
 void h_KeReleaseSpinLock(PKSPIN_LOCK SpinLock, UCHAR NewIrql);
+void h_KeInitializeTimer(_KTIMER* Timer);
 BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc);
 NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval);
 NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout);
@@ -409,6 +410,7 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{"swprintf_s", {1, h_swprintf_s}},
 	{ "wcscpy_s", {1, h_wcscpy_s}},
 	{"wcscat_s", {1, h_wcscat_s}},
-	{ "KeIpiGenericCall", {1, h_KeIpiGenericCall} }
+	{ "KeIpiGenericCall", {1, h_KeIpiGenericCall} },
+	{ "KeInitializeTimer", {1, h_KeInitializeTimer} }
 	
 };

@@ -2191,3 +2191,27 @@ struct _ERESOURCE
     };
     ULONGLONG SpinLock;                                                     //0x60
 };
+
+#define ushort unsigned short
+#define ulong unsigned long
+#define ulonglong uint64_t
+
+struct _SYSTEM_MODULE_EX
+{
+    ushort Size;//at 0x0
+    ushort Pad0;//at 0x2
+    ulong Pad1;//at 0x4
+    ulonglong Pad2;//at 0x8
+    ulonglong AlwaysZero;//at 0x10
+    void* ImageBase;//at 0x18
+    ulong SizeOfImage;//at 0x20
+    ulong Flags;//at 0x24
+    ushort Index;//at 0x28
+    ushort bUserMode;//at 0x2A,0 kernelmodule,sameas Index user
+    ushort LoadCount;//at 0x2C
+    ushort BaseNameOffset;//at 0x2E
+    unsigned char FullDllName[0x100];//at 0x30
+    ulong CheckSum;//at 0x130
+    ulong PadZero0;//at 0x134
+    ulonglong PadZero1;//at 0x138
+};

@@ -5,6 +5,11 @@
 #include <cstdlib>
 
 #include "ntoskrnl_provider.h"
+
+//#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
+
+#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
+
 #include "pefile.h"
 #include "provider.h"
 
@@ -34,13 +39,14 @@ uint64_t passthrough(...)
 uintptr_t lastPG = 0;
 
 //From waryas machine, no hv, clean install
-uint64_t cr0 = 0x80050033;
+uint64_t cr0 = 0x8005003b;
+uint64_t cr3 = 0x1ad002000000;
 uint64_t cr4 = 0x370678;
-
+uint64_t cr8 = 0;
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
-	auto offset = GetMainModule()->base - ep;
+	auto offset =  ep - GetMainModule()->base;
 
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
@@ -50,30 +56,47 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		if (ptr == 0xc0200f44) //mov eax, cr8
 		{
 			// mov rax, cr8
-			e->ContextRecord->Rax = 0;
+			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		} else if (ptr == 0x00200f44) // mov rax, cr8
 		{
 			// mov rax, cr8
-			e->ContextRecord->Rax = 0;
+			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xD8) { //mov rax, cr3
+			printf("Reading CR3\n");
+			e->ContextRecord->Rax = cr3;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x22 && ptrBuffer[2] == 0xD8) { //mov cr3, rax
+			//e->ContextRecord->Rax = 0;
+			printf("CHANGING CR3 to %llx\n", e->ContextRecord->Rax);
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC1) {
+			printf("Reading CR0 into RCX\n");
 			e->ContextRecord->Rcx = cr0;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0xFA) { //CLEAR INTERRUPT
 			e->ContextRecord->Rip += 1;
+			printf("Clearing interrupt\n");
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0xFB) { //RESTORE INTERRUPT
 			e->ContextRecord->Rip += 1;
+			printf("Restoring interrupt\n");
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFE) { //mov dr7, rsi
+			printf("Clearing DR7\n");
 			e->ContextRecord->Dr7 = e->ContextRecord->Rsi;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -136,7 +159,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
 		case READ_VIOLATION:
-			if (bufferopcode[0] == 0xa1
+			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
+				printf("--CHECKING FOR PATCHGUARD--\n");
+				e->ContextRecord->Rip += 2;
+			}
+			else if (bufferopcode[0] == 0xa1
 				&& bufferopcode[1] == 0x6c
 				&& bufferopcode[2] == 0x02
 				&& bufferopcode[3] == 0x00
