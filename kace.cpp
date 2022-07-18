@@ -204,14 +204,8 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
 	{
 		DWORD oldProtect;
-		if (!FindModule(lastPG))
-		{
-			VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
 
-		}
-		else {
-			VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
-		}
+		VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
 
 		lastPG = 0;
 		return EXCEPTION_CONTINUE_EXECUTION;
