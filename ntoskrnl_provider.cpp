@@ -616,6 +616,9 @@ errno_t h_wcscat_s(
 	size_t numberOfElements,
 	const wchar_t* strSource
 ) {
+	if ((uint64_t)strSource >= 0xFFFFF78000000000 && (uint64_t)strSource <= 0xFFFFF78000001000) {
+		strSource = (wchar_t*)((uint64_t)strSource - 0xFFFFF77F80020000);
+	}
 	return wcscat_s(strDestination, numberOfElements, strSource);
 
 }
