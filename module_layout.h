@@ -18,6 +18,7 @@
 #define GB 1024 * MB
 #define MEMORY_ALLOCATION (1 * MB)
 
+
 #include <malloc.h>
 #include <spdlog/spdlog.h>
 
@@ -464,9 +465,6 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
                 VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
             else {
 
-#ifndef MONITOR_ACCESS
-#define MONITOR_DATA_ACCESS
-#endif
 
 #ifdef MONITOR_ACCESS
                 VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);

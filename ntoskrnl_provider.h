@@ -7,10 +7,13 @@
 #include <shlwapi.h>
 #pragma comment(lib, "Shlwapi.lib")
 
-inline _ETHREAD FakeKernelThread = { 0 };
-inline _EPROCESS FakeSystemProcess = { 0 };
-inline _KPCR FakeKPCR = { 0 };
-inline _KPRCB FakeCPU = { 0 };
+#pragma section("fakek",read,write)
+
+#define KERNELDATA inline __declspec(align(0x1000), allocate("fakek")) 
+KERNELDATA _ETHREAD FakeKernelThread = {0};
+KERNELDATA _EPROCESS FakeSystemProcess = { 0 };
+KERNELDATA _KPCR FakeKPCR = { 0 };
+KERNELDATA _KPRCB FakeCPU = { 0 };
 
 //Ex*
 

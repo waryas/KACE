@@ -22,6 +22,9 @@
     <ClInclude Include="pefile.h">
       <Filter>PEMapper</Filter>
     </ClInclude>
+    <ClInclude Include="memorytracker.hpp">
+      <Filter>modules</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />

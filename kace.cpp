@@ -8,13 +8,15 @@
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-#define MONITOR_DATA_ACCESS//This will monitor every read/write with a page_guard - SLOW - Better debugging
+//#define MONITOR_DATA_ACCESS//This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 #include "pefile.h"
 #include "provider.h"
 
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/spdlog.h"
+
+#include "memorytracker.hpp"
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
@@ -27,6 +29,7 @@ _DRIVER_OBJECT drvObj = { 0 };
 UNICODE_STRING RegistryPath = { 0 };
 
 #define READ_VIOLATION 0
+#define WRITE_VIOLATION 1
 #define EXECUTE_VIOLATION 8
 
 uint64_t passthrough(...)
@@ -136,6 +139,20 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
                spdlog::info("\033[38;5;46m[Accessing]\033[0m {}", accessedChar);
 			}
 
+		} else if (!FindModule(lastPG))
+		{
+			
+			if (MemoryTracker::isTracked(lastPG)) {
+				auto namevar = MemoryTracker::getName(lastPG);
+				auto offset = e->ExceptionRecord->ExceptionInformation[1] - MemoryTracker::getStart(namevar);
+				printf("LOCAL ACCESS : %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
+
+			}
+			else {
+				printf("WEIRD, CONTACT WARYAS");
+				exit(0);
+			}
+
 		}
 		else
 		{
@@ -160,7 +177,15 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
 	{
 		DWORD oldProtect;
-		VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READONLY | PAGE_GUARD, &oldProtect);
+		if (!FindModule(lastPG))
+		{
+			VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
+
+		}
+		else {
+			VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READONLY | PAGE_GUARD, &oldProtect);
+		}
+
 		lastPG = 0;
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
@@ -170,6 +195,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		auto addr_access = e->ExceptionRecord->ExceptionInformation[1];
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
+		case WRITE_VIOLATION:
+			printf("Tryign to write, not handled\n");
+			exit(0);
+			break;
+
 		case READ_VIOLATION:
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
 				printf("--CHECKING FOR PATCHGUARD--\n");
@@ -475,6 +505,17 @@ DWORD FakeDriverEntry(LPVOID)
 	
 	__writeeflags(0x10286);
 
+	MemoryTracker::Initiate();
+
+	MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
+	MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
+
+	MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
+	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
+
+
+	FakeKPCR.Self = (_KPCR*) & FakeKPCR.Self;
+
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	spdlog::info("Done! = {}", result);
 	system("pause");
@@ -515,8 +556,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
+	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
 	
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 

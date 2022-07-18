@@ -155,6 +155,7 @@
     <ClCompile Include="provider.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="memorytracker.hpp" />
     <ClInclude Include="module_layout.h" />
     <ClInclude Include="ntoskrnl_provider.h" />
     <ClInclude Include="ntoskrnl_struct.h" />
