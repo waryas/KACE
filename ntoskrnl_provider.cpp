@@ -153,6 +153,7 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	UNICODE_STRING TempBuffer;
 	TempBuffer.Buffer = (wchar_t*)malloc(512);
 	memset(TempBuffer.Buffer, 0, 512);
+
 	wcscat(TempBuffer.Buffer, L"\\??\\C:\\kace");
 	wcscat(TempBuffer.Buffer, OLDBuffer->Buffer);
 	TempBuffer.Buffer[12] = 'c';
@@ -163,6 +164,8 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	ObjectAttributes->ObjectName = &TempBuffer;
 	ObjectAttributes->Attributes = 0x00000040;
 	spdlog::info(L"Creating file : {}", ObjectAttributes->ObjectName->Buffer);
+	if (DesiredAccess == 0xC0000000) 
+		DesiredAccess = 0xC0100080;
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, Disposition, CreateOptions, EaBuffer, EaLength);
     spdlog::info("Return : {}", ret);
 	ObjectAttributes->ObjectName = OLDBuffer;

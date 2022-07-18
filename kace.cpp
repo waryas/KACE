@@ -556,8 +556,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
+	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
 	
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
