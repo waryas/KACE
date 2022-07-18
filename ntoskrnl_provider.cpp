@@ -2,6 +2,7 @@
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
+#include "spdlog/spdlog.h"
 
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag)
 { //TODO tracking of alloc
@@ -46,9 +47,9 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 	auto x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 
-	printf("Class %08x status : %08x\n", SystemInformationClass, x);
+	spdlog::info("Class {} status : {}", SystemInformationClass, x);
 	if (x == 0) {
-		printf("Class %08x success\n", SystemInformationClass);
+		spdlog::info("Class {} success", SystemInformationClass);
 		if (SystemInformationClass == 0xb) { //SystemModuleInformation
 			auto ptr = (char*)SystemInformation;
 			//*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
@@ -62,7 +63,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 				auto modulebase = GetModuleBase(modulename);
 				if (modulebase) {
-					printf("Patching %s base from %llx to %llx\n", modulename, loadedmodules->Modules[i].ImageBase, modulebase);
+				    spdlog::info("Patching {} base from {:p} to {:p}", modulename, (PVOID)loadedmodules->Modules[i].ImageBase,(PVOID)modulebase);
 					loadedmodules->Modules[i].ImageBase = modulebase;
 				}
 				else { //We're gonna pass the real module to the driver
@@ -70,12 +71,12 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 					loadedmodules->Modules[i].LoadCount = 0;
 				}
 			}
-			printf("base of system is : %llx\n", *(uint64_t*)(ptr + 0x18));
+		    spdlog::info("base of system is : {:p}", (PVOID)*reinterpret_cast<uint64_t*>(ptr + 0x18));
 
 		}
 		else if (SystemInformationClass == 0x5a) {
 			SYSTEM_BOOT_ENVIRONMENT_INFORMATION* pBootInfo = (SYSTEM_BOOT_ENVIRONMENT_INFORMATION*)SystemInformation;
-			printf("%llx\n", pBootInfo);
+			spdlog::info("{}", (void*)pBootInfo);
 
 		}
 
@@ -85,7 +86,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 uint64_t h_RtlRandomEx(unsigned long* seed)
 {
-	printf("Seed is %08x\n", *seed);
+	spdlog::info("Seed is {}", *seed);
 	auto ret = __NtRoutine("RtlRandomEx", seed);
 	*seed = ret; //Keep behavior kinda same as Kernel equivalent in case of check
 	return ret;
@@ -129,9 +130,9 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	TempBuffer.MaximumLength = wcslen(TempBuffer.Buffer) * 2;
 	ObjectAttributes->ObjectName = &TempBuffer;
 	ObjectAttributes->Attributes = 0x00000040;
-	printf("Creating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
+	spdlog::info(L"Creating file : {}", ObjectAttributes->ObjectName->Buffer);
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, Disposition, CreateOptions, EaBuffer, EaLength);
-	printf("Return : %x\n", ret);
+    spdlog::info("Return : {}", ret);
 	ObjectAttributes->ObjectName = OLDBuffer;
 	free(TempBuffer.Buffer);
 
@@ -151,7 +152,7 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
 NTSTATUS h_RtlGetVersion(RTL_OSVERSIONINFOW* lpVersionInformation)
 {
 	auto ret = __NtRoutine("RtlGetVersion", lpVersionInformation);
-	printf("%d.%d\n", lpVersionInformation->dwMajorVersion, lpVersionInformation->dwMinorVersion);
+	spdlog::info("{}.{}", lpVersionInformation->dwMajorVersion, lpVersionInformation->dwMinorVersion);
 	return ret;
 }
 
@@ -164,7 +165,7 @@ EXCEPTION_DISPOSITION _c_exception(_EXCEPTION_RECORD* ExceptionRecord, void* Est
 NTSTATUS h_RtlMultiByteToUnicodeN(PWCH UnicodeString, ULONG MaxBytesInUnicodeString, PULONG BytesInUnicodeString,
 	const CHAR* MultiByteString, ULONG BytesInMultiByteString)
 {
-	printf("Trying to convert : %s\n", MultiByteString);
+	spdlog::info("Trying to convert : {}", MultiByteString);
 	return __NtRoutine("RtlMultiByteToUnicodeN", UnicodeString, MaxBytesInUnicodeString, BytesInUnicodeString, MultiByteString, BytesInMultiByteString);
 }
 
@@ -182,9 +183,9 @@ NTSTATUS h_NtCreateFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_AT
 	PVOID IoStatusBlock, PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess,
 	ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength)
 {
-	printf("Creating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
+    spdlog::info(L"Creating file : {}", ObjectAttributes->ObjectName->Buffer);
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-	printf("Return : %x\n", ret);
+	spdlog::info("Return : {}", ret);
 	return ret;
 }
 
@@ -198,7 +199,7 @@ NTSTATUS h_NtReadFile(HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID A
 NTSTATUS h_NtQueryInformationFile(HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, ULONG Length,
 	FILE_INFORMATION_CLASS FileInformationClass)
 {
-	printf("QueryInformationFile with class %d\n", FileInformationClass);
+	spdlog::info("QueryInformationFile with class {}", FileInformationClass);
 	auto ret = __NtRoutine("NtQueryInformationFile", FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 	return ret;
 }
@@ -213,7 +214,7 @@ NTSTATUS h_ZwQueryValueKey(HANDLE KeyHandle, PUNICODE_STRING ValueName,
 NTSTATUS h_ZwOpenKey(PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes)
 {
 	auto ret = __NtRoutine("NtOpenKey", KeyHandle, DesiredAccess, ObjectAttributes);
-	printf("Try to open %ls : %x\n", ObjectAttributes->ObjectName->Buffer, ret);
+    spdlog::info(L"Try to open {} : {}", ObjectAttributes->ObjectName->Buffer, ret);
 	return ret;
 }
 
@@ -232,7 +233,7 @@ NTSTATUS h_ZwClose(PHANDLE Handle)
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData,
 	ULONG ValueLength)
 {
-	printf("Writing to %ls - %ls : %x\n", Path, ValueName, *(uint64_t*)ValueData);
+    spdlog::info(L"Writing to {} - {}  {:p}", Path, ValueName, *(const PVOID*)ValueData);
 	auto ret = __NtRoutine("RtlWriteRegistryValue", RelativeTo, Path, ValueName, ValueType, ValueData, ValueLength);
 	return ret;
 }
@@ -248,19 +249,19 @@ NTSTATUS h_ZwQueryFullAttributesFile(OBJECT_ATTRIBUTES* ObjectAttributes,
 {
 
 	auto ret = __NtRoutine("NtQueryFullAttributesFile", ObjectAttributes, FileInformation);
-	printf("Querying information for %ls : %x\n", ObjectAttributes->ObjectName->Buffer, ret);
+    spdlog::info(L"Querying information for {} : {}", ObjectAttributes->ObjectName->Buffer, ret);
 	return ret;
 }
 
 PVOID h_PsGetProcessWow64Process(_EPROCESS* Process)
 {
-	printf("Requesting WoW64 for process : %llx (id : %d)\n", Process, Process->UniqueProcessId);
+	spdlog::info("Requesting WoW64 for process : {} (id : {})", (const PVOID)Process, Process->UniqueProcessId);
 	return Process->WoW64Process;
 }
 
 NTSTATUS h_IoWMIOpenBlock(LPCGUID Guid, ULONG DesiredAccess, PVOID* DataBlockObject)
 {
-	printf("WMI GUID : %llx-%llx-%llx-%llx with access : %08x\n", Guid->Data1, Guid->Data2, Guid->Data3, Guid->Data4, DesiredAccess);
+	//pdlog::info("WMI GUID : {}-{}-{}-{} with access : {}", Guid->Data1, Guid->Data2, Guid->Data3, Guid->Data4, DesiredAccess);
 	return STATUS_SUCCESS;
 }
 
@@ -278,7 +279,7 @@ uint64_t h_ObfDereferenceObject(PVOID obj)
 
 NTSTATUS h_PsLookupThreadByThreadId(HANDLE ThreadId, PVOID* Thread)
 {
-	printf("Thread ID : %llx is being investigated.\n", ThreadId);
+    spdlog::info("Thread ID : {} is being investigated.", reinterpret_cast<long long>(ThreadId));
 	auto ct = h_KeGetCurrentThread();
 
 	if (ThreadId == (HANDLE)4) {
@@ -331,7 +332,7 @@ NTSTATUS h_ObOpenObjectByPointer(
 
 
 NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, PULONG ReturnLength) {
-	printf("Unimplemented function call detected\n");
+	spdlog::warn("Unimplemented function call detected");
 	return STATUS_SUCCESS;
 }
 
@@ -358,16 +359,16 @@ void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex)
 
 LONG_PTR h_ObfReferenceObject(PVOID Object)
 {
-	//  printf("Trying to get reference for %llx\n", Object);
+	//  spdlog::info("Trying to get reference for %llx", Object);
 	if (!Object)
 		return -1;
 	if (Object == (PVOID)&FakeSystemProcess) {
-		//printf("Increasing ref by 1\n");
+		spdlog::info("Increasing ref by 1");
 		return (LONG_PTR)&FakeSystemProcess;
 	}
 	else {
-		printf("Failed\n");
-		printf("%llx\n", Object);
+		spdlog::info("Failed");
+		spdlog::info("{:p}", Object);
 	}
 
 	return 0;
@@ -375,13 +376,13 @@ LONG_PTR h_ObfReferenceObject(PVOID Object)
 
 LONGLONG h_PsGetProcessCreateTimeQuadPart(_EPROCESS* process)
 {
-	printf("Trying to get creation time for %llx\n", process);
+    spdlog::info("\t\tTrying to get creation time for {:p}", (const void*)process);
 	return process->CreateTime.QuadPart;
 }
 
 LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN CaseInSensitive)
 {
-	printf("Comparing %s to %s\n", String1->Buffer, String2->Buffer);
+    spdlog::info("\t\tComparing {} to {}", String1->Buffer, String2->Buffer);
 	auto ret = __NtRoutine("RtlCompareString", String1, String2, CaseInSensitive);
 	return ret;
 }
@@ -389,7 +390,7 @@ LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN Ca
 NTSTATUS h_PsLookupProcessByProcessId(HANDLE ProcessId, _EPROCESS** Process)
 {
 
-	printf("Process %llx EPROCESS being retrieved\n", ProcessId);
+	spdlog::info("\t\tProcess {} EPROCESS being retrieved", ProcessId);
 
 	if (ProcessId == (HANDLE)4) {
 		*Process = &FakeSystemProcess;
@@ -438,13 +439,13 @@ NTSTATUS h_NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS Proc
 
 
 		auto ret = __NtRoutine("NtQueryInformationProcess", ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
-		printf("ProcessInformation for handle %llx - class %0x - ret : %x\n", ProcessHandle, ProcessInformationClass, ret);
+		spdlog::info("ProcessInformation for handle {} - class {} - ret : {}", ProcessHandle, ProcessInformationClass, ret);
 		*(DWORD*)ProcessInformation = 1; //We are critical
 		return ret;
 	}
 	else {
 		auto ret = __NtRoutine("NtQueryInformationProcess", ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
-		printf("ProcessInformation for handle %llx - class %0x - ret : %x\n", ProcessHandle, ProcessInformationClass, ret);
+	    spdlog::info("ProcessInformation for handle {} - class {} - ret : {}", ProcessHandle, ProcessInformationClass, ret);
 		return ret;
 	}
 
@@ -484,7 +485,7 @@ PACCESS_TOKEN h_PsReferencePrimaryToken(_EPROCESS* Process)
 	if (v5 > 1)
 		a1 = (_EX_FAST_REF*)v6;
 
-	printf("Returning Token : %llx\n", a1);
+	spdlog::info("Returning Token : {:p}", (const void*)a1);
 	return a1;
 }
 
@@ -494,7 +495,7 @@ NTSTATUS h_SeQueryInformationToken(PACCESS_TOKEN Token, TOKEN_INFORMATION_CLASS 
 	PVOID* TokenInformation)
 {
 	//TODO NOT IMPLEMENTED
-	printf("Token : %llx - Class : %08x\n", Token, TokenInformationClass);
+    spdlog::info("Token : {:p} - Class : {}", (const void*)Token, (int)TokenInformationClass);
 	if (TokenInformationClass == 0x19) { //IsAppContainer
 		*(DWORD*)TokenInformation = 0; //We are not a appcontainer.
 	}
@@ -508,7 +509,7 @@ void h_IoDeleteController(PVOID ControllerObject)
 {
 	_EX_FAST_REF* ref = (_EX_FAST_REF*)ControllerObject;
 	//TODO This needs to dereference the object  -- Check ntoskrnl.exe code
-	printf("Deleting controller : %llx\n", ControllerObject);
+        spdlog::info("Deleting controller : {:p}", static_cast<const void*>(ControllerObject));
 	return;
 }
 
@@ -516,7 +517,7 @@ NTSTATUS h_RtlDuplicateUnicodeString(int add_nul, const UNICODE_STRING* source, 
 {
 
 	auto ret = __NtRoutine("RtlDuplicateUnicodeString", add_nul, source, destination);
-	printf("RtlDuplicateUnicodeString : %llx\n", ret);
+	spdlog::info("RtlDuplicateUnicodeString : {}", ret);
 	return ret;
 }
 
@@ -570,10 +571,10 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context)
 {
-	printf("BroadcastFunction: %p\n", BroadcastFunction);
-	printf("Content: %p\n", Context);
-	auto ret = ((__int64(__fastcall *)(ULONG_PTR))BroadcastFunction)(Context);
-	printf("IPI Returned : %llx\n", ret);
+    spdlog::info("BroadcastFunction: {:p}", static_cast<const void*>(BroadcastFunction));
+    spdlog::info("Content: {:p}", reinterpret_cast<const void*>(Context));
+	auto ret = static_cast<long long(*)(ULONG_PTR)>(BroadcastFunction)(Context);
+	spdlog::info("IPI Returned : {}", ret);
 	return ret;
 
 	//return 0;
@@ -693,7 +694,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	wchar_t* wStr = SystemRoutineName->Buffer;
 	PVOID funcptr = 0;
 	wcstombs(cStr, SystemRoutineName->Buffer, 256);
-	printf("\t\t%s - ", cStr);
+	spdlog::info("{}", cStr);
 
 
 	if (constantTimeExportProvider.contains(cStr)) {
@@ -701,7 +702,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	}
 
 	if (funcptr) {//Was it static exported variable 
-		printf(prototypedMsg);
+		spdlog::info(prototypedMsg);
 		return funcptr;
 	}
 
@@ -713,20 +714,20 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 		if (funcptr == nullptr) {
 			
 #ifdef STUB_UNIMPLEMENTED
-			printf("\033[38;5;9mUSING STUB\033[0m\n");
+			spdlog::info("\033[38;5;9mUSING STUB\033[0m");
 			funcptr = unimplemented_stub;
 #else
-			printf("\033[38;5;9mNOT_IMPLEMENTED\033[0m\n");
+			spdlog::info("\033[38;5;9mNOT_IMPLEMENTED\033[0m");
 			funcptr = 0;
 			exit(0);
 #endif
 		}
 		else {
-			printf(passthroughMsg);
+			spdlog::info(passthroughMsg);
 		}
 	}
 	else {
-		printf(prototypedMsg);
+		spdlog::info(prototypedMsg);
 	}
 
 	return funcptr;
@@ -741,13 +742,17 @@ HANDLE h_PsGetThreadProcessId(_ETHREAD* Thread) {
 HANDLE h_PsGetThreadProcess(_ETHREAD* Thread) {
 	if (Thread) {
 		//todo impl
-		printf("h_PsGetThreadProcess un impl!\n");
+		spdlog::warn("h_PsGetThreadProcess un impl!");
 		return 0;
 	} return 0;
 }
 
-void h_ProbeForRead(void* address, size_t len, ULONG align) { printf("ProbeForRead -> %p(len: %d) align: %d\n", address, len, align); }
-void h_ProbeForWrite(void* address, size_t len, ULONG align) { printf("ProbeForWrite -> %p(len: %d) align: %d\n", address, len, align); }
+void h_ProbeForRead(void* address, size_t len, ULONG align) {
+    spdlog::info("ProbeForRead -> {:p}(len: {}) align: {}", address, len, align);
+}
+void h_ProbeForWrite(void* address, size_t len, ULONG align) {
+    spdlog::info("ProbeForWrite -> {:p}(len: {}) align: {}", address, len, align);
+}
 
 
 
@@ -795,7 +800,7 @@ NTSTATUS h_PsCreateSystemThread(
 //todo impl 
 NTSTATUS h_PsTerminateSystemThread(
 	NTSTATUS exitstatus) {
-	printf("thread boom\n"); __debugbreak(); int* a = 0; *a = 1; return 0;
+	printf("thread boom"); __debugbreak(); int* a = 0; *a = 1; return 0;
 }
 
 //todo impl
@@ -823,7 +828,7 @@ void h_IoDeleteDevice(_DEVICE_OBJECT* obj) {
 
 //todo definitely will blowup
 void* h_IoGetTopLevelIrp() {
-	printf("IoGetTopLevelIrp blows up sorry\n");
+    spdlog::warn("IoGetTopLevelIrp blows up sorry");
 	static int irp = 0;
 	return &irp;
 }
@@ -835,7 +840,7 @@ NTSTATUS h_ObReferenceObjectByHandle(
 	uint64_t AccessMode,
 	PVOID* Object,
 	void* HandleInformation) {
-	printf("h_ObReferenceObjectByHandle blows up sorry\n");
+    spdlog::warn("h_ObReferenceObjectByHandle blows up sorry");
 	return -1;
 }
 
