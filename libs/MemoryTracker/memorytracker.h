@@ -27,4 +27,9 @@ private:
     std::unordered_map<uint64_t, std::string> mapping;
     std::unordered_map<std::string, uint64_t> firstAlloc;
 
+    MemoryTracker() {
+        mapping.clear();
+        firstAlloc.clear();
+        return;
+    }
 };

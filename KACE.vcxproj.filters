@@ -31,6 +31,9 @@
     <ClCompile Include="provider.cpp">
       <Filter>provider</Filter>
     </ClCompile>
+    <ClCompile Include="static_export_provider.cpp">
+      <Filter>provider\ntoskrnl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="modules">

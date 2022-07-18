@@ -21,3 +21,6 @@
 builds
 .vs
 x64/Release/KACE.exp
+*.xml
+*.sarif
+*.lastcodeanalysissucceeded

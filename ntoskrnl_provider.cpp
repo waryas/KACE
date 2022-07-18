@@ -6,6 +6,18 @@
 
 #include "spdlog/spdlog.h"
 
+
+using fnFreeCall = uint64_t(__fastcall*)(...);
+
+template <typename... Params>
+static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
+	auto fn = (fnFreeCall)GetProcAddress(GetModuleHandleA("ntdll.dll"), Name);
+	return fn(std::forward<Params>(params)...);
+}
+
+#define NtQuerySystemInformation(...) __NtRoutine("NtQuerySystemInformation", __VA_ARGS__)
+
+
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
 	return _aligned_malloc(size, 0x1000);;
 }
@@ -54,7 +66,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 				auto modulebase = GetModuleBase(modulename);
 				if (modulebase) {
-				    spdlog::info("Patching {} base from {:p} to {:p}", modulename, (PVOID)loadedmodules->Modules[i].ImageBase,(PVOID)modulebase);
+					spdlog::info("Patching {} base from {:p} to {:p}", modulename, (PVOID)loadedmodules->Modules[i].ImageBase, (PVOID)modulebase);
 					loadedmodules->Modules[i].ImageBase = modulebase;
 				}
 				else { //We're gonna pass the real module to the driver
@@ -64,9 +76,10 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 			}
 			//MemoryTracker::TrackVariable((uintptr_t)ptr, SystemInformationLength, (char*)"NtQuerySystemInformation"); BAD IDEA
 
-		    spdlog::info("base of system is : {:p}", (PVOID)*reinterpret_cast<uint64_t*>(ptr + 0x18));
+			spdlog::info("base of system is : {:p}", (PVOID) * reinterpret_cast<uint64_t*>(ptr + 0x18));
 
-		} else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
+		}
+		else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
 			auto ptr = (char*)SystemInformation;
 			//*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
 			_SYSTEM_MODULE_EX* pMods = (_SYSTEM_MODULE_EX*)(SystemInformation);
@@ -75,7 +88,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 			while ((SizeRead + sizeof(_SYSTEM_MODULE_EX)) <= *ReturnLength)
 			{
-				
+
 
 				char* modulename = (char*)pMods->FullDllName;
 				while (strstr(modulename, "\\"))
@@ -85,12 +98,12 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 				if (modulebase) {
 					printf("Patching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
 					pMods->ImageBase = (PVOID)modulebase;
-					
+
 				}
 				else { //We're gonna pass the real module to the driver
 					pMods->ImageBase = 0;
-					
-					
+
+
 					pMods->LoadCount = 0;
 				}
 
@@ -143,7 +156,7 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength, void* CreateFileType, PVOID InternalParameters, ULONG Options,
 	void* DriverContext)
 {
-	
+
 	PUNICODE_STRING OLDBuffer;
 	OLDBuffer = ObjectAttributes->ObjectName;
 	UNICODE_STRING TempBuffer;
@@ -160,10 +173,10 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	ObjectAttributes->ObjectName = &TempBuffer;
 	ObjectAttributes->Attributes = 0x00000040;
 	spdlog::info(L"Creating file : {}", ObjectAttributes->ObjectName->Buffer);
-	if (DesiredAccess == 0xC0000000) 
+	if (DesiredAccess == 0xC0000000)
 		DesiredAccess = 0xC0100080;
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, Disposition, CreateOptions, EaBuffer, EaLength);
-    spdlog::info("Return : {}", ret);
+	spdlog::info("Return : {}", ret);
 	ObjectAttributes->ObjectName = OLDBuffer;
 	free(TempBuffer.Buffer);
 
@@ -172,7 +185,7 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 
 void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
 {
-	
+
 	/* Initialize the Dispatcher Header */
 	Event->Header.SignalState = State;
 	InitializeListHead(&Event->Header.WaitListHead);
@@ -215,7 +228,7 @@ NTSTATUS h_NtCreateFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_AT
 	PVOID IoStatusBlock, PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess,
 	ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength)
 {
-    spdlog::info(L"Creating file : {}", ObjectAttributes->ObjectName->Buffer);
+	spdlog::info(L"Creating file : {}", ObjectAttributes->ObjectName->Buffer);
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 	spdlog::info("Return : {}", ret);
 	return ret;
@@ -246,7 +259,7 @@ NTSTATUS h_ZwQueryValueKey(HANDLE KeyHandle, PUNICODE_STRING ValueName,
 NTSTATUS h_ZwOpenKey(PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes)
 {
 	auto ret = __NtRoutine("NtOpenKey", KeyHandle, DesiredAccess, ObjectAttributes);
-    spdlog::info(L"Try to open {} : {}", ObjectAttributes->ObjectName->Buffer, ret);
+	spdlog::info(L"Try to open {} : {}", ObjectAttributes->ObjectName->Buffer, ret);
 	return ret;
 }
 
@@ -265,7 +278,7 @@ NTSTATUS h_ZwClose(PHANDLE Handle)
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData,
 	ULONG ValueLength)
 {
-    spdlog::info(L"Writing to {} - {}  {:p}", Path, ValueName, *(const PVOID*)ValueData);
+	spdlog::info(L"Writing to {} - {}  {:p}", Path, ValueName, *(const PVOID*)ValueData);
 	auto ret = __NtRoutine("RtlWriteRegistryValue", RelativeTo, Path, ValueName, ValueType, ValueData, ValueLength);
 	return ret;
 }
@@ -281,7 +294,7 @@ NTSTATUS h_ZwQueryFullAttributesFile(OBJECT_ATTRIBUTES* ObjectAttributes,
 {
 
 	auto ret = __NtRoutine("NtQueryFullAttributesFile", ObjectAttributes, FileInformation);
-    spdlog::info(L"Querying information for {} : {}", ObjectAttributes->ObjectName->Buffer, ret);
+	spdlog::info(L"Querying information for {} : {}", ObjectAttributes->ObjectName->Buffer, ret);
 	return ret;
 }
 
@@ -311,7 +324,7 @@ uint64_t h_ObfDereferenceObject(PVOID obj)
 
 NTSTATUS h_PsLookupThreadByThreadId(HANDLE ThreadId, PVOID* Thread)
 {
-    spdlog::info("Thread ID : {} is being investigated.", reinterpret_cast<long long>(ThreadId));
+	spdlog::info("Thread ID : {} is being investigated.", reinterpret_cast<long long>(ThreadId));
 	auto ct = h_KeGetCurrentThread();
 
 	if (ThreadId == (HANDLE)4) {
@@ -408,13 +421,13 @@ LONG_PTR h_ObfReferenceObject(PVOID Object)
 
 LONGLONG h_PsGetProcessCreateTimeQuadPart(_EPROCESS* process)
 {
-    spdlog::info("\t\tTrying to get creation time for {:p}", (const void*)process);
+	spdlog::info("\t\tTrying to get creation time for {:p}", (const void*)process);
 	return process->CreateTime.QuadPart;
 }
 
 LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN CaseInSensitive)
 {
-    spdlog::info("\t\tComparing {} to {}", String1->Buffer, String2->Buffer);
+	spdlog::info("\t\tComparing {} to {}", String1->Buffer, String2->Buffer);
 	auto ret = __NtRoutine("RtlCompareString", String1, String2, CaseInSensitive);
 	return ret;
 }
@@ -477,7 +490,7 @@ NTSTATUS h_NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS Proc
 	}
 	else {
 		auto ret = __NtRoutine("NtQueryInformationProcess", ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
-	    spdlog::info("ProcessInformation for handle {} - class {} - ret : {}", ProcessHandle, ProcessInformationClass, ret);
+		spdlog::info("ProcessInformation for handle {} - class {} - ret : {}", ProcessHandle, ProcessInformationClass, ret);
 		return ret;
 	}
 
@@ -521,13 +534,13 @@ PACCESS_TOKEN h_PsReferencePrimaryToken(_EPROCESS* Process)
 	return a1;
 }
 
-TOKEN_PRIVILEGES kernelToken[31] = {0};
+TOKEN_PRIVILEGES kernelToken[31] = { 0 };
 
 NTSTATUS h_SeQueryInformationToken(PACCESS_TOKEN Token, TOKEN_INFORMATION_CLASS TokenInformationClass,
 	PVOID* TokenInformation)
 {
 	//TODO NOT IMPLEMENTED
-    spdlog::info("Token : {:p} - Class : {}", (const void*)Token, (int)TokenInformationClass);
+	spdlog::info("Token : {:p} - Class : {}", (const void*)Token, (int)TokenInformationClass);
 	if (TokenInformationClass == 0x19) { //IsAppContainer
 		*(DWORD*)TokenInformation = 0; //We are not a appcontainer.
 	}
@@ -541,7 +554,7 @@ void h_IoDeleteController(PVOID ControllerObject)
 {
 	_EX_FAST_REF* ref = (_EX_FAST_REF*)ControllerObject;
 	//TODO This needs to dereference the object  -- Check ntoskrnl.exe code
-        spdlog::info("Deleting controller : {:p}", static_cast<const void*>(ControllerObject));
+	spdlog::info("Deleting controller : {:p}", static_cast<const void*>(ControllerObject));
 	return;
 }
 
@@ -600,7 +613,7 @@ int h_swprintf_s(wchar_t* buffer, size_t sizeOfBuffer, const wchar_t* format, ..
 
 	auto ret = vswprintf_s(buffer, sizeOfBuffer, format, (va_list)variables);
 
-	
+
 	spdlog::info(buffer);
 	return ret;
 }
@@ -642,8 +655,8 @@ void h_KeInitializeTimer(_KTIMER* Timer) {
 }
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context)
 {
-    spdlog::info("BroadcastFunction: {:p}", static_cast<const void*>(BroadcastFunction));
-    spdlog::info("Content: {:p}", reinterpret_cast<const void*>(Context));
+	spdlog::info("BroadcastFunction: {:p}", static_cast<const void*>(BroadcastFunction));
+	spdlog::info("Content: {:p}", reinterpret_cast<const void*>(Context));
 	auto ret = static_cast<long long(*)(ULONG_PTR)>(BroadcastFunction)(Context);
 	spdlog::info("IPI Returned : {}", ret);
 	return ret;
@@ -670,7 +683,7 @@ CALLBACK_OBJECT test = { 0 };
 NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool Create, bool AllowMultipleCallbacks)
 {
 	OBJECT_ATTRIBUTES* oa = (OBJECT_ATTRIBUTES*)ObjectAttributes;
-	_CALLBACK_OBJECT** co = (_CALLBACK_OBJECT ** )CallbackObject;
+	_CALLBACK_OBJECT** co = (_CALLBACK_OBJECT**)CallbackObject;
 	printf("Callback object : %llx", CallbackObject);
 	printf("*Callback object : %llx", *co);
 	*co = (_CALLBACK_OBJECT*)0x10e4e9c820;
@@ -685,7 +698,7 @@ NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEG
 
 ULONG h_DbgPrompt(PCCH Prompt, PCH Response, ULONG Length)
 {
-	uint64_t a = (uint64_t)h_DbgPrompt >> 60 <<32  / h_KeDelayExecutionThread(0, 0, 0);
+	uint64_t a = (uint64_t)h_DbgPrompt >> 60 << 32 / h_KeDelayExecutionThread(0, 0, 0);
 	printf("%d", a);
 	strcpy(Response, "Your mom\n");
 	return 0x3000;
@@ -730,7 +743,7 @@ LONG h_KeSetEvent(_KEVENT* Event, LONG Increment, BOOLEAN Wait)
 {
 	LONG PreviousState;
 	_KTHREAD* Thread;
-	
+
 
 	/*
 	 * Check if this is an signaled notification event without an upcoming wait.
@@ -790,7 +803,7 @@ NTSTATUS h_PsSetCreateProcessNotifyRoutineEx(void* NotifyRoutine, BOOLEAN Remove
 
 UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock)
 {
-	
+
 	return (UCHAR)0x00;
 }
 
@@ -836,7 +849,7 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	if (funcptr == nullptr) {
 		funcptr = GetProcAddress(ntdll, cStr);
 		if (funcptr == nullptr) {
-			
+
 #ifdef STUB_UNIMPLEMENTED
 			spdlog::info("\033[38;5;9mUSING STUB\033[0m");
 			funcptr = unimplemented_stub;
@@ -872,10 +885,10 @@ HANDLE h_PsGetThreadProcess(_ETHREAD* Thread) {
 }
 
 void h_ProbeForRead(void* address, size_t len, ULONG align) {
-    spdlog::info("ProbeForRead -> {:p}(len: {}) align: {}", address, len, align);
+	spdlog::info("ProbeForRead -> {:p}(len: {}) align: {}", address, len, align);
 }
 void h_ProbeForWrite(void* address, size_t len, ULONG align) {
-    spdlog::info("ProbeForWrite -> {:p}(len: {}) align: {}", address, len, align);
+	spdlog::info("ProbeForWrite -> {:p}(len: {}) align: {}", address, len, align);
 }
 
 
@@ -893,7 +906,7 @@ int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list 
 //todo fix mutex bs
 void h_KeInitializeMutex(PVOID Mutex, ULONG level)
 {
-	
+
 }
 
 LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { return 0; }
@@ -952,7 +965,7 @@ void h_IoDeleteDevice(_DEVICE_OBJECT* obj) {
 
 //todo definitely will blowup
 void* h_IoGetTopLevelIrp() {
-    spdlog::warn("IoGetTopLevelIrp blows up sorry");
+	spdlog::warn("IoGetTopLevelIrp blows up sorry");
 	static int irp = 0;
 	return &irp;
 }
@@ -964,7 +977,7 @@ NTSTATUS h_ObReferenceObjectByHandle(
 	uint64_t AccessMode,
 	PVOID* Object,
 	void* HandleInformation) {
-    spdlog::warn("h_ObReferenceObjectByHandle blows up sorry");
+	spdlog::warn("h_ObReferenceObjectByHandle blows up sorry");
 	return -1;
 }
 
@@ -982,7 +995,10 @@ void* h_ObGetFilterVersion(void* arg) {
 	return 0;
 }
 
-BOOLEAN h_MmIsAddressValid(PVOID VirutalAddress) {
+BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
+	printf("Checking for %llx\n", VirtualAddress);
+	if (VirtualAddress == 0)
+		return false;
 	return true; // rand() % 2 :troll:
 }
 
@@ -1002,8 +1018,120 @@ BOOLEAN h_ExAcquireResourceExclusiveLite(
 }
 
 NTSTATUS h_KdSystemDebugControl(int Command, PVOID InputBuffer, ULONG InputBufferLength, PVOID OutputBuffer, ULONG OutputBufferLength, PULONG ReturnLength,
-	/*KPROCESSOR_MODE*/ int PreviousMode) 
+	/*KPROCESSOR_MODE*/ int PreviousMode)
 {
 	// expected behaviour when no debugger is attached
-    return 0xC0000022;
+	return 0xC0000022;
+}
+
+void Initialize() {
+
+	myConstantProvider.insert({ "MmGetSystemRoutineAddress", {1, h_MmGetSystemRoutineAddress} });
+	myConstantProvider.insert({ "IoDeleteSymbolicLink", { 1, h_IoDeleteSymbolicLink } });
+	myConstantProvider.insert({ "PsRemoveLoadImageNotifyRoutine", {1, h_PsRemoveLoadImageNotifyRoutine } });
+	myConstantProvider.insert({ "PsSetCreateProcessNotifyRoutineEx", {2, h_PsSetCreateProcessNotifyRoutineEx } });
+	myConstantProvider.insert({ "PsSetCreateProcessNotifyRoutine", {2, h_PsSetCreateProcessNotifyRoutineEx} });
+	myConstantProvider.insert({ "KeAcquireSpinLockRaiseToDpc",{ 1, h_KeAcquireSpinLockRaiseToDpc } });
+	myConstantProvider.insert({ "PsRemoveCreateThreadNotifyRoutine", {1, h_PsRemoveLoadImageNotifyRoutine} });
+	myConstantProvider.insert({ "KeReleaseSpinLock",{ 2, h_KeReleaseSpinLock} });
+	myConstantProvider.insert({ "ExpInterlockedPopEntrySList", {1, h_ExpInterlockedPopEntrySList} });
+	myConstantProvider.insert({ "KeDelayExecutionThread", {3, h_KeDelayExecutionThread} });
+	myConstantProvider.insert({ "ExWaitForRundownProtectionRelease", {1, h_ExWaitForRundownProtectionRelease} });
+	myConstantProvider.insert({ "KeCancelTimer", {1, h_KeCancelTimer} });
+	myConstantProvider.insert({ "KeSetEvent", {3, h_KeSetEvent} });
+	myConstantProvider.insert({ "KeSetTimer",{ 3, h_KeSetTimer} });
+	myConstantProvider.insert({ "ExCreateCallback", {4, h_ExCreateCallback } });
+	myConstantProvider.insert({ "IoCreateFileEx",{ 1, h_IoCreateFileEx } });
+	myConstantProvider.insert({ "RtlDuplicateUnicodeString", {1, h_RtlDuplicateUnicodeString } });
+	myConstantProvider.insert({ "IoDeleteController", {1, h_IoDeleteController } });
+	myConstantProvider.insert({ "SeQueryInformationToken", {1, h_SeQueryInformationToken } });
+	myConstantProvider.insert({ "PsReferencePrimaryToken",{ 1, h_PsReferencePrimaryToken } });
+	myConstantProvider.insert({ "PsIsProtectedProcess",{ 1, h_PsIsProtectedProcess } });
+	myConstantProvider.insert({ "NtQueryInformationProcess", {1, h_NtQueryInformationProcess } });
+	myConstantProvider.insert({ "PsGetCurrentThreadProcessId", {1, h_PsGetCurrentThreadProcessId } });
+	myConstantProvider.insert({ "IoGetCurrentThreadProcessId", {1, h_PsGetCurrentThreadProcessId} });
+	myConstantProvider.insert({ "PsGetCurrentThreadId", {1, h_PsGetCurrentThreadId} });
+	myConstantProvider.insert({ "IoGetCurrentThreadId", {1, h_PsGetCurrentThreadId} });
+	myConstantProvider.insert({ "PsGetCurrentProcess",{ 1, h_PsGetCurrentProcess } });
+	myConstantProvider.insert({ "IoGetCurrentProcess",{ 1, h_PsGetCurrentProcess } });
+	myConstantProvider.insert({ "PsGetProcessId", {1, h_PsGetProcessId} });
+	myConstantProvider.insert({ "PsGetProcessWow64Process",{ 1, h_PsGetProcessWow64Process} });
+	myConstantProvider.insert({ "PsLookupProcessByProcessId", {1, h_PsLookupProcessByProcessId} });
+	myConstantProvider.insert({ "RtlCompareString", {1, h_RtlCompareString} });
+	myConstantProvider.insert({ "PsGetProcessCreateTimeQuadPart", {1, h_PsGetProcessCreateTimeQuadPart} });
+	myConstantProvider.insert({ "ObfReferenceObject", {1, h_ObfReferenceObject} });
+	myConstantProvider.insert({ "ExAcquireFastMutex",{ 1, h_ExAcquireFastMutex } });
+	myConstantProvider.insert({ "ExReleaseFastMutex", {1, h_ExReleaseFastMutex} });
+	myConstantProvider.insert({ "ZwQueryFullAttributesFile", {2, h_ZwQueryFullAttributesFile} });
+	myConstantProvider.insert({ "RtlWriteRegistryValue",{ 6, h_RtlWriteRegistryValue} });
+	myConstantProvider.insert({ "RtlInitUnicodeString", {2, h_RtlInitUnicodeString} });
+	myConstantProvider.insert({ "ZwOpenKey", {3, h_ZwOpenKey} });
+	myConstantProvider.insert({ "ZwFlushKey",{ 1, h_ZwFlushKey} });
+	myConstantProvider.insert({ "ZwClose", {1, h_ZwClose} });
+	myConstantProvider.insert({ "NtClose",{ 1, h_ZwClose} });
+	myConstantProvider.insert({ "ZwQuerySystemInformation",{ 4, h_NtQuerySystemInformation } });
+	myConstantProvider.insert({ "NtQuerySystemInformation", {4, h_NtQuerySystemInformation } });
+	myConstantProvider.insert({ "ExAllocatePoolWithTag", {3, hM_AllocPoolTag} });
+	myConstantProvider.insert({ "ExAllocatePool", {2, hM_AllocPool} });
+	myConstantProvider.insert({ "ExFreePoolWithTag", {2, h_DeAllocPoolTag} });
+	myConstantProvider.insert({ "ExFreePool", {1, h_DeAllocPool} });
+	myConstantProvider.insert({ "RtlRandomEx",{ 1, h_RtlRandomEx } });
+	myConstantProvider.insert({ "IoCreateDevice", {7, h_IoCreateDevice} });
+	myConstantProvider.insert({ "IoIsSystemThread", {1, h_IoIsSystemThread} });
+	myConstantProvider.insert({ "KeInitializeEvent",{ 3, h_KeInitializeEvent } });
+	myConstantProvider.insert({ "RtlGetVersion", {1, h_RtlGetVersion} });
+	myConstantProvider.insert({ "DbgPrint", {1, printf } });
+	myConstantProvider.insert({ "__C_specific_handler",{ 1, _c_exception} });
+	myConstantProvider.insert({ "RtlMultiByteToUnicodeN", {1, h_RtlMultiByteToUnicodeN } });
+	myConstantProvider.insert({ "KeAreAllApcsDisabled", {1, h_KeAreAllApcsDisabled} });
+	myConstantProvider.insert({ "KeAreApcsDisabled", {1, h_KeAreApcsDisabled } });
+	myConstantProvider.insert({ "ZwCreateFile", {1, h_NtCreateFile} });
+	myConstantProvider.insert({ "ZwQueryInformationFile",{ 1, h_NtQueryInformationFile} });
+	myConstantProvider.insert({ "ZwReadFile", {1, h_NtReadFile} });
+	myConstantProvider.insert({ "ZwQueryValueKey", {1, h_ZwQueryValueKey} });
+	myConstantProvider.insert({ "IoWMIOpenBlock",{ 1, h_IoWMIOpenBlock} });
+	myConstantProvider.insert({ "IoWMIQueryAllData", {1, h_IoWMIQueryAllData} });
+	myConstantProvider.insert({ "ObfDereferenceObject", {1, h_ObfDereferenceObject } });
+	myConstantProvider.insert({ "PsLookupThreadByThreadId", {1, h_PsLookupThreadByThreadId } });
+	myConstantProvider.insert({ "RtlDuplicateUnicodeString", {3, h_RtlDuplicateUnicodeString } });
+	myConstantProvider.insert({ "ExSystemTimeToLocalTime", {2, h_ExSystemTimeToLocalTime} });
+	myConstantProvider.insert({ "ProbeForRead", { 3, h_ProbeForRead } });
+	myConstantProvider.insert({ "ProbeForWrite", { 3, h_ProbeForWrite } });
+	myConstantProvider.insert({ "RtlTimeToTimeFields", { 2, h_RtlTimeToTimeFields } });
+	myConstantProvider.insert({ "KeInitializeMutex", { 2, h_KeInitializeMutex } });
+	myConstantProvider.insert({ "KeReleaseMutex", { 2, h_KeReleaseMutex } });
+	myConstantProvider.insert({ "KeWaitForSingleObject", { 5, h_KeWaitForSingleObject } });
+	myConstantProvider.insert({ "PsCreateSystemThread", { 7, h_PsCreateSystemThread } });
+	myConstantProvider.insert({ "PsTerminateSystemThread", { 1, h_PsTerminateSystemThread } });
+	myConstantProvider.insert({ "IofCompleteRequest", { 2, h_IofCompleteRequest } });
+	myConstantProvider.insert({ "IoCreateSymbolicLink", { 2, h_IoCreateSymbolicLink } });
+	myConstantProvider.insert({ "IoDeleteDevice", { 1, h_IoDeleteDevice } });
+	myConstantProvider.insert({ "IoGetTopLevelIrp", { 0, h_IoGetTopLevelIrp } });
+	myConstantProvider.insert({ "ObReferenceObjectByHandle", { 6, h_ObReferenceObjectByHandle } });
+	myConstantProvider.insert({ "ObRegisterCallbacks", { 3, h_ObRegisterCallbacks } });
+	myConstantProvider.insert({ "ObUnRegisterCallbacks", { 1, h_ObUnRegisterCallbacks } });
+	myConstantProvider.insert({ "ObGetFilterVersion", { 1, h_ObGetFilterVersion } }); // undoc func
+	myConstantProvider.insert({ "MmIsAddressValid", { 1, h_MmIsAddressValid } });
+	myConstantProvider.insert({ "PsSetCreateThreadNotifyRoutine", { 1, h_PsSetCreateThreadNotifyRoutine } });
+	myConstantProvider.insert({ "PsSetLoadImageNotifyRoutine", { 1, h_PsSetLoadImageNotifyRoutine } });
+	myConstantProvider.insert({ "PsGetCurrentProcessId", { 1, h_PsGetCurrentThreadProcessId } });
+	myConstantProvider.insert({ "PsGetThreadId", { 1, h_PsGetThreadId } });
+	myConstantProvider.insert({ "PsGetThreadProcessId", { 1, h_PsGetThreadProcessId } });
+	myConstantProvider.insert({ "PsGetThreadProcess", { 1, h_PsGetThreadProcess } });
+	myConstantProvider.insert({ "IoQueryFileDosDeviceName", { 1, h_IoQueryFileDosDeviceName } });
+	myConstantProvider.insert({ "ObOpenObjectByPointer", { 1, h_ObOpenObjectByPointer } });
+	myConstantProvider.insert({ "ObQueryNameString", { 1, h_ObQueryNameString } });
+	myConstantProvider.insert({ "PsGetProcessInheritedFromUniqueProcessId", { 1, h_PsGetProcessInheritedFromUniqueProcessId } });
+	myConstantProvider.insert({ "PsGetProcessPeb", { 1, h_PsGetProcessPeb } });
+	myConstantProvider.insert({ "KeQueryTimeIncrement", {1, h_KeQueryTimeIncrement} });
+	myConstantProvider.insert({ "ExAcquireResourceExclusiveLite", {1, h_ExAcquireResourceExclusiveLite} });
+	myConstantProvider.insert({ "vswprintf_s", {1, h_vswprintf_s} });
+	myConstantProvider.insert({ "swprintf_s", {1, h_swprintf_s} });
+	myConstantProvider.insert({ "wcscpy_s", {1, h_wcscpy_s} });
+	myConstantProvider.insert({ "wcscat_s", {1, h_wcscat_s} });
+	myConstantProvider.insert({ "KeIpiGenericCall", {1, h_KeIpiGenericCall} });
+	myConstantProvider.insert({ "KeInitializeTimer", {1, h_KeInitializeTimer} });
+	myConstantProvider.insert({ "DbgPrompt", {1, h_DbgPrompt} });
+	myConstantProvider.insert({ "KdChangeOption", {1, h_KdChangeOption} });
+	myConstantProvider.insert({ "KdSystemDebugControl", { 1, h_KdSystemDebugControl } });
 }

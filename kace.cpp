@@ -287,6 +287,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			}
 			else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF) {
 				e->ContextRecord->Rip = (uintptr_t)u_iret;
+				printf("IRET Timing Emulation\n");
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else if (bufferopcode[0] == 0xa1
@@ -588,7 +589,7 @@ DWORD FakeDriverEntry(LPVOID)
 
 	__writeeflags(0x10286);
 
-	MemoryTracker::Initiate();
+	
 
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
@@ -599,15 +600,28 @@ DWORD FakeDriverEntry(LPVOID)
 
 	FakeKPCR.Self = (_KPCR*)&FakeKPCR.Self;
 
+	
+
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	spdlog::info("Done! = {}", result);
 	system("pause");
 	return 0;
 }
 
+
+extern void Initialize();
+extern void InitializeExport();
+
 int main(int argc, char* argv[]) {
 
+	MemoryTracker::Initiate();
+
 	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
+
+	Initialize();
+	InitializeExport();
+
+	
 
 	//FreeConsole();
 	//AllocConsole();
@@ -628,7 +642,7 @@ int main(int argc, char* argv[]) {
 	spdlog::set_pattern("[kace-%t] %v");
 	spdlog::info("Loading modules");
 
-	HookSelf(argv[0]);
+	
 
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
@@ -642,6 +656,8 @@ int main(int argc, char* argv[]) {
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
 	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
+	
+	HookSelf(argv[0]);
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
 	if (!ThreadHandle)

@@ -2,6 +2,8 @@
 
 #include <unordered_map>
 
+#include "libs/MemoryTracker/memorytracker.h"
+#include "ntoskrnl_struct.h"
 
 #pragma section("hookaccess",read,write)
 #define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
@@ -70,10 +72,10 @@ MONITOR uint64_t KiBugCheckData = 0;
 MONITOR uint64_t LpcPortObjectType = 0;
 MONITOR uint64_t Mm64BitPhysicalAddress = 0;
 MONITOR uint64_t MmBadPointer = 0;
-MONITOR uint64_t MmHighestUserAddress = 0x0;
+MONITOR uint64_t MmHighestUserAddress = 0xFFE;
 MONITOR uint64_t MmSectionObjectType = 0;
-MONITOR uint64_t MmSystemRangeStart = 0x1;
-MONITOR uint64_t MmUserProbeAddress = 0x0;
+MONITOR uint64_t MmSystemRangeStart = 0x1000;
+MONITOR uint64_t MmUserProbeAddress = 0xFFF;
 MONITOR uint64_t NlsAnsiCodePage = 0;
 MONITOR uint64_t NlsMbCodePageTag = 0;
 MONITOR uint64_t NlsMbOemCodePageTag = 0;
@@ -86,7 +88,7 @@ MONITOR uint64_t POGOBuffer = 0;
 MONITOR uint64_t PsInitialSystemProcess = 0;
 MONITOR uint64_t PsJobType = 0;
 MONITOR uint64_t PsLoadedModuleList = 0;
-MONITOR uint64_t PsLoadedModuleResource = 0;
+MONITOR uint64_t PsLoadedModuleResource = 0x60000;
 MONITOR uint64_t PsPartitionType = 0;
 MONITOR uint64_t PsProcessType = 0;
 MONITOR uint64_t PsSiloContextNonPagedType = 0;
@@ -106,35 +108,14 @@ MONITOR uint64_t psMUITest = 0;
 
 MONITOR uint64_t undeclaredExport = 0; //For undeclared variable, we will hook it through this
 
+inline void InitializePsLoadedModuleList() {
 
-inline std::unordered_map<std::string, void*> constantTimeExportProvider = {
-    { "SeExports", (PVOID)SeExport },
-    { "InitSafeBootMode", &InitSafeBootMode }, { "KdDebuggerNotPresent", &KdDebuggerNotPresent }, { "CcFastMdlReadWait", &CcFastMdlReadWait },
-    { "CmKeyObjectType", &CmKeyObjectType }, { "ExActivationObjectType", &ExActivationObjectType },
-    { "ExCompositionObjectType", &ExCompositionObjectType }, { "ExCoreMessagingObjectType", &ExCoreMessagingObjectType },
-    { "ExDesktopObjectType", &ExDesktopObjectType }, { "ExEventObjectType", &ExEventObjectType },
-    { "ExRawInputManagerObjectType", &ExRawInputManagerObjectType }, { "ExSemaphoreObjectType", &ExSemaphoreObjectType },
-    { "ExTimerObjectType", &ExTimerObjectType }, { "ExWindowStationObjectType", &ExWindowStationObjectType },
-    { "FsRtlLegalAnsiCharacterArray", &FsRtlLegalAnsiCharacterArray }, { "HalDispatchTable", &HalDispatchTable },
-    { "HalPrivateDispatchTable", &HalPrivateDispatchTable }, { "IoAdapterObjectType", &IoAdapterObjectType },
-    { "IoCompletionObjectType", &IoCompletionObjectType }, { "IoDeviceHandlerObjectSize", &IoDeviceHandlerObjectSize },
-    { "IoDeviceHandlerObjectType", &IoDeviceHandlerObjectType }, { "IoDeviceObjectType", &IoDeviceObjectType },
-    { "IoDriverObjectType", &IoDriverObjectType }, { "IoFileObjectType", &IoFileObjectType }, { "IoReadOperationCount", &IoReadOperationCount },
-    { "IoReadTransferCount", &IoReadTransferCount }, { "IoStatisticsLock", &IoStatisticsLock }, { "IoWriteOperationCount", &IoWriteOperationCount },
-    { "IoWriteTransferCount", &IoWriteTransferCount }, { "KdComPortInUse", &KdComPortInUse }, { "KdDebuggerEnabled", &KdDebuggerEnabled },
-    { "KdEnteredDebugger", &KdEnteredDebugger }, { "KdEventLoggingEnabled", &KdEventLoggingEnabled }, { "KdHvComPortInUse", &KdHvComPortInUse },
-    { "KeDynamicPartitioningSupported", &KeDynamicPartitioningSupported }, { "KeLastBranchMSR", &KeLastBranchMSR }, { "KeLoaderBlock", &KeLoaderBlock },
-    { "KeNumberProcessors", &KeNumberProcessors }, { "KiBugCheckData", &KiBugCheckData }, { "LpcPortObjectType", &LpcPortObjectType },
-    { "Mm64BitPhysicalAddress", &Mm64BitPhysicalAddress }, { "MmBadPointer", &MmBadPointer }, { "MmHighestUserAddress", &MmHighestUserAddress },
-    { "MmSectionObjectType", &MmSectionObjectType }, { "MmSystemRangeStart", &MmSystemRangeStart }, { "MmUserProbeAddress", &MmUserProbeAddress },
-    { "NlsAnsiCodePage", &NlsAnsiCodePage }, { "NlsMbCodePageTag", &NlsMbCodePageTag }, { "NlsMbOemCodePageTag", &NlsMbOemCodePageTag },
-    { "NlsOemCodePage", &NlsOemCodePage }, { "NtBuildGUID", &NtBuildGUID }, { "NtBuildLab", &NtBuildLab }, { "NtBuildNumber", &NtBuildNumber },
-    { "NtGlobalFlag", &NtGlobalFlag }, { "POGOBuffer", &POGOBuffer }, { "PsInitialSystemProcess", &PsInitialSystemProcess }, { "PsJobType", &PsJobType },
-    { "PsLoadedModuleList", &PsLoadedModuleList }, { "PsLoadedModuleResource", &PsLoadedModuleResource }, { "PsPartitionType", &PsPartitionType },
-    { "PsProcessType", &PsProcessType }, { "PsSiloContextNonPagedType", &PsSiloContextNonPagedType },
-    { "PsSiloContextPagedType", &PsSiloContextPagedType }, { "PsThreadType", &PsThreadType }, { "PsUILanguageComitted", &PsUILanguageComitted },
-    { "SeILSigningPolicyPtr", &SeILSigningPolicyPtr }, { "SePublicDefaultDacl", &SePublicDefaultDacl }, { "SeSystemDefaultDacl", &SeSystemDefaultDacl },
-    { "SeSystemDefaultSd", &SeSystemDefaultSd }, { "SeTokenObjectType", &SeTokenObjectType }, { "TmEnlistmentObjectType", &TmEnlistmentObjectType },
-    { "TmResourceManagerObjectType", &TmResourceManagerObjectType }, { "TmTransactionManagerObjectType", &TmTransactionManagerObjectType },
-    { "TmTransactionObjectType", &TmTransactionObjectType }, {"psMUITest", &psMUITest}
-};
+    PsLoadedModuleList = (uint64_t)_aligned_malloc(sizeof(_KLDR_DATA_TABLE_ENTRY)*2, 0x1000);
+    memset((PVOID)PsLoadedModuleList, 0, sizeof(_KLDR_DATA_TABLE_ENTRY)*2);
+    //MemoryTracker::TrackVariable(PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY), (char*)"PsLoadedModuleList");
+}
+
+inline std::unordered_map<std::string, void*> constantTimeExportProvider;
+
+
+void InitializeExport();

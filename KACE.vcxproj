@@ -155,6 +155,7 @@
     <ClCompile Include="kace.cpp" />
     <ClCompile Include="ntoskrnl_provider.cpp" />
     <ClCompile Include="provider.cpp" />
+    <ClCompile Include="static_export_provider.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="module_layout.h" />
