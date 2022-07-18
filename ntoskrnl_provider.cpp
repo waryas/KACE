@@ -698,6 +698,17 @@ ULONG h_DbgPrompt(PCCH Prompt, PCH Response, ULONG Length)
 	return 0x3000;
 }
 
+NTSTATUS h_KdChangeOption(
+	ULONG Option,
+	ULONG     InBufferBytes,
+	PVOID     InBuffer,
+	ULONG     OutBufferBytes,
+	PVOID     OutBuffer,
+	PULONG    OutBufferNeeded
+) {
+	return 0xC0000354; // STATUS_DEBUGGER_INACTIVE
+}
+
 NTSTATUS h_IoDeleteSymbolicLink(PUNICODE_STRING SymbolicLinkName)
 {
 

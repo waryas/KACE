@@ -53,11 +53,27 @@ uintptr_t lastPG = 0;
 
 
 //From waryas machine, no hv, clean install
-uint64_t cr0 = 0x8005003b;
+uint64_t cr0 = 0x80050033;
 uint64_t cr3 = 0x1ad002000000;
 uint64_t cr4 = 0x370678;
 uint64_t cr8 = 0;
 
+void MSRRead(uint64_t ECX, EXCEPTION_POINTERS* e) {
+
+	switch (ECX) {
+	case 0x1D9 :
+		e->ContextRecord->Rax = 0;
+		e->ContextRecord->Rdx = 0;
+		e->ContextRecord->Rip += 2;
+		break;
+	default:
+		//UNHANDLED
+		break;
+	}
+}
+
+uint64_t DBGCTL_lastEax = 0;
+uint64_t DBGCTL_lastEdx = 0;
 
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
@@ -83,6 +99,38 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
+		} 
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x32) { //rdmsr
+			if (e->ContextRecord->Rcx == 0x1D9) {
+				printf("MSR_LBR Requested -> %d, %d", DBGCTL_lastEax, DBGCTL_lastEdx);
+				e->ContextRecord->Rax = DBGCTL_lastEax;
+				e->ContextRecord->Rdx = DBGCTL_lastEax;
+				e->ContextRecord->Rip += 2;
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+			else {
+				printf("Unhandled RDMSR");
+				if (e->ContextRecord->Rcx >= 10000) {
+					printf("Fake RDMSR -> SEH REDIRECTION", e->ContextRecord->Rcx);
+					//e->ContextRecord->Rip = (uint64_t)h_DbgPrompt;
+					return EXCEPTION_CONTINUE_SEARCH;
+				}
+				//e->ContextRecord->Rip += 2;
+			}
+
+		}
+		else if  (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x30) {
+
+			if (e->ContextRecord->Rcx == 0x1D9) {
+				printf("Writing to DBGCTL : %d, %d", e->ContextRecord->Rax, e->ContextRecord->Rdx);
+				DBGCTL_lastEax = e->ContextRecord->Rax;
+				DBGCTL_lastEdx = e->ContextRecord->Rdx;
+				e->ContextRecord->Rip += 2;
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+			else {
+				printf("Unhandled WRMSR");
+			}
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xD8) { //mov rax, cr3
 			printf("Reading CR3\n");

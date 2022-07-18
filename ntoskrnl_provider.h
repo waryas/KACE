@@ -308,6 +308,15 @@ EXCEPTION_DISPOSITION __cdecl _c_exception( //EAC does CFG redirection with SEH 
 
 ULONG h_DbgPrompt(PCCH Prompt, PCH Response, ULONG Length);
 
+NTSTATUS h_KdChangeOption(
+	ULONG Option,
+	ULONG     InBufferBytes,
+	PVOID     InBuffer,
+	ULONG     OutBufferBytes,
+	PVOID     OutBuffer,
+	PULONG    OutBufferNeeded
+);
+
 inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider = {
 	{ "MmGetSystemRoutineAddress", { 1, h_MmGetSystemRoutineAddress }},
 	{ "IoDeleteSymbolicLink", { 1, h_IoDeleteSymbolicLink } },
@@ -416,6 +425,7 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{"wcscat_s", {1, h_wcscat_s}},
 	{ "KeIpiGenericCall", {1, h_KeIpiGenericCall} },
 	{ "KeInitializeTimer", {1, h_KeInitializeTimer} },
-	{ "DbgPrompt", {1, h_DbgPrompt}}
+	{ "DbgPrompt", {1, h_DbgPrompt}},
+	{ "KdChangeOption", {1, h_KdChangeOption}}
 	
 };
