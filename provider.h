@@ -15,3 +15,5 @@ void custom_printf(const char* buffer, ...);
 #define printf(x,...) custom_printf(x, __VA_ARGS__)
 uint64_t unimplemented_stub();
 
+
+//#define MONITOR_DATA_ACCESS

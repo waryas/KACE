@@ -92,9 +92,12 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 				if (modulebase) {
 					printf("Patching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
 					pMods->ImageBase = (PVOID)modulebase;
+					
 				}
 				else { //We're gonna pass the real module to the driver
-					//loadedmodules->Modules[i].ImageBase = 0;
+					pMods->ImageBase = 0;
+					
+					
 					pMods->LoadCount = 0;
 				}
 

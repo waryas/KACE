@@ -8,7 +8,7 @@
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-//#define MONITOR_DATA_ACCESS//This will monitor every read/write with a page_guard - SLOW - Better debugging
+//This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 #include "pefile.h"
 #include "provider.h"
@@ -51,11 +51,14 @@ void custom_printf(const char* buffer, ...) {
 
 uintptr_t lastPG = 0;
 
+
 //From waryas machine, no hv, clean install
 uint64_t cr0 = 0x8005003b;
 uint64_t cr3 = 0x1ad002000000;
 uint64_t cr4 = 0x370678;
 uint64_t cr8 = 0;
+
+
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
@@ -99,6 +102,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC7) {
+			printf("Reading CR0 into RDX\n");
+			e->ContextRecord->Rdx = cr0;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
 		else if (ptrBuffer[0] == 0xFA) { //CLEAR INTERRUPT
 			e->ContextRecord->Rip += 1;
 			printf("Clearing interrupt\n");
@@ -116,12 +125,24 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xF8) { //mov dr7, rsi
+			printf("Clearing DR7\n");
+			e->ContextRecord->Dr7 = e->ContextRecord->Rax;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFB) { //mov dr7, rsi
+			printf("Clearing DR7\n");
+			e->ContextRecord->Dr7 = e->ContextRecord->Rbx;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
 			
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE )
 	{
 		e->ContextRecord->EFlags |= 0x100ui32;
-		DWORD oldProtect = 0;
+		
 
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode))
@@ -162,8 +183,14 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
 			if (read_module)
 			{
-			    spdlog::info("Reading {}+{:p}", read_module->name,
-			    PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
+					spdlog::info("Reading {}+{:p}", read_module->name,
+					PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+				}
+				else {
+					spdlog::info("Writing {}+{:p}", read_module->name,
+					PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+				}
 			}
 			else
 			{
@@ -183,7 +210,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 		}
 		else {
-			VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READONLY | PAGE_GUARD, &oldProtect);
+			VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
 		}
 
 		lastPG = 0;
@@ -557,7 +584,7 @@ int main(int argc, char* argv[]) {
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\KMDFDriver2.sys", "c:\\EMU\\KMDFDriver2.sys", "VGK", true);
 	
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
