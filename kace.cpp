@@ -4,22 +4,22 @@
 #include <cstring>
 #include <cstdlib>
 
+#include "ntoskrnl_provider.h"
+#include "pefile.h"
+#include "provider.h"
+
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/spdlog.h"
+
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 //#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-#include "pefile.h"
-#include "provider.h"
-#include "ntoskrnl_provider.h"
-
-
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
 
-
 _DRIVER_OBJECT drvObj = { 0 };
 UNICODE_STRING RegistryPath = { 0 };
-
 
 #define READ_VIOLATION 0
 #define EXECUTE_VIOLATION 8
@@ -32,7 +32,6 @@ uint64_t passthrough(...)
 //POC STAGE, NEED TO MAKE THIS DYNAMIC - Most performance issue come from this, also for some reason i only got this to work in Visual studio, not outside of it.
 
 uintptr_t lastPG = 0;
-
 
 //From waryas machine, no hv, clean install
 uint64_t cr0 = 0x80050033;
@@ -96,10 +95,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 					readAddr--;
 					accessedChar = self_data->GetExport(readAddr - (uintptr_t)GetModuleHandle(nullptr));
 				}
-				printf("\033[38;5;46m[Accessing]\033[0m %s:+0x%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
+				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}:+{:p}", accessedChar,PVOID(e->ExceptionRecord->ExceptionInformation[1] - readAddr));
 			}
 			else {
-				printf("\033[38;5;46m[Accessing]\033[0m %s\n", accessedChar);
+               spdlog::info("\033[38;5;46m[Accessing]\033[0m {}", accessedChar);
 			}
 
 		}
@@ -111,12 +110,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
 			if (read_module)
 			{
-				printf("Reading %s+0x%llx\n", read_module->name,
-					e->ExceptionRecord->ExceptionInformation[1] - read_module->base);
+			    spdlog::info("Reading {}+{:p}", read_module->name,
+			    PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 			}
 			else
 			{
-				printf("Reading unknown data\n");
+	            spdlog::info("Reading unknown data");
 			}
 			
 		}
@@ -350,7 +349,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 #ifdef STUB_UNIMPLEMENTED
 				redirectRip = (uintptr_t)unimplemented_stub;
 #else
-				printf("Exiting...\n");
+				spdlog::warn("Exiting...");
 				exit(0);
 #endif
 			}
@@ -373,7 +372,7 @@ DWORD FakeDriverEntry(LPVOID)
 
 	AddVectoredExceptionHandler(true, ExceptionHandler);
 
-	printf("Calling the driver entrypoint\n");
+	spdlog::info("Calling the driver entrypoint");
 
 	drvObj.Size = sizeof(drvObj);
 	drvObj.DriverName.Buffer = (WCHAR*)driverName;
@@ -436,20 +435,17 @@ DWORD FakeDriverEntry(LPVOID)
 	
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
-	printf("Done! = %llx\n", result);
+	spdlog::info("Done! = {}", result);
 	system("pause");
 	return 0;
 }
-
 
 int main(int argc, char* argv[]) {
 
 	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
-	printf("Opening a new console\n");
-
-	FreeConsole();
-	AllocConsole();
+	//FreeConsole();
+	//AllocConsole();
 	DWORD dwMode;
 
 	auto hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -457,11 +453,16 @@ int main(int argc, char* argv[]) {
 	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 	SetConsoleMode(hOut, dwMode);
 
-	
+	//logging setup
+
+    auto logger = spdlog::basic_logger_mt("console and file logger", "kace_log.txt");
+
+	spdlog::set_default_logger(logger);
+
+    spdlog::set_pattern("[kace-%t] %v");
+    spdlog::info("Loading modules");
 
 	HookSelf(argv[0]);
-
-
 
 	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
 	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
@@ -472,12 +473,13 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true);
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
-	//DriverEntry = (proxyCall)LoadPE("C:\\Users\\Generic\\source\\repos\\KMDF Driver2\\x64\\Release\\KMDFDriver2.sys", true);
-	//DriverEntry = (proxyCall)((uintptr_t)db + 0x11B0);
-
+	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "bedaisy", true);
+	
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
+
+	if (!ThreadHandle)
+		return 0;
 
 	while (true)
 	{

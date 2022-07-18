@@ -19,6 +19,7 @@
 #define MEMORY_ALLOCATION (1 * MB)
 
 #include <malloc.h>
+#include <spdlog/spdlog.h>
 
 #define MAX_MODULES 64
 
@@ -276,24 +277,24 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
         if (MappedModules[i].isMainModule) {
             auto Import = MappedModules[i].pedata->GetImport(ptr);
             if (Import) { //Found in IAT
-                printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", Import->library.c_str(), Import->name.c_str());
+                const auto log = fmt::format("\033[38;5;14m[Executing]\033[0m {}::{} - ", Import->library.c_str(), Import->name.c_str());
                 if (myConstantProvider.contains(Import->name)) {
                     funcptr = (uintptr_t)myConstantProvider[Import->name].hook;
                     if (funcptr) {
-                        printf(prototypedMsg);
+                        spdlog::info(log + prototypedMsg);
                         return funcptr;
                     }
                 }
                 funcptr = (uintptr_t)GetProcAddress(ntdll, Import->name.c_str());
                 if (funcptr) {
-                    printf(passthroughMsg);
+                    spdlog::info(log + passthroughMsg);
                     return funcptr;
                 }
-                printf(notimplementedMsg);
+                spdlog::info(log + notimplementedMsg);
                 return 0;
             }
             else { //Not Found in IAT
-                printf("Contact Waryas; Should never get there\n");
+                spdlog::error("Contact Waryas; Should never get to here.");
                 exit(0);
             }
             break;
@@ -328,20 +329,20 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
                 auto variableName = MappedModules[i].pedata->GetExport(offset);
 
                 if (!variableName) {
-                    printf("Reading a non exported value\n");
+                    spdlog::error("Reading a non exported value");
                     return 0;
                 }
                 else {
-                    printf("Reading %s::%s - ", MappedModules[i].name, variableName);
+                    const auto log = fmt::format("Reading {}::{} - ", MappedModules[i].name, variableName);
                     if (constantTimeExportProvider.contains(variableName)) {
-                        printf(prototypedMsg);
+                        spdlog::info(log + prototypedMsg);
                         DWORD oldAccess;
                         VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
                         *(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[variableName];
                         VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
                     }
                     else {
-                        printf(notimplementedMsg);
+                        spdlog::info(log + notimplementedMsg);
                         //exit(0);
                     }
                 } 
@@ -371,20 +372,20 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
                     exit(0);
                 }
                 else {
-                    printf("\033[38;5;14m[Executing]\033[0m %s::%s - ", MappedModules[i].name, functionName);
+                    const auto log = fmt::format("\033[38;5;14m[Executing]\033[0m {}::{} - ", MappedModules[i].name, functionName);
                     if (myConstantProvider.contains(functionName)) {
                         funcptr = (uintptr_t)myConstantProvider[functionName].hook;
                         if (funcptr) {
-                            printf(prototypedMsg);
+                            spdlog::info(log + prototypedMsg);
                             return funcptr;
                         }
                     }
                     funcptr = (uintptr_t)GetProcAddress(ntdll, functionName);
                     if (funcptr) {
-                        printf(passthroughMsg);
+                        spdlog::info(log + passthroughMsg);
                         return funcptr;
                     }
-                    printf(notimplementedMsg);
+                    spdlog::info(log + notimplementedMsg);
                     return 0;
                 }
             }
@@ -415,6 +416,10 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
         exit(0);
     }
     bool loaded = false;
+
+    if (isMainModule) {
+        spdlog::info("loading {}", name);
+    }
 
     for (int i = 0; i < MAX_MODULES; ++i) {
         if (MappedModules[i].name)
