@@ -45,5 +45,13 @@
     <Filter Include="provider\ntoskrnl">
       <UniqueIdentifier>{d43dd6dd-6dfd-4856-a924-a669e914842b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="asm">
+      <UniqueIdentifier>{786673d7-1b3f-4e72-973c-9b24fa67777a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="iret.asm">
+      <Filter>asm</Filter>
+    </MASM>
   </ItemGroup>
 </Project>

@@ -79,6 +79,10 @@ void MSRRead(uint64_t ECX, EXCEPTION_POINTERS* e) {
 uint64_t DBGCTL_lastEax = 0;
 uint64_t DBGCTL_lastEdx = 0;
 
+
+
+extern "C" void u_iret();
+
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
@@ -279,6 +283,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
 				printf("--CHECKING FOR PATCHGUARD--\n");
 				e->ContextRecord->Rip += 2;
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+			else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF) {
+				e->ContextRecord->Rip = (uintptr_t)u_iret;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else if (bufferopcode[0] == 0xa1
@@ -631,8 +639,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
