@@ -4,8 +4,12 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.2.32616.157
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KACE", "KACE.vcxproj", "{C6D3514C-7929-4BB5-9D1A-BE6D7A016AF8}"
+	ProjectSection(ProjectDependencies) = postProject
+		{965D1C24-6107-4F5C-B98D-4E86C80732A6} = {965D1C24-6107-4F5C-B98D-4E86C80732A6}
+		{BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24} = {BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24}
+	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PEMapper", "libs\PEMapper\PEMapper.vcxproj", "{BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PEFile", "libs\PEMapper\PEMapper.vcxproj", "{BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MemoryTracker", "libs\MemoryTracker\MemoryTracker.vcxproj", "{965D1C24-6107-4F5C-B98D-4E86C80732A6}"
 EndProject
