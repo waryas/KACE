@@ -4,6 +4,7 @@
 
 #include "libs/MemoryTracker/memorytracker.h"
 #include "ntoskrnl_struct.h"
+#include "module_layout.h"
 
 #pragma section("hookaccess",read,write)
 #define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
@@ -87,7 +88,7 @@ MONITOR uint64_t NtGlobalFlag = 0;
 MONITOR uint64_t POGOBuffer = 0;
 MONITOR uint64_t PsInitialSystemProcess = 0;
 MONITOR uint64_t PsJobType = 0;
-MONITOR uint64_t PsLoadedModuleList = 0;
+MONITOR _KLDR_DATA_TABLE_ENTRY* PsLoadedModuleList = 0;
 MONITOR uint64_t PsLoadedModuleResource = 0x60000;
 MONITOR uint64_t PsPartitionType = 0;
 MONITOR uint64_t PsProcessType = 0;
@@ -108,12 +109,14 @@ MONITOR uint64_t psMUITest = 0;
 
 MONITOR uint64_t undeclaredExport = 0; //For undeclared variable, we will hook it through this
 
-inline void InitializePsLoadedModuleList() {
 
-    PsLoadedModuleList = (uint64_t)_aligned_malloc(sizeof(_KLDR_DATA_TABLE_ENTRY)*2, 0x1000);
-    memset((PVOID)PsLoadedModuleList, 0, sizeof(_KLDR_DATA_TABLE_ENTRY)*2);
-    //MemoryTracker::TrackVariable(PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY), (char*)"PsLoadedModuleList");
+
+inline _KLDR_DATA_TABLE_ENTRY* AllocateModule(const char* path, uint64_t base) {
+    auto newModule = (_KLDR_DATA_TABLE_ENTRY*)_aligned_malloc(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, 0x1000);
+    memset((PVOID)newModule, 0, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
 }
+
+void InitializePsLoadedModuleList(); 
 
 inline std::unordered_map<std::string, void*> constantTimeExportProvider;
 

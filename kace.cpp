@@ -36,6 +36,14 @@ UNICODE_STRING RegistryPath = { 0 };
 #define WRITE_VIOLATION 1
 #define EXECUTE_VIOLATION 8
 
+uint64_t fakeKUSER_SHARED_DATA = MemoryTracker::AllocateVariable(0x1000);
+
+
+
+void setKUSD() {
+	memcpy((PVOID)fakeKUSER_SHARED_DATA, (PVOID)0x7FFE0000, 0x1000);
+}
+
 uint64_t passthrough(...)
 {
 	return 0;
@@ -58,7 +66,7 @@ uintptr_t lastPG = 0;
 
 //From waryas machine, no hv, clean install
 uint64_t cr0 = 0x80050033;
-uint64_t cr3 = 0x1ad002000000;
+uint64_t cr3 = 0x0;
 uint64_t cr4 = 0x370678;
 uint64_t cr8 = 0;
 
@@ -147,6 +155,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xDA) { //mov rax, cr3
+			printf("Reading CR3\n");
+			e->ContextRecord->Rdx = cr3;
+			e->ContextRecord->Rip += 3;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x22 && ptrBuffer[2] == 0xD8) { //mov cr3, rax
 			//e->ContextRecord->Rax = 0;
 			printf("CHANGING CR3 to %llx\n", e->ContextRecord->Rax);
@@ -215,6 +229,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			}
 			else {
 				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}", accessedChar);
+				printf("Value is %llx", *(uint64_t*)e->ExceptionRecord->ExceptionInformation[1]);
 			}
 
 		}
@@ -252,7 +267,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			}
 			else
 			{
-				spdlog::info("Reading unknown data");
+				spdlog::info("Accessing unknown data");
 			}
 
 		}
@@ -290,201 +305,205 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				printf("IRET Timing Emulation\n");
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
-			else if (bufferopcode[0] == 0xa1
-				&& bufferopcode[1] == 0x6c
-				&& bufferopcode[2] == 0x02
-				&& bufferopcode[3] == 0x00
-				&& bufferopcode[4] == 0x00
-				&& bufferopcode[5] == 0x80
-				&& bufferopcode[6] == 0xF7
-				&& bufferopcode[7] == 0xff
-				&& bufferopcode[8] == 0xff)
-			{
-				//A1 6C 02 00 00 80 F7 FF FF
-				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
-				e->ContextRecord->Rip += 9;
-				return EXCEPTION_CONTINUE_EXECUTION;
-			}
-			else if (bufferopcode[0] == 0x48
-				&& bufferopcode[1] == 0xA1
-				&& bufferopcode[2] == 0x20
-				&& bufferopcode[3] == 0x03
-				&& bufferopcode[4] == 0x00
-				&& bufferopcode[5] == 0x00
-				&& bufferopcode[6] == 0x80
-				&& bufferopcode[7] == 0xf7
-				&& bufferopcode[8] == 0xff
-				&& bufferopcode[9] == 0xff)
-			{
 
-				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
-				e->ContextRecord->Rip += 10;
-				return EXCEPTION_CONTINUE_EXECUTION;
-			}
 			else if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->
 				ExceptionInformation[1] <= 0xFFFFF78000001000)
 			{
 				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
 				auto offset_shared = read_addr - 0xFFFFF78000000000;
+				printf("[Accessing] KUSER_SHARED_DATA + 0x%04x", offset_shared);
 
+				setKUSD();
+
+				if (bufferopcode[0] == 0xa1
+					&& bufferopcode[1] == 0x6c
+					&& bufferopcode[2] == 0x02
+					&& bufferopcode[3] == 0x00
+					&& bufferopcode[4] == 0x00
+					&& bufferopcode[5] == 0x80
+					&& bufferopcode[6] == 0xF7
+					&& bufferopcode[7] == 0xff
+					&& bufferopcode[8] == 0xff)
+				{
+					//A1 6C 02 00 00 80 F7 FF FF
+					e->ContextRecord->Rax = *(uint32_t*)(fakeKUSER_SHARED_DATA+0x26c);
+					e->ContextRecord->Rip += 9;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
+				if (bufferopcode[0] == 0x48
+					&& bufferopcode[1] == 0xA1
+					&& bufferopcode[2] == 0x20
+					&& bufferopcode[3] == 0x03
+					&& bufferopcode[4] == 0x00
+					&& bufferopcode[5] == 0x00
+					&& bufferopcode[6] == 0x80
+					&& bufferopcode[7] == 0xf7
+					&& bufferopcode[8] == 0xff
+					&& bufferopcode[9] == 0xff)
+				{
+
+					e->ContextRecord->Rax = *(uint32_t*)(fakeKUSER_SHARED_DATA + 0x26c);
+					e->ContextRecord->Rip += 10;
+					return EXCEPTION_CONTINUE_EXECUTION;
+				}
 				if (e->ContextRecord->Rsi == read_addr)
 				{
-					e->ContextRecord->Rsi = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rsi = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rdx == read_addr)
 				{
-					e->ContextRecord->Rdx = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rdx = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rcx == read_addr)
 				{
-					e->ContextRecord->Rcx = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rcx = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rax == read_addr)
 				{
-					e->ContextRecord->Rax = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rax = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rbx == read_addr)
 				{
-					e->ContextRecord->Rbx = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rbx = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rdi == read_addr)
 				{
-					e->ContextRecord->Rdi = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rdi = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rsp == read_addr)
 				{
-					e->ContextRecord->Rsp = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rsp = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rbp == read_addr)
 				{
-					e->ContextRecord->Rbp = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rbp = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R8 == read_addr)
 				{
-					e->ContextRecord->R8 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R8 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R9 == read_addr)
 				{
-					e->ContextRecord->R9 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R9 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R10 == read_addr)
 				{
-					e->ContextRecord->R10 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R10 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R11 == read_addr)
 				{
-					e->ContextRecord->R11 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R11 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R12 == read_addr)
 				{
-					e->ContextRecord->R12 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R12 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R13 == read_addr)
 				{
-					e->ContextRecord->R13 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R13 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R14 == read_addr)
 				{
-					e->ContextRecord->R14 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R14 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R15 == read_addr)
 				{
-					e->ContextRecord->R15 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R15 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rsi == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rsi = 0x7FFE0000;
+					e->ContextRecord->Rsi = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rdx == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rdx = 0x7FFE0000;
+					e->ContextRecord->Rdx = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rcx == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rcx = 0x7FFE0000;
+					e->ContextRecord->Rcx = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rax == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rax = 0x7FFE0000;
+					e->ContextRecord->Rax = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rbx == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rbx = 0x7FFE0000;
+					e->ContextRecord->Rbx = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rdi == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rdi = 0x7FFE0000;
+					e->ContextRecord->Rdi = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rsp == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rsp = 0x7FFE0000;
+					e->ContextRecord->Rsp = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R8 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R8 = 0x7FFE0000;
+					e->ContextRecord->R8 = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R9 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R9 = 0x7FFE0000;
+					e->ContextRecord->R9 = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R10 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R10 = 0x7FFE0000;
+					e->ContextRecord->R10 = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R11 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R11 = 0x7FFE0000;
+					e->ContextRecord->R11 = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R12 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R12 = 0x7FFE0000;
+					e->ContextRecord->R12 = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R13 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R13 = 0x7FFE0000;
+					e->ContextRecord->R13 = fakeKUSER_SHARED_DATA;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R14 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R14 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R14 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->R15 == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->R15 = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->R15 = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 				if (e->ContextRecord->Rbp == 0xFFFFF78000000000)
 				{
-					e->ContextRecord->Rbp = 0x7FFE0000 + offset_shared;
+					e->ContextRecord->Rbp = fakeKUSER_SHARED_DATA + offset_shared;
 					return EXCEPTION_CONTINUE_EXECUTION;
 				}
 			}
@@ -618,6 +637,7 @@ int main(int argc, char* argv[]) {
 
 	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
+	
 	Initialize();
 	InitializeExport();
 

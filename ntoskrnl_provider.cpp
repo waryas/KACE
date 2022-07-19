@@ -458,7 +458,9 @@ HANDLE h_PsGetProcessId(_EPROCESS* Process)
 
 _EPROCESS* h_PsGetCurrentProcess()
 {
-	return (_EPROCESS*)h_KeGetCurrentThread()->Tcb.ApcState.Process;
+	auto val = (_EPROCESS*)h_KeGetCurrentThread()->Tcb.ApcState.Process;
+	printf("Returning : %llx", val);
+	return val;
 }
 
 _EPROCESS* h_PsGetCurrentThreadProcess()
@@ -686,6 +688,7 @@ NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool C
 	_CALLBACK_OBJECT** co = (_CALLBACK_OBJECT**)CallbackObject;
 	printf("Callback object : %llx", CallbackObject);
 	printf("*Callback object : %llx", *co);
+	printf("Callback name : %ls", oa->ObjectName->Buffer);
 	*co = (_CALLBACK_OBJECT*)0x10e4e9c820;
 	return 0;
 }
@@ -698,10 +701,8 @@ NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEG
 
 ULONG h_DbgPrompt(PCCH Prompt, PCH Response, ULONG Length)
 {
-	uint64_t a = (uint64_t)h_DbgPrompt >> 60 << 32 / h_KeDelayExecutionThread(0, 0, 0);
-	printf("%d", a);
-	strcpy(Response, "Your mom\n");
-	return 0x3000;
+	RaiseException(EXCEPTION_FLT_DIVIDE_BY_ZERO, 0, 0, 0);
+	return 0x0;
 }
 
 NTSTATUS h_KdChangeOption(
@@ -897,7 +898,7 @@ void h_ProbeForWrite(void* address, size_t len, ULONG align) {
 int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list argptr)
 {
 
-	return _vsnwprintf(buffer, count, format, argptr);
+	return __NtRoutine("_vsnwprintf",buffer, count, format, argptr);
 }
 
 
@@ -1024,8 +1025,22 @@ NTSTATUS h_KdSystemDebugControl(int Command, PVOID InputBuffer, ULONG InputBuffe
 	return 0xC0000022;
 }
 
-void Initialize() {
 
+NTSTATUS h_ZwOpenSection(
+	PHANDLE            SectionHandle,
+	ACCESS_MASK        DesiredAccess,
+	OBJECT_ATTRIBUTES* ObjectAttributes
+) {
+	
+	auto ret = __NtRoutine("ZwOpenSection",SectionHandle, DesiredAccess, ObjectAttributes);
+	printf("Section name : %ls, access : %llx, ret : %08x", ObjectAttributes->ObjectName->Buffer, DesiredAccess, ret);
+
+	return ret;
+}
+
+void Initialize() {
+	myConstantProvider.insert({ "_vsnwprintf",	 {1, h__vsnwprintf} });
+	myConstantProvider.insert({ "ZwOpenSection", {1, h_ZwOpenSection} });
 	myConstantProvider.insert({ "MmGetSystemRoutineAddress", {1, h_MmGetSystemRoutineAddress} });
 	myConstantProvider.insert({ "IoDeleteSymbolicLink", { 1, h_IoDeleteSymbolicLink } });
 	myConstantProvider.insert({ "PsRemoveLoadImageNotifyRoutine", {1, h_PsRemoveLoadImageNotifyRoutine } });

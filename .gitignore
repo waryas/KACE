@@ -24,3 +24,4 @@ x64/Release/KACE.exp
 *.xml
 *.sarif
 *.lastcodeanalysissucceeded
+*.idb

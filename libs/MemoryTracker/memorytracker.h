@@ -11,18 +11,23 @@
 
 #define PAGE_ALIGN_DOWN(addr) (((addr)) & PAGE_MASK)
 
+
 class MemoryTracker {
 
 
 public:
+
     static void Initiate();
-    static bool TrackVariable(uint64_t ptr, uint64_t size, char* name);
+    static bool TrackVariable(uint64_t ptr, uint64_t size, std::string name);
     static bool isTracked(uint64_t ptr);
     static std::string getName(uint64_t ptr);
     static uint64_t getStart(std::string name);
+    static uintptr_t AllocateVariable(uint64_t size);
 
 private:
     static MemoryTracker* mem; //singleton
+    static unsigned long usedPage;
+
 
     std::unordered_map<uint64_t, std::string> mapping;
     std::unordered_map<std::string, uint64_t> firstAlloc;

@@ -1,4 +1,27 @@
+#include "module_layout.h"
+
 #include "static_export_provider.h"
+
+
+void InitializePsLoadedModuleList() {
+
+    PsLoadedModuleList = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
+    MemoryTracker::TrackVariable((uint64_t)PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY), (char*)"PsLoadedModuleList");
+
+    //auto ntos = GetMainModule();
+    /*
+    h_RtlInitUnicodeString(&PsLoadedModuleList->BaseDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+    h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+    PsLoadedModuleList->DllBase = (void*)ntos->base;
+    PsLoadedModuleList->LoadCount = 1;
+    PsLoadedModuleList->EntryPoint = (void*)ntos->pedata->GetEP();
+
+    */
+
+
+    //
+}
+
 
 void InitializeExport() {
     constantTimeExportProvider.insert({ "SeExports", (PVOID)SeExport });
