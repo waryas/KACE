@@ -1007,3 +1007,10 @@ BOOLEAN h_ExAcquireResourceExclusiveLite(
 
 	return true;
 }
+
+NTSTATUS h_KdSystemDebugControl(int Command, PVOID InputBuffer, ULONG InputBufferLength, PVOID OutputBuffer, ULONG OutputBufferLength, PULONG ReturnLength,
+	/*KPROCESSOR_MODE*/ int PreviousMode) 
+{
+	// expected behaviour when no debugger is attached
+    return 0xC0000022;
+}

@@ -350,7 +350,7 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 
 		if (!MappedModules[i].name)
 			return 0;
-
+		
 		if (!MappedModules[i].isMainModule) {
 			if (MappedModules[i].base <= ptr && ptr <= MappedModules[i].base + MappedModules[i].size) {
 

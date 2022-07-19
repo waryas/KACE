@@ -317,6 +317,16 @@ NTSTATUS h_KdChangeOption(
 	PULONG    OutBufferNeeded
 );
 
+NTSTATUS h_KdSystemDebugControl(
+	int Command,
+	PVOID InputBuffer,
+	ULONG InputBufferLength,
+	PVOID OutputBuffer,
+	ULONG OutputBufferLength,
+	PULONG ReturnLength,
+	/*KPROCESSOR_MODE*/int PreviousMode
+);
+
 inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider = {
 	{ "MmGetSystemRoutineAddress", { 1, h_MmGetSystemRoutineAddress }},
 	{ "IoDeleteSymbolicLink", { 1, h_IoDeleteSymbolicLink } },
@@ -426,6 +436,6 @@ inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProv
 	{ "KeIpiGenericCall", {1, h_KeIpiGenericCall} },
 	{ "KeInitializeTimer", {1, h_KeInitializeTimer} },
 	{ "DbgPrompt", {1, h_DbgPrompt}},
-	{ "KdChangeOption", {1, h_KdChangeOption}}
-	
-};
+	{ "KdChangeOption", {1, h_KdChangeOption}}, 
+	{ "KdSystemDebugControl", { 1, h_KdSystemDebugControl } }
+ };
