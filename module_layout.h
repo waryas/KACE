@@ -306,12 +306,38 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 	return 0;
 }
 
+__forceinline uint64_t find_pattern(uint64_t start, size_t size, const uint8_t* binary, size_t len) 
+{
+    size_t bin_len = len;
+    auto memory = (const uint8_t*)(start);
+
+    for (size_t cur_offset = 0; cur_offset < (size - bin_len); cur_offset++) 
+	{
+        auto has_match = true;
+        for (size_t pos_offset = 0; pos_offset < bin_len; pos_offset++) 
+		{
+            if (binary[pos_offset] != 0 && memory[cur_offset + pos_offset] != binary[pos_offset]) 
+			{
+                has_match = false;
+                break;
+            }
+        }
+
+        if (has_match) 
+            return start + cur_offset;
+    }
+
+    return 0;
+}
+
 using RtlInsertInvertedFunctionTable = int(__fastcall*)(PVOID BaseAddress, ULONG uImageSize);
 
 inline int FixMainModuleSEH() { //Works on WIN 10 21H2 -- Need to find offset for other windows : RtlInsertInvertedFunctionTable in ntdll.dll
 	auto ntdllbase = LoadLibraryA("ntdll.dll");
-	auto x = GetProcAddress(ntdllbase, "AlpcGetMessageFromCompletionList");
-	RtlInsertInvertedFunctionTable rtlinsert = (RtlInsertInvertedFunctionTable)((DWORD64)x - 0x170);
+
+	uint8_t rtlSig[] = "\x48\x89\x5C\x24\x00\x57\x48\x83\xEC\x30\x8B\xDA";
+    auto rtlinsert = (RtlInsertInvertedFunctionTable)find_pattern((uint64_t)ntdllbase, 0x100000, rtlSig, sizeof(rtlSig) - 1);
+    
 	auto mod = GetMainModule();
 
 	auto ret = rtlinsert((PVOID)mod->base, mod->size);
