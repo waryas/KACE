@@ -1,103 +1,8 @@
-#pragma once
-
-#include <windows.h>
-#include <string>
-#include <cinttypes>
-#include <iostream>
-#include <fstream>
-#include <unordered_map>
-#include <filesystem>
 
 
-struct ImportData {
-    std::string library;
-    std::string name;
-    uint64_t rva;
-};
+#include "pefile.h"
 
-struct SectionData {
-    uint64_t virtual_size;
-    uint64_t virtual_address;
-    uint64_t raw_size;
-    uint64_t raw_address;
-    uint64_t characteristics;
-};
-
-
-class PEFile {
-
-private:
-    std::string filename;
-    uintmax_t size = 0;
-    std::ifstream File;
-
-    template <typename T>
-    T makepointer(uint64_t buffer, uint64_t offset) {
-        return (T)(buffer + offset);
-    }
-
-    template <typename T>
-    T makepointer(char* buffer, uint64_t offset) {
-        return (T)(reinterpret_cast<uint64_t>(buffer) + offset);
-    }
-
-
-    std::unordered_map<uint64_t, ImportData> imports_rvakey;
-    std::unordered_map<uint64_t, std::string> exports_rvakey;
-
-    std::unordered_map<std::string, ImportData> imports_namekey;
-    std::unordered_map<std::string, uint64_t> exports_namekey;
-
-    PIMAGE_DOS_HEADER pDosHeader = 0;
-    PIMAGE_NT_HEADERS pNtHeaders = 0;
-
-    PIMAGE_OPTIONAL_HEADER64 pOptionalHeader = 0;
-    PIMAGE_FILE_HEADER pImageFileHeader = 0;
-    PIMAGE_SECTION_HEADER pImageSectionHeader = 0;
-
-
-    char* filebuffer = 0;
-    char* mapped_buffer = 0;
-    uintmax_t virtual_size = 0;
-    uintmax_t imagebase = 0;
-    uintmax_t entrypoint = 0;
-
-    inline void ParseHeader();
-    inline void ParseSection();
-    inline void RelocationFix();
-    inline void ParseImport();
-    inline void ParseExport();
-    inline PEFile(std::string filename, uintmax_t size);
-
-public:
-    inline static PEFile* Open(std::string path) {
-        auto size = std::filesystem::file_size(path);
-
-        if (size) {
-            return new PEFile(path, size);
-        }
-        else {
-            return 0;
-        }
-    }
-
-    std::unordered_map<std::string, SectionData> sections;
-
-    inline ImportData* GetImport(std::string name);
-    inline ImportData* GetImport(uint64_t rva);
-    inline uint64_t GetExport(std::string name);
-    inline const char* GetExport(uint64_t rva);
-    inline uint64_t GetVirtualSize();
-    inline uint64_t GetImageBase();
-    inline uintmax_t GetEP();
-    inline std::unordered_map<uint64_t, std::string> GetAllExports();
-    ~PEFile();
-
-
-};
-
-
-inline void PEFile::ParseHeader() {
+void PEFile::ParseHeader() {
 
 
 	pDosHeader = (PIMAGE_DOS_HEADER)filebuffer;
@@ -120,7 +25,7 @@ inline void PEFile::ParseHeader() {
 	entrypoint = pOptionalHeader->AddressOfEntryPoint;
 }
 
-inline void PEFile::ParseSection() {
+void PEFile::ParseSection() {
 
 	sections.clear();
 
@@ -138,7 +43,7 @@ inline void PEFile::ParseSection() {
 		data.raw_address = pImageSectionHeader[i].PointerToRawData;
 		memcpy(mapped_buffer + data.virtual_address, filebuffer + data.raw_address, data.raw_size);
 		while (sections.contains(std::string(name))) {
-			name[strlen(name) - 1] = name[strlen(name) - 1] +1;
+			name[strlen(name) - 1] = name[strlen(name) - 1] + 1;
 
 		}
 		sections.insert(std::pair(std::string(name), data));
@@ -147,26 +52,8 @@ inline void PEFile::ParseSection() {
 
 }
 
-typedef struct
-{
-	WORD	offset : 12;
-	WORD	type : 4;
-} IMAGE_RELOC, * PIMAGE_RELOC;
 
-#define IMAGE_REL_BASED_ABSOLUTE                                                                                                                          \
-    0 /* The base relocation is skipped.
-						 This type can be used to pad a
-						 block. */
-#define IMAGE_REL_BASED_HIGHLOW                                                                                                                           \
-    3 /* The base relocation applies all
-						 32 bits of the difference to the
-						 32-bit field at offset. */
-#define IMAGE_REL_BASED_DIR64                                                                                                                             \
-    10 /* The base relocation applies the
-						 difference to the 64-bit field at
-						 offset. */
-
-inline void PEFile::RelocationFix() {
+void PEFile::RelocationFix() {
 
 	DWORD64 x;
 	DWORD64 dwTmp;
@@ -212,7 +99,7 @@ inline void PEFile::RelocationFix() {
 	}
 
 }
-inline void PEFile::ParseImport() {
+void PEFile::ParseImport() {
 	if (pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress == 0
 		|| pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size == 0)
 		return;
@@ -257,7 +144,7 @@ inline void PEFile::ParseImport() {
 }
 
 
-inline void PEFile::ParseExport() {
+void PEFile::ParseExport() {
 	if (pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress == 0
 		|| pNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size == 0)
 		return;
@@ -282,7 +169,7 @@ inline void PEFile::ParseExport() {
 
 }
 
-inline PEFile::PEFile(std::string filename, uintmax_t size) {
+PEFile::PEFile(std::string filename, uintmax_t size) {
 	if (size) {
 
 		this->filename = filename;
@@ -309,15 +196,15 @@ inline PEFile::PEFile(std::string filename, uintmax_t size) {
 
 
 
-inline uint64_t PEFile::GetImageBase() {
+uint64_t PEFile::GetImageBase() {
 	return imagebase;
 }
 
-inline uint64_t PEFile::GetVirtualSize() {
+uint64_t PEFile::GetVirtualSize() {
 	return virtual_size;
 }
 
-inline ImportData* PEFile::GetImport(std::string name) {
+ImportData* PEFile::GetImport(std::string name) {
 
 	if (imports_namekey.contains(name)) {
 		return &imports_namekey[name];
@@ -325,7 +212,7 @@ inline ImportData* PEFile::GetImport(std::string name) {
 	return 0;
 }
 
-inline ImportData* PEFile::GetImport(uint64_t rva) {
+ImportData* PEFile::GetImport(uint64_t rva) {
 
 	if (imports_rvakey.contains(rva)) {
 		return &imports_rvakey[rva];
@@ -333,7 +220,7 @@ inline ImportData* PEFile::GetImport(uint64_t rva) {
 	return 0;
 }
 
-inline uint64_t PEFile::GetExport(std::string name) {
+uint64_t PEFile::GetExport(std::string name) {
 	if (name.empty())
 		return 0;
 	if (exports_namekey.contains(name)) {
@@ -342,7 +229,7 @@ inline uint64_t PEFile::GetExport(std::string name) {
 	return 0;
 }
 
-inline const char* PEFile::GetExport(uint64_t rva) {
+const char* PEFile::GetExport(uint64_t rva) {
 
 	if (exports_rvakey.contains(rva)) {
 		return exports_rvakey[rva].c_str();
@@ -350,12 +237,10 @@ inline const char* PEFile::GetExport(uint64_t rva) {
 	return 0;
 }
 
-inline std::unordered_map<uint64_t, std::string> PEFile::GetAllExports() {
+std::unordered_map<uint64_t, std::string> PEFile::GetAllExports() {
 	return exports_rvakey;
 }
 
-inline uintmax_t PEFile::GetEP() {
+uintmax_t PEFile::GetEP() {
 	return entrypoint;
 }
-
-

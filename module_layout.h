@@ -2,7 +2,7 @@
 
 #include "nt_define.h"
 #include "static_export_provider.h"
-#include "pefile.h"
+#include "libs/PEMapper/pefile.h"
 #include "provider.h"
 #include <cstdint>
 #include <memory>

@@ -19,12 +19,6 @@
     <ClInclude Include="static_export_provider.h">
       <Filter>provider\ntoskrnl</Filter>
     </ClInclude>
-    <ClInclude Include="pefile.h">
-      <Filter>PEMapper</Filter>
-    </ClInclude>
-    <ClInclude Include="memorytracker.hpp">
-      <Filter>modules</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />
@@ -36,9 +30,6 @@
     </ClCompile>
     <ClCompile Include="provider.cpp">
       <Filter>provider</Filter>
-    </ClCompile>
-    <ClCompile Include="pefile.cpp">
-      <Filter>PEMapper</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -53,9 +44,6 @@
     </Filter>
     <Filter Include="provider\ntoskrnl">
       <UniqueIdentifier>{d43dd6dd-6dfd-4856-a924-a669e914842b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="PEMapper">
-      <UniqueIdentifier>{95d06cdc-b760-431d-98b9-fab9425710ee}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

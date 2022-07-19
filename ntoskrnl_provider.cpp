@@ -1,4 +1,5 @@
-#include "pefile.h"
+#include "libs/PEMapper/pefile.h"
+
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
