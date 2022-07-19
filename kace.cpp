@@ -65,7 +65,7 @@ uint64_t cr8 = 0;
 void MSRRead(uint64_t ECX, EXCEPTION_POINTERS* e) {
 
 	switch (ECX) {
-	case 0x1D9 :
+	case 0x1D9:
 		e->ContextRecord->Rax = 0;
 		e->ContextRecord->Rdx = 0;
 		e->ContextRecord->Rip += 2;
@@ -82,7 +82,7 @@ uint64_t DBGCTL_lastEdx = 0;
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
-	auto offset =  ep - GetMainModule()->base;
+	auto offset = ep - GetMainModule()->base;
 
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
@@ -96,14 +96,15 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
-		} else if (ptr == 0x00200f44) // mov rax, cr8
+		}
+		else if (ptr == 0x00200f44) // mov rax, cr8
 		{
 			// mov rax, cr8
 			printf("Reading IRQL\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
-		} 
+		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x32) { //rdmsr
 			if (e->ContextRecord->Rcx == 0x1D9) {
 				printf("MSR_LBR Requested -> %d, %d", DBGCTL_lastEax, DBGCTL_lastEdx);
@@ -123,7 +124,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			}
 
 		}
-		else if  (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x30) {
+		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x30) {
 
 			if (e->ContextRecord->Rcx == 0x1D9) {
 				printf("Writing to DBGCTL : %d, %d", e->ContextRecord->Rax, e->ContextRecord->Rdx);
@@ -189,12 +190,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
-			
+
 	}
-	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE )
+	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
 	{
 		e->ContextRecord->EFlags |= 0x100ui32;
-		
+
 
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode))
@@ -206,15 +207,16 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 					readAddr--;
 					accessedChar = self_data->GetExport(readAddr - (uintptr_t)GetModuleHandle(nullptr));
 				}
-				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}:+{:p}", accessedChar,PVOID(e->ExceptionRecord->ExceptionInformation[1] - readAddr));
+				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}:+{:p}", accessedChar, PVOID(e->ExceptionRecord->ExceptionInformation[1] - readAddr));
 			}
 			else {
-               spdlog::info("\033[38;5;46m[Accessing]\033[0m {}", accessedChar);
+				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}", accessedChar);
 			}
 
-		} else if (!FindModule(lastPG))
+		}
+		else if (!FindModule(lastPG))
 		{
-			
+
 			if (MemoryTracker::isTracked(lastPG)) {
 				auto namevar = MemoryTracker::getName(lastPG);
 				auto offset = e->ExceptionRecord->ExceptionInformation[1] - MemoryTracker::getStart(namevar);
@@ -237,18 +239,18 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			{
 				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
 					spdlog::info("Reading {}+{:p}", read_module->name,
-					PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 				}
 				else {
 					spdlog::info("Writing {}+{:p}", read_module->name,
-					PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 				}
 			}
 			else
 			{
-	            spdlog::info("Reading unknown data");
+				spdlog::info("Reading unknown data");
 			}
-			
+
 		}
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		return EXCEPTION_CONTINUE_EXECUTION;
@@ -305,7 +307,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				&& bufferopcode[8] == 0xff
 				&& bufferopcode[9] == 0xff)
 			{
-				
+
 				e->ContextRecord->Rax = *(uint32_t*)0x7FFE026c;
 				e->ContextRecord->Rip += 10;
 				return EXCEPTION_CONTINUE_EXECUTION;
@@ -501,10 +503,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			return EXCEPTION_CONTINUE_EXECUTION;
 			break;
 		}
-		}
-		printf("IM HERE\n");
-	return 0;
 	}
+
+	return EXCEPTION_CONTINUE_SEARCH;
+}
 
 const wchar_t* driverName = L"\\Driver\\vgk";
 const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\vgk";
@@ -558,15 +560,15 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeSystemProcess.WoW64Process = nullptr;
 	FakeSystemProcess.CreateTime.QuadPart = GetTickCount64();
 
-	FakeCPU.CurrentThread =  (_KTHREAD*)&FakeKernelThread;
+	FakeCPU.CurrentThread = (_KTHREAD*)&FakeKernelThread;
 	FakeCPU.IdleThread = (_KTHREAD*)&FakeKernelThread;
 	FakeCPU.CoresPerPhysicalProcessor = 2;
 	FakeCPU.LogicalProcessorsPerCore = 2;
 	FakeCPU.MajorVersion = 10;
 	FakeCPU.MinorVersion = 0;
 	FakeCPU.RspBase = __readgsqword(0x8);
-	
-	
+
+
 	FakeKPCR.CurrentPrcb = &FakeCPU;
 	FakeKPCR.NtTib.StackBase = (PVOID)__readgsqword(0x8);
 	FakeKPCR.NtTib.StackLimit = (PVOID)__readgsqword(0x10);
@@ -575,7 +577,7 @@ DWORD FakeDriverEntry(LPVOID)
 	FakeKPCR.Used_Self = (void*)__readgsqword(0x30); //Usermode TEB is actually in kernel gs:0x30
 	FakeKPCR.Self = &FakeKPCR;
 
-	
+
 	__writeeflags(0x10286);
 
 	MemoryTracker::Initiate();
@@ -587,7 +589,7 @@ DWORD FakeDriverEntry(LPVOID)
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
 
-	FakeKPCR.Self = (_KPCR*) & FakeKPCR.Self;
+	FakeKPCR.Self = (_KPCR*)&FakeKPCR.Self;
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	spdlog::info("Done! = {}", result);
@@ -611,12 +613,12 @@ int main(int argc, char* argv[]) {
 	//logging setup
 
 	// Uncomment to log to a file (file logging is blazingly fast (kekw))
-    //auto logger = spdlog::basic_logger_mt("console and file logger", "kace_log.txt");
+	//auto logger = spdlog::basic_logger_mt("console and file logger", "kace_log.txt");
 	//
 	//spdlog::set_default_logger(logger);
 
-    spdlog::set_pattern("[kace-%t] %v");
-    spdlog::info("Loading modules");
+	spdlog::set_pattern("[kace-%t] %v");
+	spdlog::info("Loading modules");
 
 	HookSelf(argv[0]);
 
@@ -631,7 +633,7 @@ int main(int argc, char* argv[]) {
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
-	
+
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
 	if (!ThreadHandle)

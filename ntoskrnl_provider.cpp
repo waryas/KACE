@@ -1,39 +1,29 @@
 #include "libs/PEMapper/pefile.h"
+#include "libs/MemoryTracker/memorytracker.h"
 
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 
 #include "spdlog/spdlog.h"
 
-void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag)
-{ //TODO tracking of alloc
-
-	auto ptr = malloc(size);
-	// memset(ptr, 0, size);
-	return ptr;
-
+void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
+	return _aligned_malloc(size, 0x1000);;
 }
 
 
-void* hM_AllocPool(uint32_t pooltype, size_t size)
-{ //TODO tracking of alloc
-
-	auto ptr = malloc(size);
-	// memset(ptr, 0, size);
-	return ptr;
-
+void* hM_AllocPool(uint32_t pooltype, size_t size) {
+	return _aligned_malloc(size, 0x1000);;
 }
 
 void h_DeAllocPoolTag(uintptr_t ptr, ULONG tag)
 {
-
-	free((PVOID)ptr);
+	_aligned_free((PVOID)ptr);
 	return;
 }
 
 void h_DeAllocPool(uintptr_t ptr)
 {
-	free((PVOID)ptr);
+	_aligned_free((PVOID)ptr);
 	return;
 }
 
@@ -72,6 +62,8 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 					//loadedmodules->Modules[i].LoadCount = 0;
 				}
 			}
+			//MemoryTracker::TrackVariable((uintptr_t)ptr, SystemInformationLength, (char*)"NtQuerySystemInformation"); BAD IDEA
+
 		    spdlog::info("base of system is : {:p}", (PVOID)*reinterpret_cast<uint64_t*>(ptr + 0x18));
 
 		} else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
