@@ -212,7 +212,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
 	{
-		e->ContextRecord->EFlags |= 0x100ui32;
+		
 
 
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
@@ -271,6 +271,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			}
 
 		}
+		e->ContextRecord->EFlags |= 0x100ui32;
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
