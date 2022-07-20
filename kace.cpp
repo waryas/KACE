@@ -27,13 +27,12 @@
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
 
-_DRIVER_OBJECT drvObj = { 0 };
-UNICODE_STRING RegistryPath = { 0 };
+
 
 #define READ_VIOLATION 0
 #define WRITE_VIOLATION 1
 #define EXECUTE_VIOLATION 8
-
+ 
 uint64_t fakeKUSER_SHARED_DATA = MemoryTracker::AllocateVariable(0x1000);
 
 
@@ -617,15 +616,19 @@ DWORD FakeDriverEntry(LPVOID)
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
 
+	MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
+	MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
 
 	
+	drvObj.DriverSection = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);;
+	MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, "MainModule.DriverObject.DriverSection");
 
-	
+	printf("\n%llx", __readgsword(0x60));
 
-	auto result = DriverEntry(&drvObj, RegistryPath);
+	auto result = DriverEntry(&drvObj, &RegistryPath);
 	Logger::Log("Done! = %llx", result);
 	system("pause");
 	return 0;
@@ -676,9 +679,9 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);

@@ -16,7 +16,8 @@ KERNELDATA _ETHREAD FakeKernelThread = {0};
 KERNELDATA _EPROCESS FakeSystemProcess = { 0 };
 KERNELDATA _KPCR FakeKPCR = { 0 };
 KERNELDATA _KPRCB FakeCPU = { 0 };
-
+KERNELDATA _DRIVER_OBJECT drvObj = { 0 };
+KERNELDATA UNICODE_STRING RegistryPath = { 0 };
 
 inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider;
 
