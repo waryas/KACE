@@ -12,13 +12,11 @@
 
 #include "libs/PEMapper/pefile.h"
 #include "libs/MemoryTracker/memorytracker.h"
-
+#include "libs/Logger/Logger.h"
 
 #include "provider.h"
 
-#include "spdlog/sinks/basic_file_sink.h"
-#include "spdlog/spdlog.h"
-
+#include <intrin.h>
 
 
 
@@ -47,16 +45,6 @@ void setKUSD() {
 uint64_t passthrough(...)
 {
 	return 0;
-}
-
-char tempBuffer[512] = { 0 };
-
-void custom_printf(const char* buffer, ...) {
-	va_list args;
-	va_start(args, buffer);
-	vsprintf(tempBuffer, buffer, args);
-	spdlog::info(tempBuffer);
-	va_end(args);
 }
 
 //POC STAGE, NEED TO MAKE THIS DYNAMIC - Most performance issue come from this, also for some reason i only got this to work in Visual studio, not outside of it.
@@ -104,7 +92,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		if (ptr == 0xc0200f44) //mov eax, cr8
 		{
 			// mov rax, cr8
-			printf("Reading IRQL\n");
+			Logger::Log("Reading IRQL\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -112,23 +100,23 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		else if (ptr == 0x00200f44) // mov rax, cr8
 		{
 			// mov rax, cr8
-			printf("Reading IRQL\n");
+			Logger::Log("Reading IRQL\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x32) { //rdmsr
 			if (e->ContextRecord->Rcx == 0x1D9) {
-				printf("MSR_LBR Requested -> %d, %d", DBGCTL_lastEax, DBGCTL_lastEdx);
+				Logger::Log("MSR_LBR Requested -> %d, %d", DBGCTL_lastEax, DBGCTL_lastEdx);
 				e->ContextRecord->Rax = DBGCTL_lastEax;
 				e->ContextRecord->Rdx = DBGCTL_lastEax;
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else {
-				printf("Unhandled RDMSR");
+				Logger::Log("Unhandled RDMSR");
 				if (e->ContextRecord->Rcx >= 10000) {
-					printf("Fake RDMSR -> SEH REDIRECTION", e->ContextRecord->Rcx);
+					Logger::Log("Fake RDMSR -> SEH REDIRECTION", e->ContextRecord->Rcx);
 					//e->ContextRecord->Rip = (uint64_t)h_DbgPrompt;
 					return EXCEPTION_CONTINUE_SEARCH;
 				}
@@ -139,71 +127,71 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x30) {
 
 			if (e->ContextRecord->Rcx == 0x1D9) {
-				printf("Writing to DBGCTL : %d, %d", e->ContextRecord->Rax, e->ContextRecord->Rdx);
+				Logger::Log("Writing to DBGCTL : %d, %d", e->ContextRecord->Rax, e->ContextRecord->Rdx);
 				DBGCTL_lastEax = e->ContextRecord->Rax;
 				DBGCTL_lastEdx = e->ContextRecord->Rdx;
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else {
-				printf("Unhandled WRMSR");
+				Logger::Log("Unhandled WRMSR");
 			}
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xD8) { //mov rax, cr3
-			printf("Reading CR3\n");
+			Logger::Log("Reading CR3\n");
 			e->ContextRecord->Rax = cr3;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xDA) { //mov rax, cr3
-			printf("Reading CR3\n");
+			Logger::Log("Reading CR3\n");
 			e->ContextRecord->Rdx = cr3;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x22 && ptrBuffer[2] == 0xD8) { //mov cr3, rax
 			//e->ContextRecord->Rax = 0;
-			printf("CHANGING CR3 to %llx\n", e->ContextRecord->Rax);
+			Logger::Log("CHANGING CR3 to %llx\n", e->ContextRecord->Rax);
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC1) {
-			printf("Reading CR0 into RCX\n");
+			Logger::Log("Reading CR0 into RCX\n");
 			e->ContextRecord->Rcx = cr0;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC7) {
-			printf("Reading CR0 into RDX\n");
+			Logger::Log("Reading CR0 into RDX\n");
 			e->ContextRecord->Rdx = cr0;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0xFA) { //CLEAR INTERRUPT
 			e->ContextRecord->Rip += 1;
-			printf("Clearing interrupt\n");
+			Logger::Log("Clearing interrupt\n");
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0xFB) { //RESTORE INTERRUPT
 			e->ContextRecord->Rip += 1;
-			printf("Restoring interrupt\n");
+			Logger::Log("Restoring interrupt\n");
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFE) { //mov dr7, rsi
-			printf("Clearing DR7\n");
+			Logger::Log("Clearing DR7\n");
 			e->ContextRecord->Dr7 = e->ContextRecord->Rsi;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xF8) { //mov dr7, rsi
-			printf("Clearing DR7\n");
+			Logger::Log("Clearing DR7\n");
 			e->ContextRecord->Dr7 = e->ContextRecord->Rax;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFB) { //mov dr7, rsi
-			printf("Clearing DR7\n");
+			Logger::Log("Clearing DR7\n");
 			e->ContextRecord->Dr7 = e->ContextRecord->Rbx;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -219,17 +207,17 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode))
 		{
 			auto accessedChar = self_data->GetExport(e->ExceptionRecord->ExceptionInformation[1] - (uintptr_t)GetModuleHandle(nullptr));
-			auto readAddr = e->ExceptionRecord->ExceptionInformation[1];
+			uintptr_t readAddr = e->ExceptionRecord->ExceptionInformation[1];
 			if (!accessedChar) { //?
 				while (!accessedChar) {
 					readAddr--;
 					accessedChar = self_data->GetExport(readAddr - (uintptr_t)GetModuleHandle(nullptr));
 				}
-				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}:+{:p}", accessedChar, PVOID(e->ExceptionRecord->ExceptionInformation[1] - readAddr));
+				Logger::Log("\033[38;5;46m[Accessing]\033[0m %s:+%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
 			}
 			else {
-				spdlog::info("\033[38;5;46m[Accessing]\033[0m {}", accessedChar);
-				printf("Value is %llx", *(uint64_t*)e->ExceptionRecord->ExceptionInformation[1]);
+				Logger::Log("\033[38;5;46m[Accessing]\033[0m %s\n", accessedChar);
+				Logger::Log("Value is %llx\n", *(uint64_t*)e->ExceptionRecord->ExceptionInformation[1]);
 			}
 
 		}
@@ -239,11 +227,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (MemoryTracker::isTracked(lastPG)) {
 				auto namevar = MemoryTracker::getName(lastPG);
 				auto offset = e->ExceptionRecord->ExceptionInformation[1] - MemoryTracker::getStart(namevar);
-				printf("LOCAL ACCESS : %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
+				Logger::Log("LOCAL ACCESS : %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
 
 			}
 			else {
-				printf("WEIRD, CONTACT WARYAS");
+				Logger::Log("WEIRD, CONTACT WARYAS\n");
 				exit(0);
 			}
 
@@ -257,17 +245,17 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (read_module)
 			{
 				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-					spdlog::info("Reading {}+{:p}", read_module->name,
+					Logger::Log("Reading %s+%08x\n", read_module->name,
 						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 				}
 				else {
-					spdlog::info("Writing {}+{:p}", read_module->name,
+					Logger::Log("Writing %s+%08x\n", read_module->name,
 						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 				}
 			}
 			else
 			{
-				spdlog::info("Accessing unknown data");
+				Logger::Log("Accessing unknown data\n");
 			}
 
 		}
@@ -291,19 +279,19 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
 		case WRITE_VIOLATION:
-			printf("Tryign to write, not handled\n");
+			Logger::Log("Trying to write, not handled\n");
 			exit(0);
 			break;
 
 		case READ_VIOLATION:
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
-				printf("--CHECKING FOR PATCHGUARD--\n");
+				Logger::Log("--CHECKING FOR PATCHGUARD--\n");
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF) {
 				e->ContextRecord->Rip = (uintptr_t)u_iret;
-				printf("IRET Timing Emulation\n");
+				Logger::Log("IRET Timing Emulation\n");
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 
@@ -312,7 +300,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			{
 				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
 				auto offset_shared = read_addr - 0xFFFFF78000000000;
-				printf("[Accessing] KUSER_SHARED_DATA + 0x%04x", offset_shared);
+				Logger::Log("[Accessing] KUSER_SHARED_DATA + 0x%04x\n", offset_shared);
 
 				setKUSD();
 
@@ -523,7 +511,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 #ifdef STUB_UNIMPLEMENTED
 				redirectRip = (uintptr_t)unimplemented_stub;
 #else
-				spdlog::warn("Exiting...");
+				Logger::Log("Exiting...");
 				exit(0);
 #endif
 			}
@@ -546,7 +534,7 @@ DWORD FakeDriverEntry(LPVOID)
 
 	AddVectoredExceptionHandler(true, ExceptionHandler);
 
-	spdlog::info("Calling the driver entrypoint");
+	Logger::Log("Calling the driver entrypoint\n");
 
 	drvObj.Size = sizeof(drvObj);
 	drvObj.DriverName.Buffer = (WCHAR*)driverName;
@@ -623,7 +611,7 @@ DWORD FakeDriverEntry(LPVOID)
 	
 
 	auto result = DriverEntry(&drvObj, RegistryPath);
-	spdlog::info("Done! = {}", result);
+	Logger::Log("Done! = %llx", result);
 	system("pause");
 	return 0;
 }
@@ -660,8 +648,8 @@ int main(int argc, char* argv[]) {
 	//
 	//spdlog::set_default_logger(logger);
 
-	spdlog::set_pattern("[kace-%t] %v");
-	spdlog::info("Loading modules");
+	
+	Logger::Log("Loading modules\n");
 
 	
 
@@ -673,9 +661,9 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);

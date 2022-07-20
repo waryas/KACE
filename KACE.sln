@@ -6,12 +6,21 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KACE", "KACE.vcxproj", "{C6D3514C-7929-4BB5-9D1A-BE6D7A016AF8}"
 	ProjectSection(ProjectDependencies) = postProject
 		{965D1C24-6107-4F5C-B98D-4E86C80732A6} = {965D1C24-6107-4F5C-B98D-4E86C80732A6}
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E} = {9A82297E-FEEE-4B6E-A35F-86AF595D836E}
 		{BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24} = {BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PEFile", "libs\PEMapper\PEMapper.vcxproj", "{BBE3BE4A-3BB4-48AA-B6F5-A28076E2AF24}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E} = {9A82297E-FEEE-4B6E-A35F-86AF595D836E}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MemoryTracker", "libs\MemoryTracker\MemoryTracker.vcxproj", "{965D1C24-6107-4F5C-B98D-4E86C80732A6}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E} = {9A82297E-FEEE-4B6E-A35F-86AF595D836E}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Logger", "libs\Logger\Logger.vcxproj", "{9A82297E-FEEE-4B6E-A35F-86AF595D836E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +54,14 @@ Global
 		{965D1C24-6107-4F5C-B98D-4E86C80732A6}.Release|x64.Build.0 = Release|x64
 		{965D1C24-6107-4F5C-B98D-4E86C80732A6}.Release|x86.ActiveCfg = Release|Win32
 		{965D1C24-6107-4F5C-B98D-4E86C80732A6}.Release|x86.Build.0 = Release|Win32
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Debug|x64.ActiveCfg = Debug|x64
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Debug|x64.Build.0 = Debug|x64
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Debug|x86.ActiveCfg = Debug|Win32
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Debug|x86.Build.0 = Debug|Win32
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Release|x64.ActiveCfg = Release|x64
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Release|x64.Build.0 = Release|x64
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Release|x86.ActiveCfg = Release|Win32
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -3,9 +3,11 @@
 #include "nt_define.h"
 #include "static_export_provider.h"
 #include "libs/PEMapper/pefile.h"
+#include "libs/Logger/Logger.h"
 #include "provider.h"
 #include <cstdint>
 #include <memory>
+#include <malloc.h>
 
 #define PAGE_SHIFT 12
 #define PAGE_SIZE (1ULL << PAGE_SHIFT)
@@ -20,8 +22,6 @@
 #define MEMORY_ALLOCATION (1 * MB)
 
 
-#include <malloc.h>
-#include <spdlog/spdlog.h>
 
 #define MAX_MODULES 64
 
@@ -280,24 +280,24 @@ inline uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 		if (MappedModules[i].isMainModule) {
 			auto Import = MappedModules[i].pedata->GetImport(ptr);
 			if (Import) { //Found in IAT
-				const auto log = fmt::format("\033[38;5;14m[Executing]\033[0m {}::{} - ", Import->library.c_str(), Import->name.c_str());
+				Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s - ", Import->library.c_str(), Import->name.c_str());
 				if (myConstantProvider.contains(Import->name)) {
 					funcptr = (uintptr_t)myConstantProvider[Import->name].hook;
 					if (funcptr) {
-						spdlog::info(log + prototypedMsg);
+						Logger::Log(prototypedMsg);
 						return funcptr;
 					}
 				}
 				funcptr = (uintptr_t)GetProcAddress(ntdll, Import->name.c_str());
 				if (funcptr) {
-					spdlog::info(log + passthroughMsg);
+					Logger::Log(passthroughMsg);
 					return funcptr;
 				}
-				spdlog::info(log + notimplementedMsg);
+				Logger::Log(notimplementedMsg);
 				return 0;
 			}
 			else { //Not Found in IAT
-				spdlog::error("Contact Waryas; Should never get to here.");
+				Logger::Log("Contact Waryas; Should never get to here.");
 				exit(0);
 			}
 			break;
@@ -358,20 +358,20 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 				auto variableName = MappedModules[i].pedata->GetExport(offset);
 
 				if (!variableName) {
-					spdlog::error("Reading a non exported value");
+					Logger::Log("Reading a non exported value|");
 					return 0;
 				}
 				else {
-					const auto log = fmt::format("Reading {}::{} - ", MappedModules[i].name, variableName);
+					Logger::Log("Reading %s::%s - ", MappedModules[i].name, variableName);
 					if (constantTimeExportProvider.contains(variableName)) {
-						spdlog::info(log + prototypedMsg);
+						Logger::Log(prototypedMsg);
 						DWORD oldAccess;
 						VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
 						*(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[variableName];
 						VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
 					}
 					else {
-						spdlog::info(log + notimplementedMsg);
+						Logger::Log(notimplementedMsg);
 						//exit(0);
 					}
 				}
@@ -397,24 +397,24 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 				auto functionName = MappedModules[i].pedata->GetExport(offset);
 
 				if (!functionName) {
-					printf("Executing a non exported function\n");
+					Logger::Log("Executing a non exported function\n");
 					exit(0);
 				}
 				else {
-					const auto log = fmt::format("\033[38;5;14m[Executing]\033[0m {}::{} - ", MappedModules[i].name, functionName);
+					Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s - ", MappedModules[i].name, functionName);
 					if (myConstantProvider.contains(functionName)) {
 						funcptr = (uintptr_t)myConstantProvider[functionName].hook;
 						if (funcptr) {
-							spdlog::info(log + prototypedMsg);
+							Logger::Log(prototypedMsg);
 							return funcptr;
 						}
 					}
 					funcptr = (uintptr_t)GetProcAddress(ntdll, functionName);
 					if (funcptr) {
-						spdlog::info(log + passthroughMsg);
+						Logger::Log(passthroughMsg);
 						return funcptr;
 					}
-					spdlog::info(log + notimplementedMsg);
+					Logger::Log(notimplementedMsg);
 					return 0;
 				}
 			}
@@ -425,7 +425,7 @@ inline uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
 inline void HookSelf(char* path) {
 	if (!path) {
-		printf("HookSelf wrong parameters\n");
+		Logger::Log("HookSelf wrong parameters\n");
 		exit(0);
 	}
 
@@ -441,13 +441,13 @@ inline void HookSelf(char* path) {
 inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name, bool isMainModule) {
 	uintptr_t ep = 0;
 	if (!path || !spoofedpath || !name) {
-		printf("LoadModule wrong parameters\n");
+		Logger::Log("LoadModule wrong parameters\n");
 		exit(0);
 	}
 	bool loaded = false;
 
 	if (isMainModule) {
-		spdlog::info("loading {}", name);
+		Logger::Log("Loading %s\n", name);
 	}
 
 	for (int i = 0; i < MAX_MODULES; ++i) {
@@ -578,12 +578,12 @@ inline uintptr_t LoadModule(const char* path, const char* spoofedpath, const cha
 		break;
 	}
 	if (!loaded) {
-		printf("MAX_MODULES OVERLOAD\n");
+		Logger::Log("MAX_MODULES OVERLOAD\n");
 		exit(0);
 	}
 
 	if (!ep) {
-		printf("Entry point is 0, incorrect\n");
+		Logger::Log("Entry point is 0, incorrect\n");
 		exit(0);
 	}
 	return ep;

@@ -8,11 +8,6 @@ extern const char* prototypedMsg;
 extern const char* passthroughMsg;
 extern const char* notimplementedMsg;
 
-
-void custom_printf(const char* buffer, ...);
-
-
-#define printf(x,...) custom_printf(x, __VA_ARGS__)
 uint64_t unimplemented_stub();
 
 
