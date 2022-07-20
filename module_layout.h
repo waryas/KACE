@@ -362,13 +362,16 @@ inline uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 					return 0;
 				}
 				else {
-					Logger::Log("Reading %s::%s - ", MappedModules[i].name, variableName);
+					Logger::Log("\033[38;5;46m[Reading]\033[0m %s::%s - ", MappedModules[i].name, variableName);
 					if (constantTimeExportProvider.contains(variableName)) {
 						Logger::Log(prototypedMsg);
 						DWORD oldAccess;
-						VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess);
+						DWORD oldAccess2;
+						VirtualProtect((LPVOID)constantTimeExportProvider[variableName], 1, PAGE_READWRITE, &oldAccess);
+						VirtualProtect((LPVOID)ptr, 1, PAGE_READWRITE, &oldAccess2);
 						*(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[variableName];
-						VirtualProtect((LPVOID)ptr, 1, oldAccess, &oldAccess);
+						VirtualProtect((LPVOID)ptr, 1, oldAccess2, &oldAccess2);
+						VirtualProtect((LPVOID)constantTimeExportProvider[variableName], 1, oldAccess, &oldAccess);
 					}
 					else {
 						Logger::Log(notimplementedMsg);

@@ -621,6 +621,10 @@ DWORD FakeDriverEntry(LPVOID)
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
 
+	
+
+	
+
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	Logger::Log("Done! = %llx", result);
 	system("pause");
