@@ -92,7 +92,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		if (ptr == 0xc0200f44) //mov eax, cr8
 		{
 			// mov rax, cr8
-			Logger::Log("Reading IRQL\n");
+			Logger::Log("\033[38;5;46m[Reading]\033[0m IRQL->EAX\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -100,23 +100,23 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		else if (ptr == 0x00200f44) // mov rax, cr8
 		{
 			// mov rax, cr8
-			Logger::Log("Reading IRQL\n");
+			Logger::Log("\033[38;5;46m[Reading]\033[0m IRQL->RAX\n");
 			e->ContextRecord->Rax = cr8;
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x32) { //rdmsr
 			if (e->ContextRecord->Rcx == 0x1D9) {
-				Logger::Log("MSR_LBR Requested -> %d, %d", DBGCTL_lastEax, DBGCTL_lastEdx);
+				Logger::Log("\033[38;5;46m[Reading]\033[0m MSR DBGCTL -> %d, %d\n", DBGCTL_lastEax, DBGCTL_lastEdx);
 				e->ContextRecord->Rax = DBGCTL_lastEax;
 				e->ContextRecord->Rdx = DBGCTL_lastEax;
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else {
-				Logger::Log("Unhandled RDMSR");
+				Logger::Log("\033[38;5;46m[Reading]\033[0m Unhandled MSR : %08x\n", e->ContextRecord->Rcx);
 				if (e->ContextRecord->Rcx >= 10000) {
-					Logger::Log("Fake RDMSR -> SEH REDIRECTION", e->ContextRecord->Rcx);
+					Logger::Log("\033[38;5;46m[Reading]\033[0m Fake MSR -> Exception injection\n", e->ContextRecord->Rcx);
 					//e->ContextRecord->Rip = (uint64_t)h_DbgPrompt;
 					return EXCEPTION_CONTINUE_SEARCH;
 				}
@@ -127,71 +127,71 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x30) {
 
 			if (e->ContextRecord->Rcx == 0x1D9) {
-				Logger::Log("Writing to DBGCTL : %d, %d", e->ContextRecord->Rax, e->ContextRecord->Rdx);
+				Logger::Log("\033[38;5;46m[Writing]\033[0m MSR DBGCTL -> %d, %d\n", e->ContextRecord->Rax, e->ContextRecord->Rdx);
 				DBGCTL_lastEax = e->ContextRecord->Rax;
 				DBGCTL_lastEdx = e->ContextRecord->Rdx;
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else {
-				Logger::Log("Unhandled WRMSR");
+				Logger::Log("\033[38;5;46m[Writing]\033[0m Unhandled MSR : %08x\n", e->ContextRecord->Rcx);
 			}
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xD8) { //mov rax, cr3
-			Logger::Log("Reading CR3\n");
+			Logger::Log("\033[38;5;46m[Reading]\033[0m CR3 -> Rax\n");
 			e->ContextRecord->Rax = cr3;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xDA) { //mov rax, cr3
-			Logger::Log("Reading CR3\n");
+			Logger::Log("\033[38;5;46m[Reading]\033[0m CR3 -> Rdx\n");
 			e->ContextRecord->Rdx = cr3;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x22 && ptrBuffer[2] == 0xD8) { //mov cr3, rax
 			//e->ContextRecord->Rax = 0;
-			Logger::Log("CHANGING CR3 to %llx\n", e->ContextRecord->Rax);
+			Logger::Log("\033[38;5;46m[Writing]\033[0m CR3 = %llx\n", e->ContextRecord->Rax);
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC1) {
-			Logger::Log("Reading CR0 into RCX\n");
+			Logger::Log("\033[38;5;46m[Reading]\033[0m CR0 into RCX\n");
 			e->ContextRecord->Rcx = cr0;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC7) {
-			Logger::Log("Reading CR0 into RDX\n");
+			Logger::Log("\033[38;5;46m[Reading]\033[0m CR0 into RDX\n");
 			e->ContextRecord->Rdx = cr0;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0xFA) { //CLEAR INTERRUPT
 			e->ContextRecord->Rip += 1;
-			Logger::Log("Clearing interrupt\n");
+			Logger::Log("\033[38;5;46m[Info]\033[0m Clearing interrupt\n");
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0xFB) { //RESTORE INTERRUPT
 			e->ContextRecord->Rip += 1;
-			Logger::Log("Restoring interrupt\n");
+			Logger::Log("\033[38;5;46m[Info]\033[0m Restoring interrupt\n");
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFE) { //mov dr7, rsi
-			Logger::Log("Clearing DR7\n");
+			Logger::Log("\033[38;5;46m[Writing]\033[0m DR7 = %llx\n", e->ContextRecord->Rsi);
 			e->ContextRecord->Dr7 = e->ContextRecord->Rsi;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xF8) { //mov dr7, rsi
-			Logger::Log("Clearing DR7\n");
+			Logger::Log("\033[38;5;46m[Writing]\033[0m DR7 = %llx\n", e->ContextRecord->Rax);
 			e->ContextRecord->Dr7 = e->ContextRecord->Rax;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFB) { //mov dr7, rsi
-			Logger::Log("Clearing DR7\n");
+		Logger::Log("\033[38;5;46m[Writing]\033[0m DR7 = %llx\n", e->ContextRecord->Rbx);
 			e->ContextRecord->Dr7 = e->ContextRecord->Rbx;
 			e->ContextRecord->Rip += 3;
 			return EXCEPTION_CONTINUE_EXECUTION;
@@ -213,11 +213,21 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 					readAddr--;
 					accessedChar = self_data->GetExport(readAddr - (uintptr_t)GetModuleHandle(nullptr));
 				}
-				Logger::Log("\033[38;5;46m[Accessing]\033[0m %s:+%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
+				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
+					Logger::Log("\033[38;5;46m[Reading]\033[0m %s:+%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
+				}
+				else {
+					Logger::Log("\033[38;5;46m[Writing]\033[0m %s:+%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
+				}
 			}
 			else {
-				Logger::Log("\033[38;5;46m[Accessing]\033[0m %s\n", accessedChar);
-				Logger::Log("Value is %llx\n", *(uint64_t*)e->ExceptionRecord->ExceptionInformation[1]);
+				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
+					Logger::Log("\033[38;5;46m[Reading]\033[0m %s\n", accessedChar);
+				}
+				else {
+					Logger::Log("\033[38;5;46m[Writing]\033[0m %s\n", accessedChar);
+				}
+				
 			}
 
 		}
@@ -227,7 +237,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (MemoryTracker::isTracked(lastPG)) {
 				auto namevar = MemoryTracker::getName(lastPG);
 				auto offset = e->ExceptionRecord->ExceptionInformation[1] - MemoryTracker::getStart(namevar);
-				Logger::Log("LOCAL ACCESS : %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
+				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
+					Logger::Log("\033[38;5;46m[Reading]\033[0m %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
+				}
+				else {
+					Logger::Log("\033[38;5;46m[Writing]\033[0m %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
+				}
 
 			}
 			else {
@@ -245,11 +260,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (read_module)
 			{
 				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-					Logger::Log("Reading %s+%08x\n", read_module->name,
+					Logger::Log("\033[38;5;46m[Reading]\033[0m %s+%08x\n", read_module->name,
 						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 				}
 				else {
-					Logger::Log("Writing %s+%08x\n", read_module->name,
+					Logger::Log("\033[38;5;46m[Writing]\033[0m %s+%08x\n", read_module->name,
 						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
 				}
 			}
@@ -285,13 +300,13 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 		case READ_VIOLATION:
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
-				Logger::Log("--CHECKING FOR PATCHGUARD--\n");
+				Logger::Log("\033[38;5;46m[INFO]\033[0m Checking for Patchguard (int 20)\n");
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF) {
 				e->ContextRecord->Rip = (uintptr_t)u_iret;
-				Logger::Log("IRET Timing Emulation\n");
+				Logger::Log("\033[38;5;46m[INFO]\033[0m IRET Timing Emulation\n");
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 
@@ -300,7 +315,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			{
 				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
 				auto offset_shared = read_addr - 0xFFFFF78000000000;
-				Logger::Log("[Accessing] KUSER_SHARED_DATA + 0x%04x\n", offset_shared);
+				Logger::Log("\033[38;5;46m[Accessing]\033[0m KUSER_SHARED_DATA + 0x%04x\n", offset_shared);
 
 				setKUSD();
 
@@ -606,10 +621,6 @@ DWORD FakeDriverEntry(LPVOID)
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
 
-	FakeKPCR.Self = (_KPCR*)&FakeKPCR.Self;
-
-	
-
 	auto result = DriverEntry(&drvObj, RegistryPath);
 	Logger::Log("Done! = %llx", result);
 	system("pause");
@@ -661,9 +672,9 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);

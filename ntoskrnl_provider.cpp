@@ -49,9 +49,9 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 	auto x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 
-	Logger::Log("Class %08x status : %08x\n", SystemInformationClass, x);
+	Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
 	if (x == 0) {
-		Logger::Log("Class %08x success\n", SystemInformationClass);
+		Logger::Log("\tClass %08x success\n", SystemInformationClass);
 		if (SystemInformationClass == 0xb) { //SystemModuleInformation
 			auto ptr = (char*)SystemInformation;
 			//*(uint64_t*)(ptr + 0x18) = GetModuleBase("ntoskrnl.exe");
@@ -65,7 +65,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 				auto modulebase = GetModuleBase(modulename);
 				if (modulebase) {
-					Logger::Log("Patching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase, (PVOID)modulebase);
+					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase, (PVOID)modulebase);
 					loadedmodules->Modules[i].ImageBase = modulebase;
 				}
 				else { //We're gonna pass the real module to the driver
@@ -75,7 +75,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 			}
 			//MemoryTracker::TrackVariable((uintptr_t)ptr, SystemInformationLength, (char*)"NtQuerySystemInformation"); BAD IDEA
 
-			Logger::Log("base of system is : %llx\n", (PVOID) * reinterpret_cast<uint64_t*>(ptr + 0x18));
+			Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
 
 		}
 		else if (SystemInformationClass == 0x4D) { //SystemModuleInformation
@@ -95,7 +95,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 				auto modulebase = GetModuleBase(modulename);
 				if (modulebase) {
-					Logger::Log("Patching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
+					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
 					pMods->ImageBase = (PVOID)modulebase;
 
 				}
@@ -111,12 +111,12 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 				SizeRead += sizeof(_SYSTEM_MODULE_EX);
 			}
 
-			Logger::Log("base of system is : %llx\n", *(uint64_t*)(ptr + 0x18));
+			Logger::Log("\tBase is : %llx\n", *(uint64_t*)(ptr + 0x18));
 
 		}
 		else if (SystemInformationClass == 0x5a) {
 			SYSTEM_BOOT_ENVIRONMENT_INFORMATION* pBootInfo = (SYSTEM_BOOT_ENVIRONMENT_INFORMATION*)SystemInformation;
-			Logger::Log("Boot info buffer : %llx\n", (void*)pBootInfo);
+			Logger::Log("\tBoot info buffer : %llx\n", (void*)pBootInfo);
 
 		}
 
@@ -126,7 +126,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 
 uint64_t h_RtlRandomEx(unsigned long* seed)
 {
-	Logger::Log("Seed is %llx\n", *seed);
+	Logger::Log("\tSeed is %llx\n", *seed);
 	auto ret = __NtRoutine("RtlRandomEx", seed);
 	*seed = ret; //Keep behavior kinda same as Kernel equivalent in case of check
 	return ret;
@@ -171,11 +171,11 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
 	TempBuffer.MaximumLength = wcslen(TempBuffer.Buffer) * 2;
 	ObjectAttributes->ObjectName = &TempBuffer;
 	ObjectAttributes->Attributes = 0x00000040;
-	Logger::Log("Creating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
+	Logger::Log("\tCreating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
 	if (DesiredAccess == 0xC0000000)
 		DesiredAccess = 0xC0100080;
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, Disposition, CreateOptions, EaBuffer, EaLength);
-	Logger::Log("Return : %08x\n", ret);
+	Logger::Log("\tReturn : %08x\n", ret);
 	ObjectAttributes->ObjectName = OLDBuffer;
 	free(TempBuffer.Buffer);
 
@@ -190,13 +190,13 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
 	InitializeListHead(&Event->Header.WaitListHead);
 	Event->Header.Type = Type;
 	*(WORD*)((char*)&Event->Header.Lock + 1) = 0x600; //saw this on ida, someone explain me
-	Logger::Log("Callback object : %llx\n", Event);
+	Logger::Log("\tEvent object : %llx\n", Event);
 }
 
 NTSTATUS h_RtlGetVersion(RTL_OSVERSIONINFOW* lpVersionInformation)
 {
 	auto ret = __NtRoutine("RtlGetVersion", lpVersionInformation);
-	Logger::Log("%d.%d.%d\n", lpVersionInformation->dwMajorVersion, lpVersionInformation->dwMinorVersion, lpVersionInformation->dwBuildNumber);
+	Logger::Log("\t%d.%d.%d\n", lpVersionInformation->dwMajorVersion, lpVersionInformation->dwMinorVersion, lpVersionInformation->dwBuildNumber);
 	return ret;
 }
 
@@ -209,7 +209,7 @@ EXCEPTION_DISPOSITION _c_exception(_EXCEPTION_RECORD* ExceptionRecord, void* Est
 NTSTATUS h_RtlMultiByteToUnicodeN(PWCH UnicodeString, ULONG MaxBytesInUnicodeString, PULONG BytesInUnicodeString,
 	const CHAR* MultiByteString, ULONG BytesInMultiByteString)
 {
-	Logger::Log("Trying to convert : %s\n", MultiByteString);
+	Logger::Log("\tTrying to convert : %s\n", MultiByteString);
 	return __NtRoutine("RtlMultiByteToUnicodeN", UnicodeString, MaxBytesInUnicodeString, BytesInUnicodeString, MultiByteString, BytesInMultiByteString);
 }
 
@@ -227,9 +227,9 @@ NTSTATUS h_NtCreateFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_AT
 	PVOID IoStatusBlock, PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess,
 	ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength)
 {
-	Logger::Log("Creating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
+	Logger::Log("\tCreating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
 	auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
-	Logger::Log("Return : %08x\n", ret);
+	Logger::Log("\tReturn : %08x\n", ret);
 	return ret;
 }
 
@@ -243,7 +243,7 @@ NTSTATUS h_NtReadFile(HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID A
 NTSTATUS h_NtQueryInformationFile(HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, ULONG Length,
 	FILE_INFORMATION_CLASS FileInformationClass)
 {
-	Logger::Log("QueryInformationFile with class %08x\n", FileInformationClass);
+	Logger::Log("\tQueryInformationFile with class %08x\n", FileInformationClass);
 	auto ret = __NtRoutine("NtQueryInformationFile", FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
 	return ret;
 }
@@ -258,7 +258,7 @@ NTSTATUS h_ZwQueryValueKey(HANDLE KeyHandle, PUNICODE_STRING ValueName,
 NTSTATUS h_ZwOpenKey(PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes)
 {
 	auto ret = __NtRoutine("NtOpenKey", KeyHandle, DesiredAccess, ObjectAttributes);
-	Logger::Log("Try to open %ls : %08x\n", ObjectAttributes->ObjectName->Buffer, ret);
+	Logger::Log("\tTry to open %ls : %08x\n", ObjectAttributes->ObjectName->Buffer, ret);
 	return ret;
 }
 
@@ -277,7 +277,7 @@ NTSTATUS h_ZwClose(PHANDLE Handle)
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData,
 	ULONG ValueLength)
 {
-	Logger::Log("Writing to %s - %s  %llx\n", Path, ValueName, *(const PVOID*)ValueData);
+	Logger::Log("\tWriting to %s - %s  %llx\n", Path, ValueName, *(const PVOID*)ValueData);
 	auto ret = __NtRoutine("RtlWriteRegistryValue", RelativeTo, Path, ValueName, ValueType, ValueData, ValueLength);
 	return ret;
 }
@@ -293,19 +293,19 @@ NTSTATUS h_ZwQueryFullAttributesFile(OBJECT_ATTRIBUTES* ObjectAttributes,
 {
 
 	auto ret = __NtRoutine("NtQueryFullAttributesFile", ObjectAttributes, FileInformation);
-	Logger::Log("Querying information for %ls : %08x\n", ObjectAttributes->ObjectName->Buffer, ret);
+	Logger::Log("\tQuerying information for %ls : %08x\n", ObjectAttributes->ObjectName->Buffer, ret);
 	return ret;
 }
 
 PVOID h_PsGetProcessWow64Process(_EPROCESS* Process)
 {
-	Logger::Log("Requesting WoW64 for process : %llx (id : %llx)\n", (const PVOID)Process, Process->UniqueProcessId);
+	Logger::Log("\tRequesting WoW64 for process : %llx (id : %llx)\n", (const PVOID)Process, Process->UniqueProcessId);
 	return Process->WoW64Process;
 }
 
 NTSTATUS h_IoWMIOpenBlock(LPCGUID Guid, ULONG DesiredAccess, PVOID* DataBlockObject)
 {
-	Logger::Log("WMI GUID : %llx-%llx-%llx-%llx with access : %llx\n", Guid->Data1, Guid->Data2, Guid->Data3, Guid->Data4, DesiredAccess);
+	Logger::Log("\tWMI GUID : %llx-%llx-%llx-%llx with access : %llx\n", Guid->Data1, Guid->Data2, Guid->Data3, Guid->Data4, DesiredAccess);
 	return STATUS_SUCCESS;
 }
 
@@ -323,7 +323,7 @@ uint64_t h_ObfDereferenceObject(PVOID obj)
 
 NTSTATUS h_PsLookupThreadByThreadId(HANDLE ThreadId, PVOID* Thread)
 {
-	Logger::Log("Thread ID : %llx is being investigated.\n", ThreadId);
+	//Logger::Log("\tThread ID : %llx is being investigated.\n", ThreadId);
 	auto ct = h_KeGetCurrentThread();
 
 	if (ThreadId == (HANDLE)4) {
@@ -376,7 +376,7 @@ NTSTATUS h_ObOpenObjectByPointer(
 
 
 NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, PULONG ReturnLength) {
-	Logger::Log("Unimplemented function call detected\n");
+	Logger::Log("\tUnimplemented function call detected\n");
 	return STATUS_SUCCESS;
 }
 
@@ -407,11 +407,11 @@ LONG_PTR h_ObfReferenceObject(PVOID Object)
 	if (!Object)
 		return -1;
 	if (Object == (PVOID)&FakeSystemProcess) {
-		Logger::Log("Increasing ref by 1\n");
+		Logger::Log("\tIncreasing ref by 1\n");
 		return (LONG_PTR)&FakeSystemProcess;
 	}
 	else {
-		Logger::Log("Failed - ");
+		Logger::Log("\tFailed - ");
 		Logger::Log("%llx\n", Object);
 	}
 
@@ -426,7 +426,7 @@ LONGLONG h_PsGetProcessCreateTimeQuadPart(_EPROCESS* process)
 
 LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN CaseInSensitive)
 {
-	Logger::Log("\t\tComparing %ls to %ls\n", String1->Buffer, String2->Buffer);
+	Logger::Log("\tComparing %s to %s\n", String1->Buffer, String2->Buffer);
 	auto ret = __NtRoutine("RtlCompareString", String1, String2, CaseInSensitive);
 	return ret;
 }
@@ -434,7 +434,7 @@ LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN Ca
 NTSTATUS h_PsLookupProcessByProcessId(HANDLE ProcessId, _EPROCESS** Process)
 {
 
-	Logger::Log("\t\tProcess %08x EPROCESS being retrieved\n", ProcessId);
+	Logger::Log("\tProcess %08x EPROCESS being retrieved\n", ProcessId);
 
 	if (ProcessId == (HANDLE)4) {
 		*Process = &FakeSystemProcess;
@@ -458,7 +458,7 @@ HANDLE h_PsGetProcessId(_EPROCESS* Process)
 _EPROCESS* h_PsGetCurrentProcess()
 {
 	auto val = (_EPROCESS*)h_KeGetCurrentThread()->Tcb.ApcState.Process;
-	Logger::Log("Returning : %llx\n", val);
+	Logger::Log("\tReturning : %llx\n", val);
 	return val;
 }
 
@@ -485,13 +485,13 @@ NTSTATUS h_NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS Proc
 
 
 		auto ret = __NtRoutine("NtQueryInformationProcess", ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
-		Logger::Log("ProcessInformation for handle %llx - class %llx - ret : %llx\n", ProcessHandle, ProcessInformationClass, ret);
+		Logger::Log("\tProcessInformation for handle %llx - class %llx - ret : %llx\n", ProcessHandle, ProcessInformationClass, ret);
 		*(DWORD*)ProcessInformation = 1; //We are critical
 		return ret;
 	}
 	else {
 		auto ret = __NtRoutine("NtQueryInformationProcess", ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
-		Logger::Log("ProcessInformation for handle %llx - class %llx - ret : %llx\n", ProcessHandle, ProcessInformationClass, ret);
+		Logger::Log("\tProcessInformation for handle %llx - class %llx - ret : %llx\n", ProcessHandle, ProcessInformationClass, ret);
 		return ret;
 	}
 
@@ -531,7 +531,7 @@ PACCESS_TOKEN h_PsReferencePrimaryToken(_EPROCESS* Process)
 	if (v5 > 1)
 		a1 = (_EX_FAST_REF*)v6;
 
-	Logger::Log("Returning Token : %llx\n", (const void*)a1);
+	Logger::Log("\tReturning Token : %llx\n", (const void*)a1);
 	return a1;
 }
 
@@ -541,7 +541,7 @@ NTSTATUS h_SeQueryInformationToken(PACCESS_TOKEN Token, TOKEN_INFORMATION_CLASS 
 	PVOID* TokenInformation)
 {
 	//TODO NOT IMPLEMENTED
-	Logger::Log("Token : %llx - Class : %llx\n", (const void*)Token, (int)TokenInformationClass);
+	Logger::Log("\tToken : %llx - Class : %llx\n", (const void*)Token, (int)TokenInformationClass);
 	if (TokenInformationClass == 0x19) { //IsAppContainer
 		*(DWORD*)TokenInformation = 0; //We are not a appcontainer.
 	}
@@ -555,7 +555,7 @@ void h_IoDeleteController(PVOID ControllerObject)
 {
 	_EX_FAST_REF* ref = (_EX_FAST_REF*)ControllerObject;
 	//TODO This needs to dereference the object  -- Check ntoskrnl.exe code
-	Logger::Log("Deleting controller : %llx\n", static_cast<const void*>(ControllerObject));
+	Logger::Log("\tDeleting controller : %llx\n", static_cast<const void*>(ControllerObject));
 	return;
 }
 
@@ -563,7 +563,7 @@ NTSTATUS h_RtlDuplicateUnicodeString(int add_nul, const UNICODE_STRING* source, 
 {
 
 	auto ret = __NtRoutine("RtlDuplicateUnicodeString", add_nul, source, destination);
-	Logger::Log("RtlDuplicateUnicodeString : %ls = %llx", source->Buffer, ret);
+	Logger::Log("\tRtlDuplicateUnicodeString : %ls = %llx\n", source->Buffer, ret);
 	return ret;
 }
 
@@ -589,7 +589,7 @@ int h_vswprintf_s(wchar_t* buffer, size_t numberOfElements, const wchar_t* forma
 
 
 	auto ret = vswprintf_s(buffer, numberOfElements, format, (va_list)variables);
-	Logger::Log(buffer);
+	Logger::Log("\tResult : %ls\n", buffer);
 	return ret;
 }
 
@@ -615,7 +615,7 @@ int h_swprintf_s(wchar_t* buffer, size_t sizeOfBuffer, const wchar_t* format, ..
 	auto ret = vswprintf_s(buffer, sizeOfBuffer, format, (va_list)variables);
 
 
-	Logger::Log(buffer);
+	Logger::Log("\tResult : %ls\n", buffer);
 	return ret;
 }
 
@@ -645,8 +645,8 @@ void h_RtlTimeToTimeFields(long long Time, long long TimeFields)
 
 BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 {
-	Logger::Log("Timer object : %llx\n", Timer);
-	Logger::Log("DPC object : %llx\n", Dpc);
+	Logger::Log("\tTimer object : %llx\n", Timer);
+	Logger::Log("\tDPC object : %llx\n", Dpc);
 	memcpy(&Timer->DueTime, &DueTime, sizeof(DueTime));
 	return true;
 }
@@ -656,10 +656,10 @@ void h_KeInitializeTimer(_KTIMER* Timer) {
 }
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context)
 {
-	Logger::Log("BroadcastFunction: %llx\n", static_cast<const void*>(BroadcastFunction));
-	Logger::Log("Content: %llx\n", reinterpret_cast<const void*>(Context));
+	Logger::Log("\tBroadcastFunction: %llx\n", static_cast<const void*>(BroadcastFunction));
+	Logger::Log("\tContent: %llx\n", reinterpret_cast<const void*>(Context));
 	auto ret = static_cast<long long(*)(ULONG_PTR)>(BroadcastFunction)(Context);
-	Logger::Log("IPI Returned : %d\n", ret);
+	Logger::Log("\tIPI Returned : %d\n", ret);
 	return ret;
 
 	//return 0;
@@ -685,9 +685,9 @@ NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool C
 {
 	OBJECT_ATTRIBUTES* oa = (OBJECT_ATTRIBUTES*)ObjectAttributes;
 	_CALLBACK_OBJECT** co = (_CALLBACK_OBJECT**)CallbackObject;
-	Logger::Log("Callback object : %llx\n", CallbackObject);
-	Logger::Log("*Callback object : %llx\n", *co);
-	Logger::Log("Callback name : %ls\n", oa->ObjectName->Buffer);
+	Logger::Log("\tCallback object : %llx\n", CallbackObject);
+	Logger::Log("\t*Callback object : %llx\n", *co);
+	Logger::Log("\tCallback name : %ls\n", oa->ObjectName->Buffer);
 	*co = (_CALLBACK_OBJECT*)0x10e4e9c820;
 	return 0;
 }
@@ -879,16 +879,16 @@ HANDLE h_PsGetThreadProcessId(_ETHREAD* Thread) {
 HANDLE h_PsGetThreadProcess(_ETHREAD* Thread) {
 	if (Thread) {
 		//todo impl
-		Logger::Log("h_PsGetThreadProcess un impl!\n");
+		Logger::Log("\th_PsGetThreadProcess un impl!\n");
 		return 0;
 	} return 0;
 }
 
 void h_ProbeForRead(void* address, size_t len, ULONG align) {
-	Logger::Log("ProbeForRead -> {%llx}(len: %d) align: %d\n", address, len, align);
+	Logger::Log("\tProbeForRead -> {%llx}(len: %d) align: %d\n", address, len, align);
 }
 void h_ProbeForWrite(void* address, size_t len, ULONG align) {
-	Logger::Log("ProbeForWrite -> {%llx}(len: %d) align: %d\n", address, len, align);
+	Logger::Log("\tProbeForWrite -> {%llx}(len: %d) align: %d\n", address, len, align);
 }
 
 
@@ -937,7 +937,7 @@ NTSTATUS h_PsCreateSystemThread(
 //todo impl 
 NTSTATUS h_PsTerminateSystemThread(
 	NTSTATUS exitstatus) {
-	Logger::Log("thread boom\n");
+	Logger::Log("\tthread boom\n");
 	__debugbreak(); int* a = 0; *a = 1; return 0;
 }
 
@@ -966,7 +966,7 @@ void h_IoDeleteDevice(_DEVICE_OBJECT* obj) {
 
 //todo definitely will blowup
 void* h_IoGetTopLevelIrp() {
-	Logger::Log("IoGetTopLevelIrp blows up sorry\n");
+	Logger::Log("\tIoGetTopLevelIrp blows up sorry\n");
 	static int irp = 0;
 	return &irp;
 }
@@ -978,7 +978,7 @@ NTSTATUS h_ObReferenceObjectByHandle(
 	uint64_t AccessMode,
 	PVOID* Object,
 	void* HandleInformation) {
-	Logger::Log("h_ObReferenceObjectByHandle blows up sorry\n");
+	Logger::Log("\th_ObReferenceObjectByHandle blows up sorry\n");
 	return -1;
 }
 
@@ -997,7 +997,7 @@ void* h_ObGetFilterVersion(void* arg) {
 }
 
 BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
-	Logger::Log("Checking for %llx\n", VirtualAddress);
+	Logger::Log("\tChecking for %llx\n", VirtualAddress);
 	if (VirtualAddress == 0)
 		return false;
 	return true; // rand() % 2 :troll:
@@ -1033,7 +1033,7 @@ NTSTATUS h_ZwOpenSection(
 ) {
 	
 	auto ret = __NtRoutine("ZwOpenSection",SectionHandle, DesiredAccess, ObjectAttributes);
-	Logger::Log("Section name : %ls, access : %llx, ret : %08x\n", ObjectAttributes->ObjectName->Buffer, DesiredAccess, ret);
+	Logger::Log("\tSection name : %ls, access : %llx, ret : %08x\n", ObjectAttributes->ObjectName->Buffer, DesiredAccess, ret);
 
 	return ret;
 }
