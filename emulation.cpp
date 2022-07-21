@@ -24,7 +24,6 @@ namespace VCPU {
 		return ZYAN_SUCCESS(status);
 	}
 
-
 	static uint32_t GRegIndex(ZydisRegister Reg) {
 
 		PCONTEXT resolver = 0;
@@ -42,9 +41,6 @@ namespace VCPU {
 
 		return lookup / 8;
 	}
-
-
-
 
 	static uint64_t ReadRegisterValue(PCONTEXT ctx, ZydisRegister reg) {
 		uint64_t* context_lookup = (uint64_t*)ctx;
@@ -75,15 +71,10 @@ namespace VCPU {
 		return 0;
 	}
 
-
-
 	static bool SkipToNext(PCONTEXT ctx) {
 		ctx->Rip += instr.length;
 		return true;
 	}
-
-
-
 
 
 	namespace PrivilegedInstruction {
@@ -93,6 +84,7 @@ namespace VCPU {
 
 		}
 	}
+
 
 	namespace MemoryRead {
 
@@ -149,7 +141,7 @@ namespace VCPU {
 
 			else if (instr.mnemonic == ZYDIS_MNEMONIC_AND) {
 				if (instr.operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) {
-					
+
 					InstrEmu::EmulateAND(context, instr.operands[0].reg.value, KUSD_USERMODE + (addr - KUSD_MIN));
 					return SkipToNext(context);
 				}
@@ -385,7 +377,4 @@ namespace VCPU {
 			return true;
 		}
 	}
-
-
-
 }
