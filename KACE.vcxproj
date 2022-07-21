@@ -123,6 +123,7 @@
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -155,6 +156,7 @@
       <FloatingPointExceptions>false</FloatingPointExceptions>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <GuardEHContMetadata>false</GuardEHContMetadata>
+      <StructMemberAlignment>16Bytes</StructMemberAlignment>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -167,6 +169,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="emulation.cpp" />
     <ClCompile Include="kace.cpp" />
     <ClCompile Include="module_layout.cpp" />
     <ClCompile Include="ntoskrnl_provider.cpp" />
@@ -174,12 +177,14 @@
     <ClCompile Include="static_export_provider.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="config.h" />
     <ClInclude Include="module_layout.h" />
     <ClInclude Include="ntoskrnl_provider.h" />
     <ClInclude Include="ntoskrnl_struct.h" />
     <ClInclude Include="nt_define.h" />
     <ClInclude Include="provider.h" />
     <ClInclude Include="static_export_provider.h" />
+    <ClInclude Include="emulation.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="iret.asm">

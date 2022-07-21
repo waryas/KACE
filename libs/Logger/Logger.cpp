@@ -8,8 +8,8 @@
 
 static bool isInit = false;
 
-static char sBuffer[64] = { 0 };
-static wchar_t wBuffer[64] = { 0 };
+inline __declspec(align(0x1000))  static char sBuffer[1024] = { 0 };
+inline __declspec(align(0x1000)) static  wchar_t wBuffer[1024] = { 0 };
 
 void Logger::Log(const char *format, ...) {
 

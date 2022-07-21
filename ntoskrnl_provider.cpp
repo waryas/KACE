@@ -1038,7 +1038,213 @@ NTSTATUS h_ZwOpenSection(
 	return ret;
 }
 
+
+/*
+uint64_t TranslateLinearAddress(uint64_t directoryTableBase, uint64_t virtualAddress)
+{
+	uint16_t PML4 = (uint16_t)((virtualAddress >> 39) & 0x1FF);         //<! PML4 Entry Index
+	uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
+	uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF);    //<! Page Directory Table Index
+	uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);        //<! Page Table Index
+
+																	// Read the PML4 Entry. DirectoryTableBase has the base address of the table.
+																	// It can be read from the CR3 register or from the kernel process object.
+	uint64_t PML4E = 0;// ReadPhysicalAddress<ulong>(directoryTableBase + (ulong)PML4 * sizeof(ulong));
+	Read(directoryTableBase + (uint64_t)PML4 * sizeof(uint64_t), (uint8_t*)&PML4E, sizeof(PML4E));
+
+	if (PML4E == 0)
+		return 0;
+
+	// The PML4E that we read is the base address of the next table on the chain,
+	// the Page-Directory-Pointer Table.
+	uint64_t PDPTE = 0;// ReadPhysicalAddress<ulong>((PML4E & 0xFFFF1FFFFFF000) + (ulong)DirectoryPtr * sizeof(ulong));
+	Read((PML4E & 0xFFFF1FFFFFF000) + (uint64_t)DirectoryPtr * sizeof(uint64_t), (uint8_t*)&PDPTE, sizeof(PDPTE));
+
+	if (PDPTE == 0)
+		return 0;
+
+	//Check the PS bit
+	if ((PDPTE & (1 << 7)) != 0)
+	{
+		// If the PDPTE¨s PS flag is 1, the PDPTE maps a 1-GByte page. The
+		// final physical address is computed as follows:
+		// ！ Bits 51:30 are from the PDPTE.
+		// ！ Bits 29:0 are from the original va address.
+		return (PDPTE & 0xFFFFFC0000000) + (virtualAddress & 0x3FFFFFFF);
+	}
+
+	// PS bit was 0. That means that the PDPTE references the next table
+	// on the chain, the Page Directory Table. Read it.
+	uint64_t PDE = 0;// ReadPhysicalAddress<ulong>((PDPTE & 0xFFFFFFFFFF000) + (ulong)Directory * sizeof(ulong));
+	Read((PDPTE & 0xFFFFFFFFFF000) + (uint64_t)Directory * sizeof(uint64_t), (uint8_t*)&PDE, sizeof(PDE));
+
+	if (PDE == 0)
+		return 0;
+
+	if ((PDE & (1 << 7)) != 0)
+	{
+		// If the PDE¨s PS flag is 1, the PDE maps a 2-MByte page. The
+		// final physical address is computed as follows:
+		// ！ Bits 51:21 are from the PDE.
+		// ！ Bits 20:0 are from the original va address.
+		return (PDE & 0xFFFFFFFE00000) + (virtualAddress & 0x1FFFFF);
+	}
+
+	// PS bit was 0. That means that the PDE references a Page Table.
+	uint64_t PTE = 0;// ReadPhysicalAddress<ulong>((PDE & 0xFFFFFFFFFF000) + (ulong)Table * sizeof(ulong));
+	Read((PDE & 0xFFFFFFFFFF000) + (uint64_t)Table * sizeof(uint64_t), (uint8_t*)&PTE, sizeof(PTE));
+
+	if (PTE == 0)
+		return 0;
+
+	// The PTE maps a 4-KByte page. The
+	// final physical address is computed as follows:
+	// ！ Bits 51:12 are from the PTE.
+	// ！ Bits 11:0 are from the original va address.
+	return (PTE & 0xFFFFFFFFFF000) + (virtualAddress & 0xFFF);
+}*/
+
+typedef struct _MMPTE_HARDWARE
+{
+	union
+	{
+		struct
+		{
+			UINT64 Valid : 1;
+			UINT64 Write : 1;
+			UINT64 Owner : 1;
+			UINT64 WriteThrough : 1;
+			UINT64 CacheDisable : 1;
+			UINT64 Accessed : 1;
+			UINT64 Dirty : 1;
+			UINT64 LargePage : 1;
+			UINT64 Available : 4;
+			UINT64 PageFrameNumber : 36;
+			UINT64 ReservedForHardware : 4;
+			UINT64 ReservedForSoftware : 11;
+			UINT64 NoExecute : 1;
+		};
+		UINT64 AsUlonglong;
+	};
+} MMPTE_HARDWARE, * PMMPTE_HARDWARE;
+
+static constexpr auto s_1MB = 1ULL * 1024 * 1024;
+static constexpr auto s_1GB = 1ULL * 1024 * 1024 * 1024;
+static constexpr auto s_256GB = 256ULL * s_1GB;
+static constexpr auto s_512GB = 512ULL * s_1GB;
+
+static const auto s_UserSharedData = reinterpret_cast<PVOID>(0x7FFE0000ULL);
+static const auto s_UserSharedDataEnd = reinterpret_cast<PVOID>(0x7FFF0000ULL);
+static const auto s_LowestValidAddress = reinterpret_cast<PVOID>(0x10000ULL);
+static const auto s_HighestValidAddress = reinterpret_cast<PVOID>(s_256GB - 1);
+
+static constexpr auto s_Pml4PhysicalAddress = s_512GB - s_1GB;
+
+
+struct RamRange {
+	uint64_t base;
+	uint64_t size;
+};
+
+RamRange myRam[9] = {
+	{0x1000, 0x57000},
+	{0x59000, 0x46000},
+	{0x100000, 0xb81b9000},
+	{0xb82f1000, 0x3b0000},
+	{0xb86a3000, 0xcc58000},
+	{0xc6b99000, 0xfd000},
+	{0xc7ba2000, 0x5e000},
+	{0x100000000, 0x337000000},
+	{0, 0}
+};
+
+uint64_t AllocatedContiguous = 0;
+
+RamRange* h_MmGetPhysicalMemoryRanges() {
+	return myRam;
+
+}
+
+PVOID h_MmAllocateContiguousMemorySpecifyCache(
+	SIZE_T              NumberOfBytes,
+	uintptr_t    LowestAcceptableAddress,
+	uintptr_t    HighestAcceptableAddress,
+	uintptr_t    BoundaryAddressMultiple,
+	uint32_t CacheType
+) {
+	Logger::Log("\tLowest : %llx - Highest : %llx - Boundary : %llx - Cache Type : %d - Size : %08x\n", LowestAcceptableAddress, HighestAcceptableAddress, BoundaryAddressMultiple, CacheType, NumberOfBytes);
+	AllocatedContiguous = (uint64_t)hM_AllocPool(CacheType, NumberOfBytes);
+	return (PVOID)AllocatedContiguous;
+
+}
+/*
+Result for cfe7f3f9f000 : 1ad000
+0 : 1000
+0 : 57000
+1 : 59000
+1 : 46000
+2 : 100000
+2 : b81b9000
+3 : b82f1000
+3 : 3b0000
+4 : b86a3000
+4 : cc58000
+5 : c6b99000
+5 : fd000
+6 : c7ba2000
+6 : 5e000
+7 : 100000000
+7 : 337000000
+*/
+
+unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
+	auto virtualAddress = BaseAddress;
+
+	uint16_t PML4 = (uint16_t)((virtualAddress >> 39) & 0x1FF);         //<! PML4 Entry Index
+	uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
+	uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF);    //<! Page Directory Table Index
+	uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);
+	/*
+	
+
+	Logger::Log("\tPML4 : %llx\n", PML4);
+	Logger::Log("\tDirectoryPtr : %llx\n", DirectoryPtr);
+	Logger::Log("\tDirectory : %llx\n", Directory);
+	Logger::Log("\tTable : %llx\n", Table);
+	
+	*/
+	Logger::Log("\tGetting Physical address for %llx\n", BaseAddress);
+	uint64_t ret = 0;
+
+	if (BaseAddress == AllocatedContiguous) {
+		Logger::Log("\tGetting physical for last Contiguous Allocated Memory.\n");
+		ret = 0xb0000000;
+	}
+	if (BaseAddress == 0xcfe7f3f9f000) {
+		ret = 0x1ad000;
+	}
+	else if (BaseAddress == 0xfb7dbedf6000) {
+		ret = 0x200000;
+	}
+	else if (BaseAddress == 0xfbfdfeff7000) {
+		ret = 0x200000;
+	}
+	else if (BaseAddress == 0xfc7e3f1f8000) {
+		ret = 0x200000;
+	}
+	else if (BaseAddress == 0xfcfe7f3f9000) {
+		ret = 0x200000;
+	}
+
+	Logger::Log("\tReturn : %llx\n", ret);
+	return ret;
+}
+
 void Initialize() {
+	
+	myConstantProvider.insert({ "MmAllocateContiguousMemorySpecifyCache", {1, h_MmAllocateContiguousMemorySpecifyCache} });
+	myConstantProvider.insert({ "MmGetPhysicalMemoryRanges", {1, h_MmGetPhysicalMemoryRanges} });
+	myConstantProvider.insert({ "MmGetPhysicalAddress", {1, h_MmGetPhysicalAddress} });
 	myConstantProvider.insert({ "_vsnwprintf",	 {1, h__vsnwprintf} });
 	myConstantProvider.insert({ "ZwOpenSection", {1, h_ZwOpenSection} });
 	myConstantProvider.insert({ "MmGetSystemRoutineAddress", {1, h_MmGetSystemRoutineAddress} });

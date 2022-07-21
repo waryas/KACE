@@ -4,6 +4,9 @@
 #include <cstring>
 #include <cstdlib>
 
+
+#include "emulation.h"
+
 #include "ntoskrnl_provider.h"
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
@@ -53,7 +56,7 @@ uintptr_t lastPG = 0;
 
 //From waryas machine, no hv, clean install
 uint64_t cr0 = 0x80050033;
-uint64_t cr3 = 0x0;
+uint64_t cr3 = 0x1ad002;
 uint64_t cr4 = 0x370678;
 uint64_t cr8 = 0;
 
@@ -86,6 +89,8 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
 	{
+		VCPU::PrivilegedInstruction::Parse(e->ContextRecord);
+
 		auto ptr = *(uint32_t*)ep;
 		auto ptrBuffer = (unsigned char*)ep;
 		if (ptr == 0xc0200f44) //mov eax, cr8
@@ -108,7 +113,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			if (e->ContextRecord->Rcx == 0x1D9) {
 				Logger::Log("\033[38;5;46m[Reading]\033[0m MSR DBGCTL -> %d, %d\n", DBGCTL_lastEax, DBGCTL_lastEdx);
 				e->ContextRecord->Rax = DBGCTL_lastEax;
-				e->ContextRecord->Rdx = DBGCTL_lastEax;
+				e->ContextRecord->Rdx = DBGCTL_lastEdx;
 				e->ContextRecord->Rip += 2;
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
@@ -290,6 +295,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	{
 		auto bufferopcode = (uint8_t*)e->ContextRecord->Rip;
 		auto addr_access = e->ExceptionRecord->ExceptionInformation[1];
+		bool wasEmulated = false;
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
 		case WRITE_VIOLATION:
@@ -298,6 +304,13 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			break;
 
 		case READ_VIOLATION:
+
+			wasEmulated = VCPU::MemoryRead::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
+
+			if (wasEmulated) {
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
 				Logger::Log("\033[38;5;46m[INFO]\033[0m Checking for Patchguard (int 20)\n");
 				e->ContextRecord->Rip += 2;
@@ -308,210 +321,6 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 				Logger::Log("\033[38;5;46m[INFO]\033[0m IRET Timing Emulation\n");
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
-
-			else if (e->ExceptionRecord->ExceptionInformation[1] >= 0xFFFFF78000000000 && e->ExceptionRecord->
-				ExceptionInformation[1] <= 0xFFFFF78000001000)
-			{
-				auto read_addr = e->ExceptionRecord->ExceptionInformation[1];
-				auto offset_shared = read_addr - 0xFFFFF78000000000;
-				Logger::Log("\033[38;5;46m[Accessing]\033[0m KUSER_SHARED_DATA + 0x%04x\n", offset_shared);
-
-				setKUSD();
-
-				if (bufferopcode[0] == 0xa1
-					&& bufferopcode[1] == 0x6c
-					&& bufferopcode[2] == 0x02
-					&& bufferopcode[3] == 0x00
-					&& bufferopcode[4] == 0x00
-					&& bufferopcode[5] == 0x80
-					&& bufferopcode[6] == 0xF7
-					&& bufferopcode[7] == 0xff
-					&& bufferopcode[8] == 0xff)
-				{
-					//A1 6C 02 00 00 80 F7 FF FF
-					e->ContextRecord->Rax = *(uint32_t*)(fakeKUSER_SHARED_DATA+0x26c);
-					e->ContextRecord->Rip += 9;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (bufferopcode[0] == 0x48
-					&& bufferopcode[1] == 0xA1
-					&& bufferopcode[2] == 0x20
-					&& bufferopcode[3] == 0x03
-					&& bufferopcode[4] == 0x00
-					&& bufferopcode[5] == 0x00
-					&& bufferopcode[6] == 0x80
-					&& bufferopcode[7] == 0xf7
-					&& bufferopcode[8] == 0xff
-					&& bufferopcode[9] == 0xff)
-				{
-
-					e->ContextRecord->Rax = *(uint32_t*)(fakeKUSER_SHARED_DATA + 0x26c);
-					e->ContextRecord->Rip += 10;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rsi == read_addr)
-				{
-					e->ContextRecord->Rsi = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rdx == read_addr)
-				{
-					e->ContextRecord->Rdx = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rcx == read_addr)
-				{
-					e->ContextRecord->Rcx = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rax == read_addr)
-				{
-					e->ContextRecord->Rax = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rbx == read_addr)
-				{
-					e->ContextRecord->Rbx = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rdi == read_addr)
-				{
-					e->ContextRecord->Rdi = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rsp == read_addr)
-				{
-					e->ContextRecord->Rsp = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rbp == read_addr)
-				{
-					e->ContextRecord->Rbp = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R8 == read_addr)
-				{
-					e->ContextRecord->R8 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R9 == read_addr)
-				{
-					e->ContextRecord->R9 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R10 == read_addr)
-				{
-					e->ContextRecord->R10 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R11 == read_addr)
-				{
-					e->ContextRecord->R11 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R12 == read_addr)
-				{
-					e->ContextRecord->R12 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R13 == read_addr)
-				{
-					e->ContextRecord->R13 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R14 == read_addr)
-				{
-					e->ContextRecord->R14 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R15 == read_addr)
-				{
-					e->ContextRecord->R15 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rsi == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rsi = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rdx == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rdx = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rcx == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rcx = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rax == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rax = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rbx == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rbx = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rdi == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rdi = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rsp == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rsp = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R8 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R8 = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R9 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R9 = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R10 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R10 = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R11 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R11 = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R12 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R12 = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R13 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R13 = fakeKUSER_SHARED_DATA;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R14 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R14 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->R15 == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->R15 = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-				if (e->ContextRecord->Rbp == 0xFFFFF78000000000)
-				{
-					e->ContextRecord->Rbp = fakeKUSER_SHARED_DATA + offset_shared;
-					return EXCEPTION_CONTINUE_EXECUTION;
-				}
-			}
-
-
 
 			break;
 		case EXECUTE_VIOLATION:
@@ -545,7 +354,7 @@ const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Se
 DWORD FakeDriverEntry(LPVOID)
 {
 	FixMainModuleSEH(); //Needed for EAC, they use __try/__except(1) redirection
-
+	
 	AddVectoredExceptionHandler(true, ExceptionHandler);
 
 	Logger::Log("Calling the driver entrypoint\n");
@@ -626,7 +435,7 @@ DWORD FakeDriverEntry(LPVOID)
 	drvObj.DriverSection = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);;
 	MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, "MainModule.DriverObject.DriverSection");
 
-	printf("\n%llx", __readgsword(0x60));
+	
 
 	auto result = DriverEntry(&drvObj, &RegistryPath);
 	Logger::Log("Done! = %llx", result);
@@ -641,6 +450,7 @@ extern void InitializeExport();
 int main(int argc, char* argv[]) {
 
 	MemoryTracker::Initiate();
+	VCPU::Initialize();
 
 	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
@@ -679,8 +489,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
