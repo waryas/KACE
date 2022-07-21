@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <intrin.h>
 #include <Zydis/Register.h>
+#include "memory_translation.h"
 
 #define KUSD_MIN 0xFFFFF78000000000
 #define KUSD_MAX 0xFFFFF78000001000
@@ -31,15 +32,27 @@ namespace VCPU {
 
 	namespace MemoryRead {
 		bool Parse(uintptr_t addr, PCONTEXT context);
-		bool KUSDInstrEmulate(uintptr_t addr, PCONTEXT context);
+		bool EmulateRead(uintptr_t addr, PCONTEXT context);
 	}
 
 	namespace InstrEmu {
+
 		bool EmulateCMP(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-		bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-		bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-		bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-		bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-		bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
+
+		namespace ReadPtr {
+			bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
+		}
+
+		namespace WritePtr {
+			bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
+		}
 	}
 };

@@ -13,4 +13,4 @@ extern const HMODULE ntdll;
 uint64_t unimplemented_stub();
 
 
-//#define MONITOR_DATA_ACCESS 
+#define MONITOR_DATA_ACCESS 

@@ -86,8 +86,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 	auto offset = ep - GetMainModule()->base;
 
-
-	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
+	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO)
+	{
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
+	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
 	{
 		VCPU::PrivilegedInstruction::Parse(e->ContextRecord);
 
@@ -304,7 +307,9 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			break;
 
 		case READ_VIOLATION:
-
+			if (e->ExceptionRecord->ExceptionInformation[1] == e->ExceptionRecord->ExceptionInformation[0] && e->ExceptionRecord->ExceptionInformation[0] == 0) {
+				return EXCEPTION_CONTINUE_SEARCH;
+			}
 			wasEmulated = VCPU::MemoryRead::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
 
 			if (wasEmulated) {
@@ -487,6 +492,7 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
 	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
 	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
+	LoadModule("c:\\EMU\\WdFilter.sys", R"(c:\windows\system32\drivers\WdFilter.sys)", "WdFilter.sys", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);

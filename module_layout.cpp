@@ -416,7 +416,7 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 				VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_EXECUTE_READWRITE, &oldAccess);
 				if (SectionName == ".data") {
 #if defined(MONITOR_DATA_ACCESS)
-					VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READWRITE | PAGE_GUARD, &oldAccess);
+				//	VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READWRITE | PAGE_GUARD, &oldAccess);
 #endif
 				}
 			}
@@ -426,7 +426,7 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 #ifdef MONITOR_ACCESS
 				VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
 #elif defined(MONITOR_DATA_ACCESS)
-				if (SectionName != ".text") {
+				if (SectionName != ".text" && SectionName != ".edata" && SectionName != "PAGE") {
 					VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
 				}
 				else {

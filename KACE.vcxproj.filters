@@ -25,6 +25,9 @@
     <ClInclude Include="config.h">
       <Filter>settings</Filter>
     </ClInclude>
+    <ClInclude Include="memory_translation.h">
+      <Filter>emulation\memory_translation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />
@@ -42,6 +45,9 @@
     </ClCompile>
     <ClCompile Include="emulation.cpp">
       <Filter>emulation</Filter>
+    </ClCompile>
+    <ClCompile Include="memory_translation.cpp">
+      <Filter>emulation\memory_translation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -65,6 +71,9 @@
     </Filter>
     <Filter Include="emulation">
       <UniqueIdentifier>{4457064e-bd34-49c0-b693-3c8fcd4b47dd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="emulation\memory_translation">
+      <UniqueIdentifier>{6b27bf33-40a5-4656-825b-90842c654922}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
