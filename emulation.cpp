@@ -246,29 +246,27 @@ namespace VCPU {
 		}
 
 		bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
-
 			uint64_t* context_lookup = (uint64_t*)ctx;
 			auto reg_class = ZydisRegisterGetClass(reg);
-			auto orig_value = context_lookup[GRegIndex(reg)];
 
 
-			if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+			if (reg_class == ZYDIS_REGCLASS_GPR64) { 
 				context_lookup[GRegIndex(reg)] |= *(uint64_t*)ptr;
 
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
-				context_lookup[GRegIndex(reg)] |= *(uint32_t*)ptr;
+			else if (reg_class == ZYDIS_REGCLASS_GPR32) { //r32/m32 removes upper byte
+				context_lookup[GRegIndex(reg)] = (context_lookup[GRegIndex(reg)]&0xFFFFFFFF) | *(uint32_t*)ptr;
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
-				context_lookup[GRegIndex(reg)] |= (orig_value & 0xFFFFFFFFFFFF0000) | (*(uint16_t*)ptr);
+			else if (reg_class == ZYDIS_REGCLASS_GPR16) { 
+				context_lookup[GRegIndex(reg)] |= (*(uint16_t*)ptr);
 
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR8) {  // 16/8bits operation do not overwrite the rest of the register
+			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
 				if (reg == ZYDIS_REGISTER_AH || reg == ZYDIS_REGISTER_BH || reg == ZYDIS_REGISTER_CH || reg == ZYDIS_REGISTER_DH) {
-					context_lookup[GRegIndex(reg)] |= (orig_value & 0xFFFFFFFFFFFF00FF) | (*(uint8_t*)ptr) << 8;
+					context_lookup[GRegIndex(reg)] |=  (*(uint8_t*)ptr) << 8;
 				}
-				else {  // 16/8bits operation do not overwrite the rest of the register
-					context_lookup[GRegIndex(reg)] |= (orig_value & 0xFFFFFFFFFFFFFF00) | (*(uint8_t*)ptr);
+				else {
+					context_lookup[GRegIndex(reg)] |= (*(uint8_t*)ptr);
 				}
 			}
 			else {
@@ -278,29 +276,27 @@ namespace VCPU {
 		}
 
 		bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
-
 			uint64_t* context_lookup = (uint64_t*)ctx;
 			auto reg_class = ZydisRegisterGetClass(reg);
-			auto orig_value = context_lookup[GRegIndex(reg)];
 
 
-			if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+			if (reg_class == ZYDIS_REGCLASS_GPR64) {
 				context_lookup[GRegIndex(reg)] ^= *(uint64_t*)ptr;
 
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
-				context_lookup[GRegIndex(reg)] ^= *(uint32_t*)ptr;
+			else if (reg_class == ZYDIS_REGCLASS_GPR32) { //r32/m32 removes upper byte
+				context_lookup[GRegIndex(reg)] = (context_lookup[GRegIndex(reg)] & 0xFFFFFFFF) ^ *(uint32_t*)ptr;
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
-				context_lookup[GRegIndex(reg)] ^= (orig_value & 0xFFFFFFFFFFFF0000) | (*(uint16_t*)ptr);
+			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
+				context_lookup[GRegIndex(reg)] ^= (*(uint16_t*)ptr);
 
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR8) {  // 16/8bits operation do not overwrite the rest of the register
+			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
 				if (reg == ZYDIS_REGISTER_AH || reg == ZYDIS_REGISTER_BH || reg == ZYDIS_REGISTER_CH || reg == ZYDIS_REGISTER_DH) {
-					context_lookup[GRegIndex(reg)] ^= (orig_value & 0xFFFFFFFFFFFF00FF) | (*(uint8_t*)ptr) << 8;
+					context_lookup[GRegIndex(reg)] ^= (*(uint8_t*)ptr) << 8;
 				}
-				else {  // 16/8bits operation do not overwrite the rest of the register
-					context_lookup[GRegIndex(reg)] ^= (orig_value & 0xFFFFFFFFFFFFFF00) | (*(uint8_t*)ptr);
+				else {
+					context_lookup[GRegIndex(reg)] ^= (*(uint8_t*)ptr);
 				}
 			}
 			else {
@@ -310,29 +306,24 @@ namespace VCPU {
 		}
 
 		bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
-
 			uint64_t* context_lookup = (uint64_t*)ctx;
 			auto reg_class = ZydisRegisterGetClass(reg);
-			auto orig_value = context_lookup[GRegIndex(reg)];
 
-
-			if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+			if (reg_class == ZYDIS_REGCLASS_GPR64) {
 				context_lookup[GRegIndex(reg)] &= *(uint64_t*)ptr;
-
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
-				context_lookup[GRegIndex(reg)] &= *(uint32_t*)ptr;
+			else if (reg_class == ZYDIS_REGCLASS_GPR32) { //r32/m32 removes upper byte
+				context_lookup[GRegIndex(reg)] = (context_lookup[GRegIndex(reg)] & 0xFFFFFFFF) & *(uint32_t*)ptr;
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
-				context_lookup[GRegIndex(reg)] &= (orig_value & 0xFFFFFFFFFFFF0000) | (*(uint16_t*)ptr);
-
+			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
+				context_lookup[GRegIndex(reg)] &= (*(uint16_t*)ptr);
 			}
-			else if (reg_class == ZYDIS_REGCLASS_GPR8) {  // 16/8bits operation do not overwrite the rest of the register
+			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
 				if (reg == ZYDIS_REGISTER_AH || reg == ZYDIS_REGISTER_BH || reg == ZYDIS_REGISTER_CH || reg == ZYDIS_REGISTER_DH) {
-					context_lookup[GRegIndex(reg)] &= (orig_value & 0xFFFFFFFFFFFF00FF) | (*(uint8_t*)ptr) << 8;
+					context_lookup[GRegIndex(reg)] &= (*(uint8_t*)ptr) << 8;
 				}
-				else {  // 16/8bits operation do not overwrite the rest of the register
-					context_lookup[GRegIndex(reg)] &= (orig_value & 0xFFFFFFFFFFFFFF00) | (*(uint8_t*)ptr);
+				else {
+					context_lookup[GRegIndex(reg)] &= (*(uint8_t*)ptr);
 				}
 			}
 			else {
