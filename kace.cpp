@@ -112,6 +112,14 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			e->ContextRecord->Rip += 4;
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
+		else if (ptr == 0x02200f44) // mov rax, cr8
+		{
+			// mov rax, cr8
+			Logger::Log("\033[38;5;46m[Reading]\033[0m IRQL->RAX\n");
+			e->ContextRecord->Rdx = cr8;
+			e->ContextRecord->Rip += 4;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
 		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x32) { //rdmsr
 			if (e->ContextRecord->Rcx == 0x1D9) {
 				Logger::Log("\033[38;5;46m[Reading]\033[0m MSR DBGCTL -> %d, %d\n", DBGCTL_lastEax, DBGCTL_lastEdx);
@@ -496,7 +504,7 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\EasyAntiCheat_2.sys", "c:\\EMU\\EasyAntiCheat_2.sys", "EAC", true));
+	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	

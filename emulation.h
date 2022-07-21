@@ -44,6 +44,8 @@ namespace VCPU {
 			bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
 			bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
 			bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+			bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
 			bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
 		}
 
