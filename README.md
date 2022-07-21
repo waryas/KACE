@@ -3,6 +3,17 @@ SOON(tm)
 
 Current state of the emulator won't properly load most drivers because most important functions aren't implemented.
 
+What's done: 
+- Mapping of driver in usermode and start a thread on it
+- Resolving of IAT/EAT
+- API to monitor Write/Read to any structures
+- SEH handling
+- Some Anti-debug/emulation check by VGK pass now
+
+Next steps:
+- Disasm engine + CPU emulation during privileged instructions (C0d3X implemented most of it, i'll adapt and push soon)
+- Dynamic translation of the binary for some patterns. (Daax idea, i might take a go at it if no one wants to do it)
+- Kernel memory allocation (being done by DarkC)
 
 
 Emulation detection :
