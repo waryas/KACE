@@ -2,6 +2,7 @@
 #include <inttypes.h>
 #include <intrin.h>
 #include <Zydis/Register.h>
+#include <unordered_map>
 #include "memory_translation.h"
 
 #define KUSD_MIN 0xFFFFF78000000000
@@ -20,7 +21,11 @@ namespace VCPU {
 	extern uint64_t CR4;
 	extern uint64_t CR8;
 
-
+	namespace MSRContext {
+		
+		extern std::unordered_map<uint32_t, std::pair<uint64_t, std::string>> MSRData;
+		bool Initialize();
+	}
 	
 	void Initialize();
 

@@ -77,7 +77,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="iret.asm">
+    <MASM Include="inline_assembly.asm">
       <Filter>asm</Filter>
     </MASM>
   </ItemGroup>

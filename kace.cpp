@@ -54,28 +54,6 @@ uint64_t passthrough(...)
 uintptr_t lastPG = 0;
 
 
-//From waryas machine, no hv, clean install
-
-
-void MSRRead(uint64_t ECX, EXCEPTION_POINTERS* e) {
-
-	switch (ECX) {
-	case 0x1D9:
-		e->ContextRecord->Rax = 0;
-		e->ContextRecord->Rdx = 0;
-		e->ContextRecord->Rip += 2;
-		break;
-	default:
-		//UNHANDLED
-		break;
-	}
-}
-
-uint64_t DBGCTL_lastEax = 0;
-uint64_t DBGCTL_lastEdx = 0;
-
-
-
 extern "C" void u_iret();
 
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
@@ -392,9 +370,9 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\WdFilter.sys", R"(c:\windows\system32\drivers\WdFilter.sys)", "WdFilter.sys", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
 	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);

@@ -13,10 +13,20 @@ namespace VCPU {
 	uint64_t VCPU::CR4 = 0x370678;
 	uint64_t VCPU::CR8 = 0;
 
+	namespace MSRContext {
+
+		std::unordered_map<uint32_t, std::pair<uint64_t, std::string>> MSRData;
+
+		bool Initialize() {
+			MSRData.insert(std::pair(0x1D9, std::pair(0, "DBGCTL_MSR")));
+			return true;
+		}
+	}
 
 	void Initialize() {
 		ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64);
 		MemoryTranslation::AddMapping(KUSD_MIN, 0x1000, KUSD_USERMODE);
+		MSRContext::Initialize();
 	}
 
 	bool Decode(PCONTEXT context) {
@@ -36,7 +46,8 @@ namespace VCPU {
 
 		auto lookup = (uint32_t)&resolver->Rax;
 		auto zydis_rax = ZYDIS_REGISTER_RAX;
-		auto zydis_gr64_lookup = ZydisRegisterEncode(ZYDIS_REGCLASS_GPR64, ZydisRegisterGetId(Reg));
+
+		auto zydis_gr64_lookup = ZydisRegisterGetLargestEnclosing(ZYDIS_MACHINE_MODE_LONG_64, Reg);
 		auto index = zydis_gr64_lookup - zydis_rax;
 
 		if (index < 0 || index > 15)
@@ -129,30 +140,39 @@ namespace VCPU {
 			}
 
 			if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR0) { //Write CR0
+				Logger::Log("Writing %llx to CR0\n", context_lookup[reg_to_read]);
 				VCPU::CR0 = context_lookup[reg_to_read];
 			} 
 			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR0) { //Read CR0
+				Logger::Log("Reading CR0\n");
 				context_lookup[reg_to_write] = VCPU::CR0;
 			} 
 			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR3) { //Write CR3
+				Logger::Log("Writing %llx to CR3\n", context_lookup[reg_to_read]);
 				VCPU::CR3 = context_lookup[reg_to_read];
 			}
 			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR3) { //Read CR3
+				Logger::Log("Reading CR3\n");
 				context_lookup[reg_to_write] = VCPU::CR3;
 			}
 			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR4) { //Read CR4
+				Logger::Log("Writing %llx to CR4\n", context_lookup[reg_to_read]);
 				VCPU::CR4 = context_lookup[reg_to_read];
 			}
 			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR4) { //Read CR4
+				Logger::Log("Reading CR4\n");
 				context_lookup[reg_to_write] = VCPU::CR4;
 			}
 			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR8) { //Write CR8
+				Logger::Log("Writing %llx to CR8\n", context_lookup[reg_to_read]);
 				VCPU::CR8 = context_lookup[reg_to_read];
 			}
 			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR8) { //Read CR8
+				Logger::Log("Reading CR8\n");
 				context_lookup[reg_to_write] = VCPU::CR8;
 			}
 			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_DR7) { //Read CR8
+				Logger::Log("Writing %llx to DR7\n", context_lookup[reg_to_read]);
 				context->Dr7 = context_lookup[reg_to_read];
 			}
 			else {
@@ -162,13 +182,50 @@ namespace VCPU {
 			return true;
 		}
 
+		/*
+		Reads the contents of a 64-bit model specific register (MSR) specified in the ECX register into registers EDX:EAX. (On processors that support the Intel 64 architecture, the high-order 32 bits of RCX are ignored.) The EDX register is loaded with the high-order 32 bits of the MSR and the EAX register is loaded with the low-order 32 bits. (On processors that support the Intel 64 architecture, the high-order 32 bits of each of RAX and RDX are cleared.) If fewer than 64 bits are implemented in the MSR being read, the values returned to EDX:EAX in unimplemented bit locations are undefined.
+
+		This instruction must be executed at privilege level 0 or in real-address mode; otherwise, a general protection exception #GP(0) will be generated. Specifying a reserved or unimplemented MSR address in ECX will also cause a general protection exception.
+		*/
+
 		bool ReadMSR(PCONTEXT context) {
+			uint32_t ECX = context->Rcx & 0xFFFFFFFF;
+
+			if (!MSRContext::MSRData.contains(ECX)) { 
+				Logger::Log("Reading from unsupported MSR : %llx\n", ECX);
+				RaiseException(0, 0, 0, 0);
+			}
+
+			auto ReadData = MSRContext::MSRData[ECX];
+			auto MSRValue = ReadData.first;
+			auto MSRName = ReadData.second;
+			context->Rdx = (MSRValue >> 32) & 0xFFFFFFFF;
+			context->Rax = (MSRValue) & 0xFFFFFFFF;
+			Logger::Log("Reading MSR %s : %llx\n", MSRName.c_str(), MSRValue);
 			return true;
 		}
 
 		bool WriteMSR(PCONTEXT context) {
+			uint32_t ECX = context->Rcx & 0xFFFFFFFF;
+
+			if (!MSRContext::MSRData.contains(ECX)) { //GP(0) If the value in ECX specifies a reserved or unimplemented MSR address
+				Logger::Log("Writing to unsupported MSR : %llx\n", ECX);
+				RaiseException(0, 0, 0, 0);
+			}
+
+			auto ReadData = MSRContext::MSRData[ECX];
+			auto MSRValue = ReadData.first;
+			auto MSRName = ReadData.second;
+
+			auto NewMSRValue = (context->Rdx << 32) | (context->Rax) & 0xFFFFFFFF;
+
+			MSRContext::MSRData[ECX] = std::pair(NewMSRValue, MSRName);
+
+			Logger::Log("Writing MSR %s : %llx\n", MSRName.c_str(), NewMSRValue);
 			return true;
 		}
+
+
 	}
 
 

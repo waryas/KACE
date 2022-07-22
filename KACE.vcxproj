@@ -189,7 +189,7 @@
     <ClInclude Include="emulation.h" />
   </ItemGroup>
   <ItemGroup>
-    <MASM Include="iret.asm">
+    <MASM Include="inline_assembly.asm">
       <FileType>Document</FileType>
     </MASM>
   </ItemGroup>
