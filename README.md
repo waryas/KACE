@@ -2,7 +2,10 @@ Kernel Anti-Cheat Emulator
 SOON(tm)
 
 Current state of the emulator won't properly load most drivers because most important functions aren't implemented.
-Win8+ only drivers won't load because i'm not initializing the security cookie.
+
+What KACE achieved so far:
+- Detect a new sneaky way of EAC detecting unloaded driver
+- VGKs bruteforcing self-entry/ref of CR3's VA
 
 
 Emulation detection :
