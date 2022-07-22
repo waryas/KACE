@@ -20,6 +20,7 @@ namespace VCPU {
 	extern uint64_t CR4;
 	extern uint64_t CR8;
 
+
 	
 	void Initialize();
 
@@ -28,6 +29,9 @@ namespace VCPU {
 
 	namespace PrivilegedInstruction {
 		bool Parse(PCONTEXT context);
+		bool ReadMSR(PCONTEXT context);
+		bool WriteMSR(PCONTEXT context);
+		bool EmulatePrivilegedMOV(PCONTEXT context);
 	}
 
 	namespace MemoryRead {

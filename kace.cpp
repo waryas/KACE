@@ -55,10 +55,7 @@ uintptr_t lastPG = 0;
 
 
 //From waryas machine, no hv, clean install
-uint64_t cr0 = 0x80050033;
-uint64_t cr3 = 0x1ad002;
-uint64_t cr4 = 0x370678;
-uint64_t cr8 = 0;
+
 
 void MSRRead(uint64_t ECX, EXCEPTION_POINTERS* e) {
 
@@ -84,6 +81,7 @@ extern "C" void u_iret();
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
+
 	auto offset = ep - GetMainModule()->base;
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO)
@@ -92,124 +90,15 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
 	{
-		VCPU::PrivilegedInstruction::Parse(e->ContextRecord);
+		bool wasEmulated = false;
 
-		auto ptr = *(uint32_t*)ep;
-		auto ptrBuffer = (unsigned char*)ep;
-		if (ptr == 0xc0200f44) //mov eax, cr8
-		{
-			// mov rax, cr8
-			Logger::Log("\033[38;5;46m[Reading]\033[0m IRQL->EAX\n");
-			e->ContextRecord->Rax = cr8;
-			e->ContextRecord->Rip += 4;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptr == 0x00200f44) // mov rax, cr8
-		{
-			// mov rax, cr8
-			Logger::Log("\033[38;5;46m[Reading]\033[0m IRQL->RAX\n");
-			e->ContextRecord->Rax = cr8;
-			e->ContextRecord->Rip += 4;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptr == 0x02200f44) // mov rax, cr8
-		{
-			// mov rax, cr8
-			Logger::Log("\033[38;5;46m[Reading]\033[0m IRQL->RAX\n");
-			e->ContextRecord->Rdx = cr8;
-			e->ContextRecord->Rip += 4;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x32) { //rdmsr
-			if (e->ContextRecord->Rcx == 0x1D9) {
-				Logger::Log("\033[38;5;46m[Reading]\033[0m MSR DBGCTL -> %d, %d\n", DBGCTL_lastEax, DBGCTL_lastEdx);
-				e->ContextRecord->Rax = DBGCTL_lastEax;
-				e->ContextRecord->Rdx = DBGCTL_lastEdx;
-				e->ContextRecord->Rip += 2;
-				return EXCEPTION_CONTINUE_EXECUTION;
-			}
-			else {
-				Logger::Log("\033[38;5;46m[Reading]\033[0m Unhandled MSR : %08x\n", e->ContextRecord->Rcx);
-				if (e->ContextRecord->Rcx >= 10000) {
-					Logger::Log("\033[38;5;46m[Reading]\033[0m Fake MSR -> Exception injection\n", e->ContextRecord->Rcx);
-					//e->ContextRecord->Rip = (uint64_t)h_DbgPrompt;
-					return EXCEPTION_CONTINUE_SEARCH;
-				}
-				//e->ContextRecord->Rip += 2;
-			}
+		wasEmulated = VCPU::PrivilegedInstruction::Parse(e->ContextRecord);
 
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x30) {
-
-			if (e->ContextRecord->Rcx == 0x1D9) {
-				Logger::Log("\033[38;5;46m[Writing]\033[0m MSR DBGCTL -> %d, %d\n", e->ContextRecord->Rax, e->ContextRecord->Rdx);
-				DBGCTL_lastEax = e->ContextRecord->Rax;
-				DBGCTL_lastEdx = e->ContextRecord->Rdx;
-				e->ContextRecord->Rip += 2;
-				return EXCEPTION_CONTINUE_EXECUTION;
-			}
-			else {
-				Logger::Log("\033[38;5;46m[Writing]\033[0m Unhandled MSR : %08x\n", e->ContextRecord->Rcx);
-			}
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xD8) { //mov rax, cr3
-			Logger::Log("\033[38;5;46m[Reading]\033[0m CR3 -> Rax\n");
-			e->ContextRecord->Rax = cr3;
-			e->ContextRecord->Rip += 3;
+		if (wasEmulated) {
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xDA) { //mov rax, cr3
-			Logger::Log("\033[38;5;46m[Reading]\033[0m CR3 -> Rdx\n");
-			e->ContextRecord->Rdx = cr3;
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x22 && ptrBuffer[2] == 0xD8) { //mov cr3, rax
-			//e->ContextRecord->Rax = 0;
-			Logger::Log("\033[38;5;46m[Writing]\033[0m CR3 = %llx\n", e->ContextRecord->Rax);
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC1) {
-			Logger::Log("\033[38;5;46m[Reading]\033[0m CR0 into RCX\n");
-			e->ContextRecord->Rcx = cr0;
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x20 && ptrBuffer[2] == 0xC7) {
-			Logger::Log("\033[38;5;46m[Reading]\033[0m CR0 into RDX\n");
-			e->ContextRecord->Rdx = cr0;
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0xFA) { //CLEAR INTERRUPT
-			e->ContextRecord->Rip += 1;
-			Logger::Log("\033[38;5;46m[Info]\033[0m Clearing interrupt\n");
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0xFB) { //RESTORE INTERRUPT
-			e->ContextRecord->Rip += 1;
-			Logger::Log("\033[38;5;46m[Info]\033[0m Restoring interrupt\n");
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFE) { //mov dr7, rsi
-			Logger::Log("\033[38;5;46m[Writing]\033[0m DR7 = %llx\n", e->ContextRecord->Rsi);
-			e->ContextRecord->Dr7 = e->ContextRecord->Rsi;
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xF8) { //mov dr7, rsi
-			Logger::Log("\033[38;5;46m[Writing]\033[0m DR7 = %llx\n", e->ContextRecord->Rax);
-			e->ContextRecord->Dr7 = e->ContextRecord->Rax;
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
-		}
-		else if (ptrBuffer[0] == 0x0F && ptrBuffer[1] == 0x23 && ptrBuffer[2] == 0xFB) { //mov dr7, rsi
-		Logger::Log("\033[38;5;46m[Writing]\033[0m DR7 = %llx\n", e->ContextRecord->Rbx);
-			e->ContextRecord->Dr7 = e->ContextRecord->Rbx;
-			e->ContextRecord->Rip += 3;
-			return EXCEPTION_CONTINUE_EXECUTION;
+		else {
+			DebugBreak();
 		}
 
 	}
@@ -504,8 +393,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);

@@ -8,10 +8,10 @@ namespace VCPU {
 	static ZydisDecoder decoder;
 	static ZydisDecodedInstruction instr;
 
-	uint64_t CR0 = 0;
-	uint64_t CR3 = 0;
-	uint64_t CR4 = 0;
-	uint64_t CR8 = 0;
+	uint64_t VCPU::CR0 = 0x80050033;
+	uint64_t VCPU::CR3 = 0x1ad002;
+	uint64_t VCPU::CR4 = 0x370678;
+	uint64_t VCPU::CR8 = 0;
 
 
 	void Initialize() {
@@ -38,6 +38,10 @@ namespace VCPU {
 		auto zydis_rax = ZYDIS_REGISTER_RAX;
 		auto zydis_gr64_lookup = ZydisRegisterEncode(ZYDIS_REGCLASS_GPR64, ZydisRegisterGetId(Reg));
 		auto index = zydis_gr64_lookup - zydis_rax;
+
+		if (index < 0 || index > 15)
+			return 0;
+
 		lookup += index * sizeof(uint64_t);
 
 		return lookup / 8;
@@ -79,10 +83,91 @@ namespace VCPU {
 
 
 	namespace PrivilegedInstruction {
+
 		bool Parse(PCONTEXT context) {
 			if (!Decode(context))
 				return false;
 
+			if (instr.mnemonic == ZYDIS_MNEMONIC_CLI) {
+				Logger::Log("Clearing Interrupts\n");
+				return SkipToNext(context);
+			} 
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_STI) {
+				Logger::Log("Restoring Interrupts\n");
+				return SkipToNext(context);
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_MOV) {
+				EmulatePrivilegedMOV(context);
+				return SkipToNext(context);
+			} else if (instr.mnemonic == ZYDIS_MNEMONIC_WRMSR) {
+				WriteMSR(context);
+				return SkipToNext(context);
+			} else if (instr.mnemonic == ZYDIS_MNEMONIC_RDMSR) {
+				ReadMSR(context);
+				return SkipToNext(context);
+			}
+			else {
+				DebugBreak();
+			}
+
+		}
+
+
+		bool EmulatePrivilegedMOV(PCONTEXT context) {
+			uint64_t* context_lookup = (uint64_t*)context;
+			
+
+			auto reg_to_write = GRegIndex(instr.operands[0].reg.value);
+			auto reg_to_read = GRegIndex(instr.operands[1].reg.value);
+
+			if (instr.operands[0].type != ZYDIS_OPERAND_TYPE_REGISTER || instr.operands[0].type != ZYDIS_OPERAND_TYPE_REGISTER) {
+				DebugBreak();
+			}
+
+			if (!reg_to_read && !reg_to_write) {
+				DebugBreak();
+			}
+
+			if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR0) { //Write CR0
+				VCPU::CR0 = context_lookup[reg_to_read];
+			} 
+			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR0) { //Read CR0
+				context_lookup[reg_to_write] = VCPU::CR0;
+			} 
+			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR3) { //Write CR3
+				VCPU::CR3 = context_lookup[reg_to_read];
+			}
+			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR3) { //Read CR3
+				context_lookup[reg_to_write] = VCPU::CR3;
+			}
+			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR4) { //Read CR4
+				VCPU::CR4 = context_lookup[reg_to_read];
+			}
+			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR4) { //Read CR4
+				context_lookup[reg_to_write] = VCPU::CR4;
+			}
+			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR8) { //Write CR8
+				VCPU::CR8 = context_lookup[reg_to_read];
+			}
+			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR8) { //Read CR8
+				context_lookup[reg_to_write] = VCPU::CR8;
+			}
+			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_DR7) { //Read CR8
+				context->Dr7 = context_lookup[reg_to_read];
+			}
+			else {
+				DebugBreak();
+			}
+			
+			return true;
+		}
+
+		bool ReadMSR(PCONTEXT context) {
+			return true;
+		}
+
+		bool WriteMSR(PCONTEXT context) {
+			return true;
 		}
 	}
 
@@ -100,6 +185,9 @@ namespace VCPU {
 				if (addr == 0xffffffffffffffff)
 					return false;
 				Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
+				fflush(stdout);
+				fflush(stdout);
+				MessageBoxA(NULL, "FLUSHED", "FLUSHED", MB_OK);
 				DebugBreak();
 				return false;
 			}

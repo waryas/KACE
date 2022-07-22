@@ -93,6 +93,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 				while (strstr(modulename, "\\"))
 					modulename++;
 
+
 				auto modulebase = GetModuleBase(modulename);
 				if (modulebase) {
 					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
@@ -277,7 +278,7 @@ NTSTATUS h_ZwClose(PHANDLE Handle)
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData,
 	ULONG ValueLength)
 {
-	Logger::Log("\tWriting to %s - %s  %llx\n", Path, ValueName, *(const PVOID*)ValueData);
+	Logger::Log("\tWriting to %ls - %ls  %llx\n", Path, ValueName, *(const PVOID*)ValueData);
 	auto ret = __NtRoutine("RtlWriteRegistryValue", RelativeTo, Path, ValueName, ValueType, ValueData, ValueLength);
 	return ret;
 }
