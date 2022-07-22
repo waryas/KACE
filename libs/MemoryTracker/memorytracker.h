@@ -28,7 +28,6 @@ private:
     static MemoryTracker* mem; //singleton
     static unsigned long usedPage;
 
-
     std::unordered_map<uint64_t, std::string> mapping;
     std::unordered_map<std::string, uint64_t> firstAlloc;
 
