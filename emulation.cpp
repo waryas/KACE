@@ -119,6 +119,7 @@ namespace VCPU {
 			}
 			else {
 				DebugBreak();
+				return false;
 			}
 
 		}
