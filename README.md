@@ -4,7 +4,7 @@ SOON(tm)
 Current state of the emulator won't properly load most drivers because most important functions aren't implemented.
 
 What KACE achieved so far:
-- Detect a new sneaky way of EAC detecting unloaded driver
+- Detect a new sneaky way of EAC detecting unloaded driver (Using WDF)
 - VGKs bruteforcing self-entry/ref of CR3's VA
 
 What's done: 
