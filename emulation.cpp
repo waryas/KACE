@@ -19,6 +19,8 @@ namespace VCPU {
 
 		bool Initialize() {
 			MSRData.insert(std::pair(0x1D9, std::pair(0, "DBGCTL_MSR")));
+			MSRData.insert(std::pair(0xc0000082, std::pair(0x1000, "MSR_LSTAR")));
+
 			return true;
 		}
 	}
@@ -244,9 +246,6 @@ namespace VCPU {
 					return false;
 				Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
 				fflush(stdout);
-				fflush(stdout);
-				MessageBoxA(NULL, "FLUSHED", "FLUSHED", MB_OK);
-				DebugBreak();
 				return false;
 			}
 		}

@@ -172,6 +172,9 @@ uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 		if (MappedModules[i].isMainModule) {
 			auto Import = MappedModules[i].pedata->GetImport(ptr);
 			if (Import) { //Found in IAT
+				if (Import->library != "ntoskrnl.exe") {
+					DebugBreak();
+				}
 				Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s - ", Import->library.c_str(), Import->name.c_str());
 				if (myConstantProvider.contains(Import->name)) {
 					funcptr = (uintptr_t)myConstantProvider[Import->name].hook;
@@ -426,7 +429,7 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 #ifdef MONITOR_ACCESS
 				VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
 #elif defined(MONITOR_DATA_ACCESS)
-				if (SectionName != ".text" && SectionName != ".edata" && SectionName != "PAGE") {
+				if (SectionName != ".text" && SectionName != ".edata" && SectionName != "PAGE" && SectionName != "POOLCODE") {
 					VirtualProtect((PVOID)(MappedModules[i].base + SectionData.virtual_address), sectionSize, PAGE_READONLY | PAGE_GUARD, &oldAccess);
 				}
 				else {

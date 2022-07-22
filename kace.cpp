@@ -182,13 +182,15 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			break;
 
 		case READ_VIOLATION:
-			if (e->ExceptionRecord->ExceptionInformation[1] == e->ExceptionRecord->ExceptionInformation[0] && e->ExceptionRecord->ExceptionInformation[0] == 0) {
-				return EXCEPTION_CONTINUE_SEARCH;
-			}
+
 			wasEmulated = VCPU::MemoryRead::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
 
 			if (wasEmulated) {
 				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+
+			if (e->ExceptionRecord->ExceptionInformation[1] == e->ExceptionRecord->ExceptionInformation[0] && e->ExceptionRecord->ExceptionInformation[0] == 0) {
+				return EXCEPTION_CONTINUE_SEARCH;
 			}
 
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
@@ -370,8 +372,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\WdFilter.sys", R"(c:\windows\system32\drivers\WdFilter.sys)", "WdFilter.sys", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
+	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
