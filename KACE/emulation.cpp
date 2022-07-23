@@ -1,6 +1,6 @@
 #include "emulation.h"
 #include <Zydis/Zydis.h>
-#include "libs/Logger/Logger.h"
+#include <Logger/Logger.h>
 #include <assert.h>
 
 #include "paging_emulation.h"

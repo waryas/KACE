@@ -13,9 +13,9 @@
 
 //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-#include "libs/PEMapper/pefile.h"
-#include "libs/MemoryTracker/memorytracker.h"
-#include "libs/Logger/Logger.h"
+#include <PEMapper/pefile.h>
+#include <MemoryTracker/memorytracker.h>
+#include <Logger/Logger.h>
 
 #include "provider.h"
 

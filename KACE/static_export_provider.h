@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 
-#include "libs/MemoryTracker/memorytracker.h"
+#include <MemoryTracker/memorytracker.h>
 #include "ntoskrnl_struct.h"
 #include "module_layout.h"
 

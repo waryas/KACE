@@ -1,5 +1,5 @@
-#include "libs/PEMapper/pefile.h"
-#include "libs/Logger/Logger.h"
+#include <PEMapper/pefile.h>
+#include <Logger/Logger.h>
 
 #include "provider.h"
 #include <stdio.h>

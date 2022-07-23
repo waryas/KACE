@@ -1,5 +1,5 @@
-#include "libs/PEMapper/pefile.h"
-#include "libs/MemoryTracker/memorytracker.h"
+#include <PEMapper/pefile.h>
+#include <MemoryTracker/memorytracker.h>
 
 #include "provider.h"
 #include "ntoskrnl_provider.h"

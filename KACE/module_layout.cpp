@@ -364,9 +364,15 @@ uintptr_t LoadModule(const char* path, const char* spoofedpath, const char* name
 		MappedModules[i].realpath = path;
 		MappedModules[i].isMainModule = isMainModule;
 
-		MappedModules[i].pedata = PEFile::Open(MappedModules[i].realpath);
 
 		f = fopen(MappedModules[i].realpath, "rb+");
+		if (!f) {
+			Logger::Log("Failed to load required module %s\n", path);
+            return 0;
+        }
+
+        MappedModules[i].pedata = PEFile::Open(MappedModules[i].realpath);
+
 		image_size = fsize(f);
 
 		uint8_t* image_to_execute = (uint8_t*)malloc(image_size);

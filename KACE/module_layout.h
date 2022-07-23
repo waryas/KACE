@@ -2,8 +2,8 @@
 
 #include "nt_define.h"
 #include "static_export_provider.h"
-#include "libs/PEMapper/pefile.h"
-#include "libs/Logger/Logger.h"
+#include <PEMapper/pefile.h>
+#include <Logger/Logger.h>
 #include "provider.h"
 #include <cstdint>
 #include <memory>

@@ -73,17 +73,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>.\builds</OutDir>
-    <IntDir>.\builds\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>..\builds</OutDir>
+    <IntDir>..\builds\$(Platform)\$(Configuration)\</IntDir>
     <LibraryPath>$(LibraryPath)</LibraryPath>
-    <IncludePath>.\dependanices\spdlog-1.8.5\include</IncludePath>
+    <IncludePath>..\libs;</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>.\builds</OutDir>
-    <IntDir>.\builds\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>..\builds</OutDir>
+    <IntDir>..\builds\$(Platform)\$(Configuration)\</IntDir>
     <LibraryPath>$(LibraryPath)</LibraryPath>
-    <IncludePath>
-    </IncludePath>
+    <IncludePath>..\libs;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -129,7 +128,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>PEFile.lib;MemoryTracker.lib;Logger.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>.\x64\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\x64\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
@@ -164,7 +163,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <AdditionalDependencies>PEFile.lib;MemoryTracker.lib;Logger.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>.\x64\Release\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\x64\Release\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ProgramDatabaseFile />
     </Link>
   </ItemDefinitionGroup>
