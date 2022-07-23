@@ -252,7 +252,9 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 
 				auto offset = ptr - MappedModules[i].base;
 				auto variableName = MappedModules[i].pedata->GetExport(offset);
-
+				if (strstr(variableName, "PsProcessType")) {
+					printf("lol");
+				}
 				if (!variableName) {
 					Logger::Log("Reading a non exported value\n");
 					return 0;
@@ -268,6 +270,7 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 						*(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[variableName];
 						VirtualProtect((LPVOID)ptr, 1, oldAccess2, &oldAccess2);
 						VirtualProtect((LPVOID)constantTimeExportProvider[variableName], 1, oldAccess, &oldAccess);
+						break;
 					}
 					else {
 						Logger::Log(notimplementedMsg);

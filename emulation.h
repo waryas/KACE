@@ -14,6 +14,7 @@ extern "C" uint64_t u_cmp_16(uint64_t eflags, uintptr_t ptr, uint16_t value);
 extern "C" uint64_t u_cmp_32(uint64_t eflags, uintptr_t ptr, uint32_t value);
 extern "C" uint64_t u_cmp_64(uint64_t eflags, uintptr_t ptr, uint64_t value);
 
+
 namespace VCPU {
 
 	extern uint64_t CR0;
@@ -47,6 +48,7 @@ namespace VCPU {
 	namespace InstrEmu {
 
 		bool EmulateCMP(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+		bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size);
 
 		namespace ReadPtr {
 			bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);

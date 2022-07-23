@@ -18,12 +18,17 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
 
 
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
-	return _aligned_malloc(size, 0x1000);;
+	
+	auto ptr = _aligned_malloc(size, 0x1000);;
+	printf("-----%llx-------\n", ptr);
+	return ptr;
 }
 
 
 void* hM_AllocPool(uint32_t pooltype, size_t size) {
-	return _aligned_malloc(size, 0x1000);;
+	auto ptr = _aligned_malloc(size, 0x1000);;
+	printf("-----%llx-------\n", ptr);
+	return ptr;
 }
 
 void h_DeAllocPoolTag(uintptr_t ptr, ULONG tag)
@@ -695,7 +700,7 @@ NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool C
 
 NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval)
 {
-
+	Sleep(Interval->QuadPart * -1 / 1);
 	return STATUS_SUCCESS;
 }
 
@@ -931,7 +936,9 @@ NTSTATUS h_PsCreateSystemThread(
 	void* ObjectAttributes,
 	HANDLE ProcessHandle, void* ClientId, void* StartRoutine,
 	PVOID StartContext) {
-	//CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
+	auto ret = CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
+	*ThreadHandle = ret;
+	//Sleep(100000);
 	return 0;
 }
 
@@ -939,7 +946,8 @@ NTSTATUS h_PsCreateSystemThread(
 NTSTATUS h_PsTerminateSystemThread(
 	NTSTATUS exitstatus) {
 	Logger::Log("\tthread boom\n");
-	__debugbreak(); int* a = 0; *a = 1; return 0;
+	//__debugbreak(); int* a = 0; *a = 1; return 0;
+	ExitThread(exitstatus);
 }
 
 //todo impl
@@ -980,7 +988,12 @@ NTSTATUS h_ObReferenceObjectByHandle(
 	PVOID* Object,
 	void* HandleInformation) {
 	Logger::Log("\th_ObReferenceObjectByHandle blows up sorry\n");
-	return -1;
+	*(PHANDLE)(Object) = handle;
+	if (HandleInformation) {
+		*(PHANDLE)(HandleInformation) = handle;
+	}
+
+	return 0;
 }
 
 //todo more logic required
@@ -1241,8 +1254,113 @@ unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
 	return ret;
 }
 
-void Initialize() {
+
+#define ADDRESS_AND_SIZE_TO_SPAN_PAGES(_Va, _Size) \
+   ((ULONG) ((((ULONG_PTR) (_Va) & (PAGE_SIZE - 1)) \
+     + (_Size) + (PAGE_SIZE - 1)) >> PAGE_SHIFT))
+
+typedef ULONG PFN_COUNT;
+typedef ULONG PFN_NUMBER, * PPFN_NUMBER;
+typedef LONG SPFN_NUMBER, * PSPFN_NUMBER;
+
+#define MDL_ALLOCATED_FIXED_SIZE   0x0008
+
+#define BYTE_OFFSET(Va) \
+   ((ULONG) ((ULONG_PTR) (Va) & (PAGE_SIZE - 1)))
+
+#define PAGE_ALIGN(Va) \
+   ((PVOID) ((ULONG_PTR)(Va) & ~(PAGE_SIZE - 1)))
+
+void MmInitializeMdl(
+	PMDL MemoryDescriptorList,
+	PVOID BaseVa,
+	SIZE_T Length) {
+
+	MemoryDescriptorList->Next = (PMDL)NULL;
+		MemoryDescriptorList->Size = (USHORT)(sizeof(MDL) + (sizeof(PFN_NUMBER) * ADDRESS_AND_SIZE_TO_SPAN_PAGES(BaseVa, Length)));
+		MemoryDescriptorList->MdlFlags = 0;
+		MemoryDescriptorList->StartVa = (PVOID)PAGE_ALIGN(BaseVa);
+		MemoryDescriptorList->ByteOffset = BYTE_OFFSET(BaseVa);
+		MemoryDescriptorList->ByteCount = (ULONG)Length;
+}
+
+PMDL NTAPI h_IoAllocateMdl(IN PVOID 	VirtualAddress,
+	IN ULONG 	Length,
+	IN BOOLEAN 	SecondaryBuffer,
+	IN BOOLEAN 	ChargeQuota,
+	IN _IRP* 	Irp
+) {
+	PMDL Mdl = NULL, p;
+	ULONG Flags = 0;
+	ULONG Size;
+
+	if (Length & 0x80000000) return NULL;
+	Size = ADDRESS_AND_SIZE_TO_SPAN_PAGES(VirtualAddress, Length);
+	if (Size > 23)
+	{
+		/* This is bigger then our fixed-size MDLs. Calculate real size */
+		Size *= sizeof(PFN_NUMBER);
+		Size += sizeof(MDL);
+		if (Size > 0xFFFF) return NULL;
+	}
+	else
+	{
+		/* Use an internal fixed MDL size */
+		Size = (23 * sizeof(PFN_NUMBER)) + sizeof(MDL);
+		Flags |= MDL_ALLOCATED_FIXED_SIZE;
+
+	}
+
+	/* Check if we don't have an mdl yet */
+	if (!Mdl)
+	{
+		/* Allocate one from pool */
+		Mdl = (PMDL)hM_AllocPoolTag(0, Size, 'MdlT');
+		if (!Mdl) return NULL;
+	}
+
+	/* Initialize it */
 	
+	MmInitializeMdl(Mdl, VirtualAddress, Length);
+	Mdl->MdlFlags |= Flags;
+
+	/* Check if an IRP was given too */
+	if (Irp)
+	{
+		/* Check if it came with a secondary buffer */
+		if (SecondaryBuffer)
+		{
+			/* Insert the MDL at the end */
+			p = Irp->MdlAddress;
+			while (p->Next) p = p->Next;
+			p->Next = Mdl;
+		}
+		else
+		{
+			/* Otherwise, insert it directly */
+			Irp->MdlAddress = Mdl;
+		}
+	}
+
+	/* Return the allocated mdl */
+	return Mdl;
+
+
+}
+
+PVOID h_ExRegisterCallback(
+	PVOID   CallbackObject,
+	PVOID CallbackFunction,
+	PVOID              CallbackContext
+) {
+	return CallbackObject;
+}
+
+void Initialize() {
+	myConstantProvider.insert({ "ExRegisterCallback", {1, h_ExRegisterCallback} });
+	
+	myConstantProvider.insert({ "IoAllocateMdl", {1, h_IoAllocateMdl} });
+	myConstantProvider.insert({ "IoAllocateMdl", {1, h_IoAllocateMdl} });
 	myConstantProvider.insert({ "MmAllocateContiguousMemorySpecifyCache", {1, h_MmAllocateContiguousMemorySpecifyCache} });
 	myConstantProvider.insert({ "MmGetPhysicalMemoryRanges", {1, h_MmGetPhysicalMemoryRanges} });
 	myConstantProvider.insert({ "MmGetPhysicalAddress", {1, h_MmGetPhysicalAddress} });

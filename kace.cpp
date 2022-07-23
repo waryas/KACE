@@ -21,6 +21,7 @@
 
 #include <intrin.h>
 
+#include "paging_emulation.h"
 
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
@@ -331,9 +332,11 @@ extern void InitializeExport();
 
 int main(int argc, char* argv[]) {
 
+
 	MemoryTracker::Initiate();
 	VCPU::Initialize();
-
+	SetupCR3();
+	//exit(0);
 	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
 	
@@ -373,8 +376,8 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
+	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);

@@ -1,11 +1,16 @@
 #include "module_layout.h"
 
 #include "static_export_provider.h"
-
+#include "ntoskrnl_provider.h"
 
 void InitializePsLoadedModuleList() {
 
     PsLoadedModuleList = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
+    PsLoadedModuleList->InLoadOrderLinks.Blink = &PsLoadedModuleList->InLoadOrderLinks;
+    PsLoadedModuleList->InLoadOrderLinks.Flink = &PsLoadedModuleList->InLoadOrderLinks;
+    h_RtlInitUnicodeString(&PsLoadedModuleList->BaseDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+    h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+    PsLoadedModuleList->LoadCount = 1;
     MemoryTracker::TrackVariable((uint64_t)PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY), (char*)"PsLoadedModuleList");
 
     //auto ntos = GetMainModule();

@@ -28,6 +28,9 @@
     <ClInclude Include="memory_translation.h">
       <Filter>emulation\memory_translation</Filter>
     </ClInclude>
+    <ClInclude Include="paging_emulation.h">
+      <Filter>emulation\paging_emulation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />
@@ -48,6 +51,9 @@
     </ClCompile>
     <ClCompile Include="memory_translation.cpp">
       <Filter>emulation\memory_translation</Filter>
+    </ClCompile>
+    <ClCompile Include="paging_emulation.cpp">
+      <Filter>emulation\paging_emulation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -74,6 +80,9 @@
     </Filter>
     <Filter Include="emulation\memory_translation">
       <UniqueIdentifier>{6b27bf33-40a5-4656-825b-90842c654922}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="emulation\paging_emulation">
+      <UniqueIdentifier>{a325def5-8325-49c8-a821-408336a2abdb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -3,6 +3,7 @@
 #include "libs/Logger/Logger.h"
 #include <assert.h>
 
+#include "paging_emulation.h"
 namespace VCPU {
 
 	static ZydisDecoder decoder;
@@ -19,7 +20,11 @@ namespace VCPU {
 
 		bool Initialize() {
 			MSRData.insert(std::pair(0x1D9, std::pair(0, "DBGCTL_MSR")));
-			MSRData.insert(std::pair(0xc0000082, std::pair(0x1000, "MSR_LSTAR")));
+			MSRData.insert(std::pair(0x1DB, std::pair(0, "MSRLASTBRANCH-_FROM_IP_MSR")));
+			MSRData.insert(std::pair(0x680, std::pair(0, "LastBranchFromIP_MSR")));
+			MSRData.insert(std::pair(0x1c9, std::pair(0, "MSR_LASTBRANCH_TOS")));
+			
+			MSRData.insert(std::pair(0xc0000082, std::pair(0x10000, "MSR_LSTAR")));
 
 			return true;
 		}
@@ -28,6 +33,7 @@ namespace VCPU {
 	void Initialize() {
 		ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64);
 		MemoryTranslation::AddMapping(KUSD_MIN, 0x1000, KUSD_USERMODE);
+		MemoryTranslation::AddMapping(0xFFFFcfe7f3f9f000, 512 * 8, (uintptr_t)&PML4.entries[0]);
 		MSRContext::Initialize();
 	}
 
@@ -324,6 +330,14 @@ namespace VCPU {
 					InstrEmu::EmulateCMP(context, instr.operands[0].reg.value, addr);
 					return SkipToNext(context);
 				}
+				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE) { //cmp reg, [memory]
+					InstrEmu::EmulateCMPImm(context, instr.operands[0].imm.value.s, addr, instr.operands[1].element_size);
+					return SkipToNext(context);
+				}
+				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_IMMEDIATE && instr.operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY) { //cmp reg, [memory]
+					InstrEmu::EmulateCMPImm(context, instr.operands[1].imm.value.s, addr, instr.operands[0].element_size);
+					return SkipToNext(context);
+				}
 				else {
 					DebugBreak();
 				}
@@ -358,17 +372,40 @@ namespace VCPU {
 			auto reg_value = ReadRegisterValue(ctx, reg);
 
 			if (reg_class == ZYDIS_REGCLASS_GPR64) {
-				ctx->EFlags = u_cmp_64(ctx->EFlags, ptr, reg) | 0x10000;
+				ctx->EFlags = u_cmp_64(ctx->EFlags, ptr, reg_value) | 0x10000;
 			}
 			else if (reg_class == ZYDIS_REGCLASS_GPR32) {
-				ctx->EFlags = u_cmp_32(ctx->EFlags, ptr, reg) | 0x10000;
+				ctx->EFlags = u_cmp_32(ctx->EFlags, ptr, reg_value) | 0x10000;
 			}
 			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
-				ctx->EFlags = u_cmp_16(ctx->EFlags, ptr, reg) | 0x10000;
+				ctx->EFlags = u_cmp_16(ctx->EFlags, ptr, reg_value) | 0x10000;
 
 			}
 			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
-				ctx->EFlags = u_cmp_8(ctx->EFlags, ptr, reg) | 0x10000;
+				ctx->EFlags = u_cmp_8(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else {
+				DebugBreak();
+			}
+			return true;
+		}
+
+		bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
+
+			uint64_t* context_lookup = (uint64_t*)ctx;
+
+			if (size == 64) {
+				ctx->EFlags = u_cmp_64(ctx->EFlags, ptr, imm) | 0x10000;
+			}
+			else if (size == 32) {
+				ctx->EFlags = u_cmp_32(ctx->EFlags, ptr, imm) | 0x10000;
+			}
+			else if (size == 16) {
+				ctx->EFlags = u_cmp_16(ctx->EFlags, ptr, imm) | 0x10000;
+
+			}
+			else if (size == 8) {
+				ctx->EFlags = u_cmp_8(ctx->EFlags, ptr, imm) | 0x10000;
 			}
 			else {
 				DebugBreak();
