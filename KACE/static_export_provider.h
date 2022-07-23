@@ -91,7 +91,7 @@ MONITOR uint64_t PsJobType = 0;
 MONITOR _KLDR_DATA_TABLE_ENTRY* PsLoadedModuleList = 0;
 MONITOR uint64_t PsLoadedModuleResource = 0x600000;
 MONITOR uint64_t PsPartitionType = 0;
-MONITOR uint64_t PsProcessType = 0x5000000; //crashes here atm, need ot fix. it's a _OBJECT_TYPE*
+MONITOR _OBJECT_TYPE* PsProcessType = 0x0; //crashes here atm, need ot fix. it's a _OBJECT_TYPE*
 MONITOR uint64_t PsSiloContextNonPagedType = 0;
 MONITOR uint64_t PsSiloContextPagedType = 0;
 MONITOR uint64_t PsThreadType = 0x660606000;
@@ -111,14 +111,16 @@ MONITOR uint64_t undeclaredExport = 0; //For undeclared variable, we will hook i
 
 
 
-inline _KLDR_DATA_TABLE_ENTRY* AllocateModule(const char* path, uint64_t base) {
-    auto newModule = (_KLDR_DATA_TABLE_ENTRY*)_aligned_malloc(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, 0x1000);
-    memset((PVOID)newModule, 0, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
+
+
+namespace ntoskrnl_export {
+    void Initialize();
+    void InitializePsProcessType();
+    void InitializePsLoadedModuleList();
+
 }
 
-void InitializePsLoadedModuleList(); 
+
 
 inline std::unordered_map<std::string, void*> constantTimeExportProvider;
-
-
 void InitializeExport();

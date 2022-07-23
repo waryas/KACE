@@ -3,29 +3,47 @@
 #include "static_export_provider.h"
 #include "ntoskrnl_provider.h"
 
-void InitializePsLoadedModuleList() {
 
-    PsLoadedModuleList = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
-    PsLoadedModuleList->InLoadOrderLinks.Blink = &PsLoadedModuleList->InLoadOrderLinks;
-    PsLoadedModuleList->InLoadOrderLinks.Flink = &PsLoadedModuleList->InLoadOrderLinks;
-    h_RtlInitUnicodeString(&PsLoadedModuleList->BaseDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
-    h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
-    PsLoadedModuleList->LoadCount = 1;
-    MemoryTracker::TrackVariable((uint64_t)PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY), (char*)"PsLoadedModuleList");
+namespace ntoskrnl_export {
+    void Initialize() {
+        InitializePsProcessType();
+        InitializePsLoadedModuleList();
 
-    //auto ntos = GetMainModule();
-    /*
-    h_RtlInitUnicodeString(&PsLoadedModuleList->BaseDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
-    h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
-    PsLoadedModuleList->DllBase = (void*)ntos->base;
-    PsLoadedModuleList->LoadCount = 1;
-    PsLoadedModuleList->EntryPoint = (void*)ntos->pedata->GetEP();
+    }
 
-    */
+    void InitializePsProcessType() {
+        PsProcessType = (_OBJECT_TYPE*)MemoryTracker::AllocateVariable(sizeof(_OBJECT_TYPE) * 2);
+        PsProcessType->TotalNumberOfObjects = 1;
+        MemoryTracker::TrackVariable((uint64_t)PsProcessType, sizeof(_OBJECT_TYPE) * 2, (char*)"NTOSKRNL.PsProcessType");
+    }
+
+    void InitializePsLoadedModuleList() {
+
+        PsLoadedModuleList = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
+        PsLoadedModuleList->InLoadOrderLinks.Blink = &PsLoadedModuleList->InLoadOrderLinks;
+        PsLoadedModuleList->InLoadOrderLinks.Flink = &PsLoadedModuleList->InLoadOrderLinks;
+        h_RtlInitUnicodeString(&PsLoadedModuleList->BaseDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+        h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+        PsLoadedModuleList->LoadCount = 1;
+        MemoryTracker::TrackVariable((uint64_t)PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, (char*)"NTOSKRNL.PsLoadedModuleList");
+
+        //auto ntos = GetMainModule();
+        /*
+        h_RtlInitUnicodeString(&PsLoadedModuleList->BaseDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+        h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
+        PsLoadedModuleList->DllBase = (void*)ntos->base;
+        PsLoadedModuleList->LoadCount = 1;
+        PsLoadedModuleList->EntryPoint = (void*)ntos->pedata->GetEP();
+
+        */
 
 
-    //
+        //
+    }
+
 }
+
+
 
 
 void InitializeExport() {
@@ -105,6 +123,6 @@ void InitializeExport() {
     constantTimeExportProvider.insert({ "TmTransactionObjectType", &TmTransactionObjectType });
     constantTimeExportProvider.insert({ "psMUITest", &psMUITest });
 
+    ntoskrnl_export::Initialize();
 
-    InitializePsLoadedModuleList();
 }

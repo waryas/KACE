@@ -172,6 +172,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="emulation.cpp" />
+    <ClCompile Include="handle_manager.h" />
+    <ClCompile Include="handle_manager.cpp" />
     <ClCompile Include="kace.cpp" />
     <ClCompile Include="memory_translation.cpp" />
     <ClCompile Include="module_layout.cpp" />

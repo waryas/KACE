@@ -2350,3 +2350,130 @@ struct _IRP
         VOID* CompletionKey;                                                //0x78
     } Tail;                                                                 //0x78
 };
+
+struct _KGATE
+{
+    struct _DISPATCHER_HEADER Header;                                       //0x0
+};
+
+struct _KGUARDED_MUTEX
+{
+    volatile LONG Count;                                                    //0x0
+    struct _KTHREAD* Owner;                                                 //0x8
+    ULONG Contention;                                                       //0x10
+    struct _KGATE Gate;                                                     //0x18
+    union
+    {
+        struct
+        {
+            SHORT KernelApcDisable;                                         //0x30
+            SHORT SpecialApcDisable;                                        //0x32
+        };
+        ULONG CombinedApcDisable;                                           //0x30
+    };
+};
+enum _KWAIT_REASON
+{
+    Executive = 0,
+    FreePage = 1,
+    PageIn = 2,
+    PoolAllocation = 3,
+    DelayExecution = 4,
+    Suspended = 5,
+    UserRequest = 6,
+    WrExecutive = 7,
+    WrFreePage = 8,
+    WrPageIn = 9,
+    WrPoolAllocation = 10,
+    WrDelayExecution = 11,
+    WrSuspended = 12,
+    WrUserRequest = 13,
+    WrSpare0 = 14,
+    WrQueue = 15,
+    WrLpcReceive = 16,
+    WrLpcReply = 17,
+    WrVirtualMemory = 18,
+    WrPageOut = 19,
+    WrRendezvous = 20,
+    WrKeyedEvent = 21,
+    WrTerminated = 22,
+    WrProcessInSwap = 23,
+    WrCpuRateControl = 24,
+    WrCalloutStack = 25,
+    WrKernel = 26,
+    WrResource = 27,
+    WrPushLock = 28,
+    WrMutex = 29,
+    WrQuantumEnd = 30,
+    WrDispatchInt = 31,
+    WrPreempted = 32,
+    WrYieldExecution = 33,
+    WrFastMutex = 34,
+    WrGuardedMutex = 35,
+    WrRundown = 36,
+    WrAlertByThreadId = 37,
+    WrDeferredPreempt = 38,
+    WrPhysicalFault = 39,
+    MaximumWaitReason = 40
+};
+
+struct _OBJECT_TYPE_INITIALIZER
+{
+    USHORT Length;                                                          //0x0
+    union
+    {
+        USHORT ObjectTypeFlags;                                             //0x2
+        struct
+        {
+            UCHAR CaseInsensitive : 1;                                        //0x2
+            UCHAR UnnamedObjectsOnly : 1;                                     //0x2
+            UCHAR UseDefaultObject : 1;                                       //0x2
+            UCHAR SecurityRequired : 1;                                       //0x2
+            UCHAR MaintainHandleCount : 1;                                    //0x2
+            UCHAR MaintainTypeList : 1;                                       //0x2
+            UCHAR SupportsObjectCallbacks : 1;                                //0x2
+            UCHAR CacheAligned : 1;                                           //0x2
+            UCHAR UseExtendedParameters : 1;                                  //0x3
+            UCHAR Reserved : 7;                                               //0x3
+        };
+    };
+    ULONG ObjectTypeCode;                                                   //0x4
+    ULONG InvalidAttributes;                                                //0x8
+    struct _GENERIC_MAPPING GenericMapping;                                 //0xc
+    ULONG ValidAccessMask;                                                  //0x1c
+    ULONG RetainAccess;                                                     //0x20
+    enum _POOL_TYPE PoolType;                                               //0x24
+    ULONG DefaultPagedPoolCharge;                                           //0x28
+    ULONG DefaultNonPagedPoolCharge;                                        //0x2c
+    VOID(*DumpProcedure)(VOID* arg1, struct _OBJECT_DUMP_CONTROL* arg2);   //0x30
+    LONG(*OpenProcedure)(enum _OB_OPEN_REASON arg1, CHAR arg2, struct _EPROCESS* arg3, VOID* arg4, ULONG* arg5, ULONG arg6); //0x38
+    VOID(*CloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, ULONGLONG arg3, ULONGLONG arg4); //0x40
+    VOID(*DeleteProcedure)(VOID* arg1);                                    //0x48
+    union
+    {
+        LONG(*ParseProcedure)(VOID* arg1, VOID* arg2, struct _ACCESS_STATE* arg3, CHAR arg4, ULONG arg5, struct _UNICODE_STRING* arg6, struct _UNICODE_STRING* arg7, VOID* arg8, struct _SECURITY_QUALITY_OF_SERVICE* arg9, VOID** arg10); //0x50
+        LONG(*ParseProcedureEx)(VOID* arg1, VOID* arg2, struct _ACCESS_STATE* arg3, CHAR arg4, ULONG arg5, struct _UNICODE_STRING* arg6, struct _UNICODE_STRING* arg7, VOID* arg8, struct _SECURITY_QUALITY_OF_SERVICE* arg9, struct _OB_EXTENDED_PARSE_PARAMETERS* arg10, VOID** arg11); //0x50
+    };
+    LONG(*SecurityProcedure)(VOID* arg1, enum _SECURITY_OPERATION_CODE arg2, ULONG* arg3, VOID* arg4, ULONG* arg5, VOID** arg6, enum _POOL_TYPE arg7, struct _GENERIC_MAPPING* arg8, CHAR arg9); //0x58
+    LONG(*QueryNameProcedure)(VOID* arg1, UCHAR arg2, struct _OBJECT_NAME_INFORMATION* arg3, ULONG arg4, ULONG* arg5, CHAR arg6); //0x60
+    UCHAR(*OkayToCloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, VOID* arg3, CHAR arg4); //0x68
+    ULONG WaitObjectFlagMask;                                               //0x70
+    USHORT WaitObjectFlagOffset;                                            //0x74
+    USHORT WaitObjectPointerOffset;                                         //0x76
+};
+
+struct _OBJECT_TYPE
+{
+    struct _LIST_ENTRY TypeList;                                            //0x0
+    struct _UNICODE_STRING Name;                                            //0x10
+    VOID* DefaultObject;                                                    //0x20
+    UCHAR Index;                                                            //0x28
+    ULONG TotalNumberOfObjects;                                             //0x2c
+    ULONG TotalNumberOfHandles;                                             //0x30
+    ULONG HighWaterNumberOfObjects;                                         //0x34
+    ULONG HighWaterNumberOfHandles;                                         //0x38
+    struct _OBJECT_TYPE_INITIALIZER TypeInfo;                               //0x40
+    struct _EX_PUSH_LOCK TypeLock;                                          //0xb8
+    ULONG Key;                                                              //0xc0
+    struct _LIST_ENTRY CallbackList;                                        //0xc8
+};

@@ -79,22 +79,6 @@ struct ConstantFunctionPrototype {
 	ArgumentPrototype args[15];
 };
 
-inline struct MemoryMapping { //For symbolic tracking, was used in the unicorn version, will redevelop it soon
-	char* regionName;
-	uintptr_t realMemory;
-	uintptr_t guestBase;
-	size_t allocSize;
-	MemoryMapping* next;
-} MemAccess = { 0 };
-
-inline struct HandleManager { //For tracking of handle
-	char* handleName;
-	HANDLE realHandle;
-	HANDLE guestHandle;
-	size_t allocSize;
-	HandleManager* next;
-} HandleAccess = { 0 };
-
 
 
 extern std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider;

@@ -55,6 +55,12 @@
     <ClCompile Include="paging_emulation.cpp">
       <Filter>emulation\paging_emulation</Filter>
     </ClCompile>
+    <ClCompile Include="handle_manager.cpp">
+      <Filter>handle_manager</Filter>
+    </ClCompile>
+    <ClCompile Include="handle_manager.h">
+      <Filter>handle_manager</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="modules">
@@ -83,6 +89,9 @@
     </Filter>
     <Filter Include="emulation\paging_emulation">
       <UniqueIdentifier>{a325def5-8325-49c8-a821-408336a2abdb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="handle_manager">
+      <UniqueIdentifier>{24871176-dd9a-4949-9fb8-0d14caf7a0c4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

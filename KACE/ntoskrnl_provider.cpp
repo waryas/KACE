@@ -3,7 +3,7 @@
 
 #include "provider.h"
 #include "ntoskrnl_provider.h"
-
+#include "handle_manager.h"
 
 
 using fnFreeCall = uint64_t(__fastcall*)(...);
@@ -18,7 +18,7 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
 
 
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
-	
+
 	auto ptr = _aligned_malloc(size, 0x1000);;
 	return ptr;
 }
@@ -194,6 +194,9 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State)
 	InitializeListHead(&Event->Header.WaitListHead);
 	Event->Header.Type = Type;
 	*(WORD*)((char*)&Event->Header.Lock + 1) = 0x600; //saw this on ida, someone explain me
+
+	auto hEvent = CreateEvent(NULL, NULL, State, NULL);
+	HandleManager::AddMap((uintptr_t)Event, (uintptr_t)hEvent);
 	Logger::Log("\tEvent object : %llx\n", Event);
 }
 
@@ -272,8 +275,11 @@ NTSTATUS h_ZwFlushKey(PHANDLE KeyHandle)
 	return ret;
 }
 
-NTSTATUS h_ZwClose(PHANDLE Handle)
+NTSTATUS h_ZwClose(HANDLE Handle)
 {
+	Logger::Log("\tClosing Kernel Handle : %llx\n", Handle);
+	if (!Handle)
+		return STATUS_NOT_FOUND;
 	auto ret = __NtRoutine("NtClose", Handle);
 	return ret;
 }
@@ -651,7 +657,12 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 {
 	Logger::Log("\tTimer object : %llx\n", Timer);
 	Logger::Log("\tDPC object : %llx\n", Dpc);
+
+
 	memcpy(&Timer->DueTime, &DueTime, sizeof(DueTime));
+	
+
+	
 	return true;
 }
 
@@ -764,7 +775,8 @@ LONG h_KeSetEvent(_KEVENT* Event, LONG Increment, BOOLEAN Wait)
 	/* Save the Previous State */
 	PreviousState = Event->Header.SignalState;
 
-	/* Return the previous State */
+	auto hEvent = HandleManager::GetHandle((uintptr_t)Event);
+	SetEvent((HANDLE)hEvent);
 	return PreviousState;
 }
 
@@ -901,7 +913,7 @@ void h_ProbeForWrite(void* address, size_t len, ULONG align) {
 int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list argptr)
 {
 
-	return __NtRoutine("_vsnwprintf",buffer, count, format, argptr);
+	return __NtRoutine("_vsnwprintf", buffer, count, format, argptr);
 }
 
 
@@ -921,6 +933,9 @@ NTSTATUS h_KeWaitForSingleObject(
 	void* WaitReason,
 	void* WaitMode, BOOLEAN Alertable,
 	PLARGE_INTEGER Timeout) {
+
+	auto hEvent = HandleManager::GetHandle((uintptr_t)Object);
+	WaitForSingleObject((HANDLE)hEvent, INFINITE);
 	return STATUS_SUCCESS;
 };
 
@@ -937,7 +952,7 @@ NTSTATUS h_PsCreateSystemThread(
 	auto ret = CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
 	*ThreadHandle = ret;
 	//Sleep(100000);
-	return 0;
+	return STATUS_SUCCESS;
 }
 
 //todo impl 
@@ -986,7 +1001,7 @@ NTSTATUS h_ObReferenceObjectByHandle(
 	PVOID* Object,
 	void* HandleInformation) {
 	Logger::Log("\th_ObReferenceObjectByHandle blows up sorry\n");
-	*(PHANDLE)(Object) = handle;
+	*(PHANDLE)(Object) = &FakeKernelThread;
 	if (HandleInformation) {
 		*(PHANDLE)(HandleInformation) = handle;
 	}
@@ -1043,8 +1058,8 @@ NTSTATUS h_ZwOpenSection(
 	ACCESS_MASK        DesiredAccess,
 	OBJECT_ATTRIBUTES* ObjectAttributes
 ) {
-	
-	auto ret = __NtRoutine("ZwOpenSection",SectionHandle, DesiredAccess, ObjectAttributes);
+
+	auto ret = __NtRoutine("ZwOpenSection", SectionHandle, DesiredAccess, ObjectAttributes);
 	Logger::Log("\tSection name : %ls, access : %llx, ret : %08x\n", ObjectAttributes->ObjectName->Buffer, DesiredAccess, ret);
 
 	return ret;
@@ -1217,13 +1232,13 @@ unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
 	uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF);    //<! Page Directory Table Index
 	uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);
 	/*
-	
+
 
 	Logger::Log("\tPML4 : %llx\n", PML4);
 	Logger::Log("\tDirectoryPtr : %llx\n", DirectoryPtr);
 	Logger::Log("\tDirectory : %llx\n", Directory);
 	Logger::Log("\tTable : %llx\n", Table);
-	
+
 	*/
 	Logger::Log("\tGetting Physical address for %llx\n", BaseAddress);
 	uint64_t ret = 0;
@@ -1275,18 +1290,18 @@ void MmInitializeMdl(
 	SIZE_T Length) {
 
 	MemoryDescriptorList->Next = (PMDL)NULL;
-		MemoryDescriptorList->Size = (USHORT)(sizeof(MDL) + (sizeof(PFN_NUMBER) * ADDRESS_AND_SIZE_TO_SPAN_PAGES(BaseVa, Length)));
-		MemoryDescriptorList->MdlFlags = 0;
-		MemoryDescriptorList->StartVa = (PVOID)PAGE_ALIGN(BaseVa);
-		MemoryDescriptorList->ByteOffset = BYTE_OFFSET(BaseVa);
-		MemoryDescriptorList->ByteCount = (ULONG)Length;
+	MemoryDescriptorList->Size = (USHORT)(sizeof(MDL) + (sizeof(PFN_NUMBER) * ADDRESS_AND_SIZE_TO_SPAN_PAGES(BaseVa, Length)));
+	MemoryDescriptorList->MdlFlags = 0;
+	MemoryDescriptorList->StartVa = (PVOID)PAGE_ALIGN(BaseVa);
+	MemoryDescriptorList->ByteOffset = BYTE_OFFSET(BaseVa);
+	MemoryDescriptorList->ByteCount = (ULONG)Length;
 }
 
 PMDL NTAPI h_IoAllocateMdl(IN PVOID 	VirtualAddress,
 	IN ULONG 	Length,
 	IN BOOLEAN 	SecondaryBuffer,
 	IN BOOLEAN 	ChargeQuota,
-	IN _IRP* 	Irp
+	IN _IRP* Irp
 ) {
 	PMDL Mdl = NULL, p;
 	ULONG Flags = 0;
@@ -1318,7 +1333,7 @@ PMDL NTAPI h_IoAllocateMdl(IN PVOID 	VirtualAddress,
 	}
 
 	/* Initialize it */
-	
+
 	MmInitializeMdl(Mdl, VirtualAddress, Length);
 	Mdl->MdlFlags |= Flags;
 
@@ -1354,10 +1369,80 @@ PVOID h_ExRegisterCallback(
 	return CallbackObject;
 }
 
+void h_KeInitializeGuardedMutex(
+	_KGUARDED_MUTEX* Mutex
+) {
+	Mutex->Owner = 0i64;
+	Mutex->Count = 1;
+	Mutex->Contention = 0;
+	Mutex->Gate.Header.Type = 1;
+	Mutex->Gate.Header.Size = 6;
+	Mutex->Gate.Header.Signalling = 0;
+	Mutex->Gate.Header.SignalState = 0;
+	Mutex->Gate.Header.WaitListHead.Flink = &Mutex->Gate.Header.WaitListHead;
+	Mutex->Gate.Header.WaitListHead.Blink = &Mutex->Gate.Header.WaitListHead;
+
+}
+
+NTSTATUS
+h_KeWaitForMultipleObjects(
+	ULONG Count,
+	PVOID Object[],
+	uint32_t WaitType,
+	_KWAIT_REASON WaitReason,
+	uint32_t WaitMode,
+	BOOLEAN Alertable,
+	PLARGE_INTEGER Timeout,
+	_KWAIT_BLOCK* WaitBlockArray
+) {
+	uintptr_t* handleList = (uintptr_t*)malloc(sizeof(uintptr_t*) * Count);
+	for (int i = 0; i < Count; i++) {
+		handleList[i] = (uintptr_t)HandleManager::GetHandle((uintptr_t)Object[i]);
+	}
+	bool waitAll = false;
+	if (WaitType == 0)
+		waitAll = true;
+	else if (WaitType == 1)
+		waitAll = false;
+	else {
+		DebugBreak();
+	}
+	DWORD WaitMS = 0;
+	if (Timeout && Timeout->QuadPart < 0) {
+		WaitMS = Timeout->QuadPart * -1 / 10000;
+	}
+	else if (!Timeout) {
+		WaitMS = INFINITE;
+
+	}
+	else {
+		DebugBreak();
+	}
+	auto ret = WaitForMultipleObjects(Count, (const HANDLE*)handleList, waitAll, WaitMS);
+
+	return STATUS_SUCCESS;
+
+}
+
+void h_KeClearEvent(_KEVENT *Event) { //This should set the Event to non-signaled
+
+	auto hEvent = HandleManager::GetHandle((uintptr_t)Event);
+
+	if (!hEvent) {
+		DebugBreak;
+	}
+
+	ResetEvent((HANDLE)hEvent);
+	return;
+
+}
+
 void Initialize() {
+	myConstantProvider.insert({ "KeClearEvent", {1, h_KeClearEvent} });
+	myConstantProvider.insert({ "KeWaitForMutexObject", {1, h_KeWaitForSingleObject} }); //KeWaitForMutexObject = KeWaitForSingleObject
 	myConstantProvider.insert({ "ExRegisterCallback", {1, h_ExRegisterCallback} });
-	
-	myConstantProvider.insert({ "IoAllocateMdl", {1, h_IoAllocateMdl} });
+	myConstantProvider.insert({ "KeWaitForMultipleObjects", {1, h_KeWaitForMultipleObjects} });
+	myConstantProvider.insert({ "KeInitializeGuardedMutex", {1, h_KeInitializeGuardedMutex} });
 	myConstantProvider.insert({ "IoAllocateMdl", {1, h_IoAllocateMdl} });
 	myConstantProvider.insert({ "MmAllocateContiguousMemorySpecifyCache", {1, h_MmAllocateContiguousMemorySpecifyCache} });
 	myConstantProvider.insert({ "MmGetPhysicalMemoryRanges", {1, h_MmGetPhysicalMemoryRanges} });

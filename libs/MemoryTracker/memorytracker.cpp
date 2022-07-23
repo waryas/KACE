@@ -18,7 +18,7 @@ bool MemoryTracker::TrackVariable(uint64_t ptr, uint64_t size, std::string name)
 	uint64_t totalPage = (size / 4096) + ((size % 4096) ? 1 : 0);
 	for (int i = 0; i < totalPage; i++) {
 		mem->mapping.insert(std::pair(ptr + (i * 0x1000), name));
-		VirtualProtect((PVOID)(ptr + (i * 0x1000)), 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
+		VirtualProtect((PVOID)(ptr + (i * 0x1000)), size, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
 	}
 	mem->firstAlloc.insert(std::pair(name, ptr));;
 	return true;
@@ -27,6 +27,15 @@ bool MemoryTracker::TrackVariable(uint64_t ptr, uint64_t size, std::string name)
 bool MemoryTracker::isTracked(uint64_t ptr) {
 	return mem->mapping.contains(PAGE_ALIGN_DOWN(ptr));
 }
+
+bool MemoryTracker::isTrackedAbsolute(uint64_t ptr) {
+	return mem->mapping.contains(ptr);
+}
+
+std::string MemoryTracker::getNameAbsolute(uint64_t ptr) {
+	return mem->mapping[ptr];
+}
+
 
 uintptr_t MemoryTracker::AllocateVariable(uint64_t size) {
 	uint64_t totalPage = (size / 4096) + ((size % 4096) ? 1 : 0); //No matter how small, a variable will always use 0x1000 memory for easier tracking.

@@ -343,7 +343,7 @@ DWORD FakeDriverEntry(LPVOID)
 	
 
 	auto result = DriverEntry(&drvObj, &RegistryPath);
-	Logger::Log("Done! = %llx", result);
+	Logger::Log("Main Thread Done! Return = %llx\n", result);
 	system("pause");
 	return 0;
 }
@@ -397,9 +397,16 @@ int main(int argc, char* argv[]) {
 	LoadModule("c:\\EMU\\WdFilter.sys", R"(c:\windows\system32\drivers\WdFilter.sys)", "WdFilter.sys", false);
 	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
 
+	/*
+	VGK DriverEntry = 0 - done
+	EAC DriverEntry = 
+	*/
+
+
 	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	//DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
-	DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
+	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
+	//DriverEntry = (proxyCall)LoadModule(R"(C:\Users\Generic\source\repos\KMDF Driver2\x64\Release\KMDFDriver2.sys)", "c:\\EMU\\vgk.sys", "VGK", true);
 
 	
 	HookSelf(argv[0]);
