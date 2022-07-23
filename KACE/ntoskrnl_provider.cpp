@@ -20,14 +20,12 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
 	
 	auto ptr = _aligned_malloc(size, 0x1000);;
-	printf("-----%llx-------\n", ptr);
 	return ptr;
 }
 
 
 void* hM_AllocPool(uint32_t pooltype, size_t size) {
 	auto ptr = _aligned_malloc(size, 0x1000);;
-	printf("-----%llx-------\n", ptr);
 	return ptr;
 }
 
@@ -700,7 +698,7 @@ NTSTATUS h_ExCreateCallback(void* CallbackObject, void* ObjectAttributes, bool C
 
 NTSTATUS h_KeDelayExecutionThread(char WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Interval)
 {
-	Sleep(Interval->QuadPart * -1 / 1);
+	Sleep(Interval->QuadPart * -1 / 10000);
 	return STATUS_SUCCESS;
 }
 

@@ -23,6 +23,7 @@
 
 #include "paging_emulation.h"
 
+#include <mutex>
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
@@ -57,14 +58,18 @@ uintptr_t lastPG = 0;
 
 extern "C" void u_iret();
 
+std::mutex exceptionMutex;
+
 LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 {
+	exceptionMutex.lock();
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 
 	auto offset = ep - GetMainModule()->base;
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO)
 	{
+		exceptionMutex.unlock();
 		return EXCEPTION_CONTINUE_SEARCH;
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION)
@@ -74,10 +79,15 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		wasEmulated = VCPU::PrivilegedInstruction::Parse(e->ContextRecord);
 
 		if (wasEmulated) {
+			exceptionMutex.unlock();
 			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 		else {
-			DebugBreak();
+			exceptionMutex.unlock();
+			Logger::Log("Failed to emulate instruction\n");
+
+			return EXCEPTION_CONTINUE_SEARCH;
+			
 		}
 
 	}
@@ -129,6 +139,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 			}
 			else {
+				exceptionMutex.unlock();
 				Logger::Log("WEIRD, CONTACT WARYAS\n");
 				exit(0);
 			}
@@ -137,28 +148,32 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		else
 		{
 
-			SetVariableInModulesEAT(e->ExceptionRecord->ExceptionInformation[1]);
+			auto found = SetVariableInModulesEAT(e->ExceptionRecord->ExceptionInformation[1]);
 
-			auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
-			if (read_module)
-			{
-				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-					Logger::Log("\033[38;5;46m[Reading]\033[0m %s+%08x\n", read_module->name,
-						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+			if (!found) {
+
+				auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
+				if (read_module)
+				{
+					if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
+						Logger::Log("\033[38;5;46m[Reading]\033[0m %s+%08x\n", read_module->name,
+							PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+					}
+					else {
+						Logger::Log("\033[38;5;46m[Writing]\033[0m %s+%08x\n", read_module->name,
+							PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+					}
 				}
-				else {
-					Logger::Log("\033[38;5;46m[Writing]\033[0m %s+%08x\n", read_module->name,
-						PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
+				else
+				{
+					Logger::Log("Accessing unknown data\n");
 				}
-			}
-			else
-			{
-				Logger::Log("Accessing unknown data\n");
 			}
 
 		}
 		e->ContextRecord->EFlags |= 0x100ui32;
 		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
+		exceptionMutex.unlock();
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
@@ -168,6 +183,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
 
 		lastPG = 0;
+		exceptionMutex.unlock();
 		return EXCEPTION_CONTINUE_EXECUTION;
 	}
 	else if (e->ExceptionRecord->ExceptionCode = EXCEPTION_ACCESS_VIOLATION)
@@ -179,6 +195,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		{
 		case WRITE_VIOLATION:
 			Logger::Log("Trying to write, not handled\n");
+			exceptionMutex.unlock();
 			exit(0);
 			break;
 
@@ -187,21 +204,25 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			wasEmulated = VCPU::MemoryRead::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
 
 			if (wasEmulated) {
+				exceptionMutex.unlock();
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 
 			if (e->ExceptionRecord->ExceptionInformation[1] == e->ExceptionRecord->ExceptionInformation[0] && e->ExceptionRecord->ExceptionInformation[0] == 0) {
+				exceptionMutex.unlock();
 				return EXCEPTION_CONTINUE_SEARCH;
 			}
 
 			if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
-				Logger::Log("\033[38;5;46m[INFO]\033[0m Checking for Patchguard (int 20)\n");
+				Logger::Log("\033[38;5;46m[Info]\033[0m Checking for Patchguard (int 20)\n");
 				e->ContextRecord->Rip += 2;
+				exceptionMutex.unlock();
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 			else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF) {
 				e->ContextRecord->Rip = (uintptr_t)u_iret;
-				Logger::Log("\033[38;5;46m[INFO]\033[0m IRET Timing Emulation\n");
+				Logger::Log("\033[38;5;46m[Info]\033[0m IRET Timing Emulation\n");
+				exceptionMutex.unlock();
 				return EXCEPTION_CONTINUE_EXECUTION;
 			}
 
@@ -223,11 +244,12 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			}
 
 			e->ContextRecord->Rip = redirectRip;
+			exceptionMutex.unlock();
 			return EXCEPTION_CONTINUE_EXECUTION;
 			break;
 		}
 	}
-
+	exceptionMutex.unlock();
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 

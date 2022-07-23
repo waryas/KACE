@@ -119,11 +119,15 @@ namespace VCPU {
 				EmulatePrivilegedMOV(context);
 				return SkipToNext(context);
 			} else if (instr.mnemonic == ZYDIS_MNEMONIC_WRMSR) {
-				WriteMSR(context);
-				return SkipToNext(context);
+				if (WriteMSR(context))
+					return SkipToNext(context);
+				else
+					return false;
 			} else if (instr.mnemonic == ZYDIS_MNEMONIC_RDMSR) {
-				ReadMSR(context);
-				return SkipToNext(context);
+				if (ReadMSR(context))
+					return SkipToNext(context);
+				else
+					return false;
 			}
 			else {
 				DebugBreak();
@@ -202,7 +206,7 @@ namespace VCPU {
 
 			if (!MSRContext::MSRData.contains(ECX)) { 
 				Logger::Log("Reading from unsupported MSR : %llx\n", ECX);
-				RaiseException(0, 0, 0, 0);
+				return false;
 			}
 
 			auto ReadData = MSRContext::MSRData[ECX];
@@ -219,7 +223,7 @@ namespace VCPU {
 
 			if (!MSRContext::MSRData.contains(ECX)) { //GP(0) If the value in ECX specifies a reserved or unimplemented MSR address
 				Logger::Log("Writing to unsupported MSR : %llx\n", ECX);
-				RaiseException(0, 0, 0, 0);
+				return false;
 			}
 
 			auto ReadData = MSRContext::MSRData[ECX];

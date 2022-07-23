@@ -175,7 +175,7 @@ uintptr_t FindFunctionInModulesFromIAT(uintptr_t ptr) {
 				if (Import->library != "ntoskrnl.exe") {
 					DebugBreak();
 				}
-				Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s - ", Import->library.c_str(), Import->name.c_str());
+				Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s...\n", Import->library.c_str(), Import->name.c_str());
 				if (myConstantProvider.contains(Import->name)) {
 					funcptr = (uintptr_t)myConstantProvider[Import->name].hook;
 					if (funcptr) {
@@ -252,15 +252,13 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 
 				auto offset = ptr - MappedModules[i].base;
 				auto variableName = MappedModules[i].pedata->GetExport(offset);
-				if (strstr(variableName, "PsProcessType")) {
-					printf("lol");
-				}
+
 				if (!variableName) {
 					Logger::Log("Reading a non exported value\n");
 					return 0;
 				}
 				else {
-					Logger::Log("\033[38;5;46m[Reading]\033[0m %s::%s - ", MappedModules[i].name, variableName);
+					Logger::Log("\033[38;5;46m[Reading]\033[0m %s::%s...\n", MappedModules[i].name, variableName);
 					if (constantTimeExportProvider.contains(variableName)) {
 						Logger::Log(prototypedMsg);
 						DWORD oldAccess;
@@ -270,10 +268,12 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 						*(uint64_t*)ptr = *(uintptr_t*)constantTimeExportProvider[variableName];
 						VirtualProtect((LPVOID)ptr, 1, oldAccess2, &oldAccess2);
 						VirtualProtect((LPVOID)constantTimeExportProvider[variableName], 1, oldAccess, &oldAccess);
+						return 1;
 						break;
 					}
 					else {
 						Logger::Log(notimplementedMsg);
+						return 1;
 						//exit(0);
 					}
 				}
@@ -284,13 +284,16 @@ uintptr_t SetVariableInModulesEAT(uintptr_t ptr) {
 	return 0;
 }
 
-uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 
+
+uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
+	
 	uintptr_t funcptr = 0;
 	for (int i = 0; i < MAX_MODULES; i++) {
 
-		if (!MappedModules[i].name)
+		if (!MappedModules[i].name) {
 			return 0;
+		}
 
 		if (!MappedModules[i].isMainModule) {
 			if (MappedModules[i].base <= ptr && ptr <= MappedModules[i].base + MappedModules[i].size) {
@@ -303,7 +306,7 @@ uintptr_t FindFunctionInModulesFromEAT(uintptr_t ptr) {
 					exit(0);
 				}
 				else {
-					Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s - ", MappedModules[i].name, functionName);
+					Logger::Log("\033[38;5;14m[Executing]\033[0m %s::%s...\n", MappedModules[i].name, functionName);
 					if (myConstantProvider.contains(functionName)) {
 						funcptr = (uintptr_t)myConstantProvider[functionName].hook;
 						if (funcptr) {
