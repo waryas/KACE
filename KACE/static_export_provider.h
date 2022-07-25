@@ -4,7 +4,7 @@
 
 #include <MemoryTracker/memorytracker.h>
 #include "ntoskrnl_struct.h"
-#include "module_layout.h"
+
 
 #pragma section("hookaccess",read,write)
 #define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
@@ -116,7 +116,6 @@ namespace ntoskrnl_export {
     void InitializeExport();
 }
 
-extern std::unordered_map<std::string, void*> constantTimeExportProvider;
 
 
 

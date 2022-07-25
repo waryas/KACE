@@ -2,7 +2,6 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "module_layout.h"
 #include "ntoskrnl_struct.h"
 #include <shlwapi.h>
 

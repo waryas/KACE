@@ -1,4 +1,3 @@
-#include "module_layout.h"
 
 #include "static_export_provider.h"
 #include "ntoskrnl_provider.h"
