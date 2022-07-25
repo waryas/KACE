@@ -34,8 +34,7 @@ private:
     static std::unordered_map<std::string, PEFile*>  moduleList_namekey;
     
     
-    std::string filename;
-    std::string name;
+
 
     uintmax_t size = 0;
     std::ifstream File;
@@ -84,6 +83,9 @@ private:
     PEFile(std::string filename,std::string name,  uintmax_t size);
 
 public:
+
+    std::string filename;
+    std::string name;
 
     static std::vector<PEFile*>  LoadedModuleArray;
 

@@ -179,7 +179,6 @@
     <ClCompile Include="handle_manager.h" />
     <ClCompile Include="handle_manager.cpp" />
     <ClCompile Include="kace.cpp" />
-    <ClCompile Include="module_layout.cpp" />
     <ClCompile Include="ntoskrnl_provider.cpp" />
     <ClCompile Include="paging_emulation.cpp" />
     <ClCompile Include="provider.cpp" />
@@ -188,7 +187,6 @@
   <ItemGroup>
     <ClInclude Include="config.h" />
     <ClInclude Include="environment.h" />
-    <ClInclude Include="module_layout.h" />
     <ClInclude Include="ntoskrnl_provider.h" />
     <ClInclude Include="ntoskrnl_struct.h" />
     <ClInclude Include="nt_define.h" />

@@ -6,6 +6,8 @@
 
 #include "paging_emulation.h"
 #include "environment.h"
+#include "provider.h"
+
 namespace VCPU {
 
 	static ZydisDecoder decoder;
@@ -251,6 +253,10 @@ namespace VCPU {
 			if (!Decode(context))
 				return false;
 
+			if (auto exportImpl = Provider::FindDataImpl(addr)) {
+				return EmulateWrite(exportImpl, context);
+			}
+
 			if (auto HVA = MemoryTracker::GetHVA(addr)) {
 				printf("Emulating write to %llx translated to %llx\n", addr, HVA);
 				return EmulateWrite(HVA, context);
@@ -325,6 +331,11 @@ namespace VCPU {
 		bool Parse(uintptr_t addr, PCONTEXT context) {
 			if (!Decode(context))
 				return false;
+
+
+			if (auto exportImpl = Provider::FindDataImpl(addr)) {
+				return EmulateRead(exportImpl, context);
+			}
 
 			if (auto HVA = MemoryTracker::GetHVA(addr)) {
 				printf("Emulating read from %llx translated to %llx\n", addr, HVA);

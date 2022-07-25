@@ -1,16 +1,17 @@
 #pragma once
 
-#include <inttypes.h>
+#include <string>
+#include <unordered_map>
+
+namespace Provider {
+	
 
 
+	uintptr_t FindFuncImpl(uintptr_t ptr);
+	uintptr_t FindDataImpl(uintptr_t ptr);
 
-#define STUB_UNIMPLEMENTED 1//If you define this, every non prototyped function will return 0 instead of exiting
+	uintptr_t AddFuncImpl(const char* nameFunc, PVOID hookFunc);
+	uintptr_t AddDataImpl(const char* nameExport, PVOID hookExport, size_t exportSize);
 
-extern const char* prototypedMsg;
-extern const char* passthroughMsg;
-extern const char* notimplementedMsg;
-extern const HMODULE ntdll;
-uint64_t unimplemented_stub();
-
-
-#define MONITOR_DATA_ACCESS 
+	uint64_t unimplemented_stub();
+};

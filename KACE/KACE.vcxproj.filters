@@ -1,9 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClInclude Include="module_layout.h">
-      <Filter>modules</Filter>
-    </ClInclude>
     <ClInclude Include="ntoskrnl_provider.h">
       <Filter>provider\ntoskrnl</Filter>
     </ClInclude>
@@ -43,9 +40,6 @@
     <ClCompile Include="static_export_provider.cpp">
       <Filter>provider\ntoskrnl</Filter>
     </ClCompile>
-    <ClCompile Include="module_layout.cpp">
-      <Filter>modules</Filter>
-    </ClCompile>
     <ClCompile Include="emulation.cpp">
       <Filter>emulation</Filter>
     </ClCompile>
@@ -63,9 +57,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Filter Include="modules">
-      <UniqueIdentifier>{62ab9661-2d91-4e31-9f1a-14158f0bfb14}</UniqueIdentifier>
-    </Filter>
     <Filter Include="definitions">
       <UniqueIdentifier>{c53be779-1cb9-4510-a953-229a70cb3088}</UniqueIdentifier>
     </Filter>

@@ -2,11 +2,18 @@
 
 #include "static_export_provider.h"
 #include "ntoskrnl_provider.h"
-
+#include "provider.h"
 std::unordered_map<std::string, void*> constantTimeExportProvider;
 
 namespace ntoskrnl_export {
 
+
+    void Initialize() {
+        InitializeExport();
+       // InitializePsProcessType();
+       // InitializePsLoadedModuleList();
+
+    }
     /*
 
     void Initialize() {
@@ -34,9 +41,14 @@ namespace ntoskrnl_export {
 
     }
 
-
+    */
     void InitializeExport() {
+        Provider::AddDataImpl("SeExports", (PVOID)SeExport, sizeof(SeExport));
+        Provider::AddDataImpl("KdDebuggerNotPresent", &KdDebuggerNotPresent, sizeof(KdDebuggerNotPresent));
+        Provider::AddDataImpl("KdDebuggerEnabled", &KdDebuggerEnabled, sizeof(KdDebuggerEnabled));
+        Provider::AddDataImpl("KdEnteredDebugger", &KdEnteredDebugger, sizeof(KdEnteredDebugger));
 
+        /*
         constantTimeExportProvider.insert({ "SeExports", (PVOID)SeExport });
         constantTimeExportProvider.insert({ "InitSafeBootMode", &InitSafeBootMode });
         constantTimeExportProvider.insert({ "KdDebuggerNotPresent", &KdDebuggerNotPresent });
@@ -112,10 +124,10 @@ namespace ntoskrnl_export {
         constantTimeExportProvider.insert({ "TmTransactionManagerObjectType", &TmTransactionManagerObjectType });
         constantTimeExportProvider.insert({ "TmTransactionObjectType", &TmTransactionObjectType });
         constantTimeExportProvider.insert({ "psMUITest", &psMUITest });
-
+        */
 
     }
-    */
+  
 }
 
 

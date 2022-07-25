@@ -1,35 +1,36 @@
 #include <iostream>
 #include <cassert>
-
+#include <intrin.h>
 #include <cstring>
 #include <cstdlib>
+#include <mutex>
+
+#include <PEMapper/pefile.h>
+
+#include <Logger/Logger.h>
+#include <MemoryTracker/memorytracker.h>
 
 
+#include "environment.h"
 #include "emulation.h"
+#include "paging_emulation.h"
 
+
+
+#include "provider.h"
 #include "ntoskrnl_provider.h"
 
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-#include <PEMapper/pefile.h>
-#include <MemoryTracker/memorytracker.h>
-#include <Logger/Logger.h>
 
-#include "provider.h"
 
-#include <intrin.h>
 
-#include "paging_emulation.h"
 
-#include <mutex>
 
-#include "environment.h"
 
-//#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
-//#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 using proxyCall = uint64_t(__fastcall*)(...);
 proxyCall DriverEntry = nullptr;
@@ -40,8 +41,6 @@ proxyCall DriverEntry = nullptr;
 #define WRITE_VIOLATION 1
 #define EXECUTE_VIOLATION 8
  
-uint64_t fakeKUSER_SHARED_DATA = MemoryTracker::AllocateVariable(0x1000);
-
 
 
 uint64_t passthrough(...)
@@ -94,10 +93,14 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		auto bufferopcode = (uint8_t*)e->ContextRecord->Rip;
 		auto addr_access = e->ExceptionRecord->ExceptionInformation[1];
 		bool wasEmulated = false;
+
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
 		case WRITE_VIOLATION:
-			wasEmulated = VCPU::MemoryWrite::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
+
+			
+
+			wasEmulated = VCPU::MemoryWrite::Parse(addr_access, e->ContextRecord);
 
 			if (wasEmulated) {
 				exceptionMutex.unlock();
@@ -110,7 +113,8 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 		case READ_VIOLATION:
 
-			wasEmulated = VCPU::MemoryRead::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
+
+			wasEmulated = VCPU::MemoryRead::Parse(addr_access, e->ContextRecord);
 
 			if (wasEmulated) {
 				exceptionMutex.unlock();
@@ -138,26 +142,13 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 			break;
 		case EXECUTE_VIOLATION:
 			
-			auto pe_module = PEFile::FindModule(addr_access);
-			auto exported_func = pe_module->GetExport(addr_access - pe_module->GetMappedImageBase());
-			if (api_provider.contains(exported_func)) {
-				Logger::Log("Calling %s - Prototyped\n", exported_func);
-				e->ContextRecord->Rip = (uintptr_t)api_provider[exported_func];
+			auto rip = Provider::FindFuncImpl(addr_access);
 
-			}
-			else {
-				auto ptr = GetProcAddress(LoadLibraryA("ntdll.dll"), exported_func);
-				if (!ptr) {
-					Logger::Log("Calling %s - Stub\n", exported_func);
-					e->ContextRecord->Rip = (uintptr_t)unimplemented_stub;
-				}
-				else {
-					Logger::Log("Calling %s - Passthrough\n", exported_func);
-					e->ContextRecord->Rip = (uintptr_t)ptr;
-				}
-			}
+			if (!rip)
+				DebugBreak();
+
+			e->ContextRecord->Rip = rip;
 		
-
 			exceptionMutex.unlock();
 			return EXCEPTION_CONTINUE_EXECUTION;
 			break;
@@ -274,7 +265,6 @@ int main(int argc, char* argv[]) {
 
 	PagingEmulation::SetupCR3();
 
-	//ntoskrnl_export::Initialize();
 	ntoskrnl_provider::Initialize();
 
 
