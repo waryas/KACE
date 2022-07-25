@@ -10,6 +10,10 @@ unsigned long MemoryTracker::usedPage = 0;
 static std::unordered_map<uint64_t, uint64_t> GVAMapping;
 
 bool MemoryTracker::AddMapping(uintptr_t GVA, size_t size, uintptr_t HVA) {
+
+	if (GVA != PAGE_ALIGN_DOWN(GVA)) {
+		DebugBreak(); //Can only track variables that are page_aligned;
+	}
 	uint64_t totalPage = (size / 4096) + ((size % 4096) ? 1 : 0); //No matter how small, a variable will always use 0x1000 memory for easier tracking.
 
 	for (int i = 0; i < totalPage; i++) {

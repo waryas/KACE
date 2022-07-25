@@ -14,14 +14,7 @@ namespace ntoskrnl_export {
        // InitializePsLoadedModuleList();
 
     }
-    /*
 
-    void Initialize() {
-        InitializeExport();
-        InitializePsProcessType();
-        InitializePsLoadedModuleList();
-
-    }
 
     void InitializePsProcessType() {
         PsProcessType = (_OBJECT_TYPE*)MemoryTracker::AllocateVariable(sizeof(_OBJECT_TYPE) * 2);
@@ -41,12 +34,20 @@ namespace ntoskrnl_export {
 
     }
 
-    */
     void InitializeExport() {
+        PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
+
+        ntoskrnl_export::InitializePsProcessType();
+        ntoskrnl_export::InitializePsLoadedModuleList();
+
         Provider::AddDataImpl("SeExports", (PVOID)SeExport, sizeof(SeExport));
         Provider::AddDataImpl("KdDebuggerNotPresent", &KdDebuggerNotPresent, sizeof(KdDebuggerNotPresent));
         Provider::AddDataImpl("KdDebuggerEnabled", &KdDebuggerEnabled, sizeof(KdDebuggerEnabled));
         Provider::AddDataImpl("KdEnteredDebugger", &KdEnteredDebugger, sizeof(KdEnteredDebugger));
+        Provider::AddDataImpl("PsInitialSystemProcess", &PsInitialSystemProcess, sizeof(PsInitialSystemProcess));
+        Provider::AddDataImpl("PsLoadedModuleList", &PsLoadedModuleList, sizeof(PsLoadedModuleList));
+        Provider::AddDataImpl("PsProcessType", &PsProcessType, sizeof(PsProcessType));
+        Provider::AddDataImpl("PsThreadType", &PsThreadType, sizeof(PsThreadType));
 
         /*
         constantTimeExportProvider.insert({ "SeExports", (PVOID)SeExport });
