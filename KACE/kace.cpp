@@ -176,7 +176,7 @@ DWORD FakeDriverEntry(LPVOID)
 	RegistryPath.Buffer = (WCHAR*)registryBuffer;
 	RegistryPath.Length = lstrlenW(RegistryPath.Buffer) * 2;
 	RegistryPath.MaximumLength = lstrlenW(RegistryPath.Buffer) * 2;
-	//memset((void*)&drvObj, 0xFF, sizeof(drvObj));
+	
 
 	memset(&FakeKernelThread, 0, sizeof(FakeKernelThread));
 	memset(&FakeSystemProcess, 0, sizeof(FakeSystemProcess));
@@ -257,18 +257,10 @@ DWORD FakeDriverEntry(LPVOID)
 int main(int argc, char* argv[]) {
 
 	Environment::InitializeSystemModules();
-
-
 	MemoryTracker::Initiate();
 	VCPU::Initialize();
-	
-
 	PagingEmulation::SetupCR3();
-
 	ntoskrnl_provider::Initialize();
-
-
-	//PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
 
 	DWORD dwMode;

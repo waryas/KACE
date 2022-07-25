@@ -305,8 +305,21 @@ namespace VCPU {
 			}
 			else if (instr.mnemonic == ZYDIS_MNEMONIC_AND) {
 				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
-
 					InstrEmu::WritePtr::EmulateAND(context, instr.operands[1].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else {
+
+					DebugBreak();
+				}
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_STOSQ) {
+				if (instr.operand_count == 5 && instr.operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].element_size == 64) {
+					auto EF = __readeflags();
+					__writeeflags(context->EFlags);
+					__stosq((PDWORD64)addr, context->Rax, context->Rcx);
+					__writeeflags(EF);
+					context->Rcx = 0;
 					return SkipToNext(context);
 				}
 				else {

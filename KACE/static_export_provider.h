@@ -107,7 +107,6 @@ MONITOR uint64_t TmTransactionManagerObjectType = 0;
 MONITOR uint64_t TmTransactionObjectType = 0;
 MONITOR uint64_t psMUITest = 0;
 
-MONITOR uint64_t undeclaredExport = 0; //For undeclared variable, we will hook it through this
 
 
 namespace ntoskrnl_export {

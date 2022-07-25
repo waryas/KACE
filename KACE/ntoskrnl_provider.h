@@ -6,7 +6,6 @@
 #include "ntoskrnl_struct.h"
 #include <shlwapi.h>
 
-#pragma comment(lib, "Shlwapi.lib")
 
 #pragma section("fakek",read,write)
 
