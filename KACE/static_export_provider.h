@@ -110,17 +110,14 @@ MONITOR uint64_t psMUITest = 0;
 MONITOR uint64_t undeclaredExport = 0; //For undeclared variable, we will hook it through this
 
 
-
-
-
 namespace ntoskrnl_export {
     void Initialize();
     void InitializePsProcessType();
     void InitializePsLoadedModuleList();
-
+    void InitializeExport();
 }
 
+extern std::unordered_map<std::string, void*> constantTimeExportProvider;
 
 
-inline std::unordered_map<std::string, void*> constantTimeExportProvider;
-void InitializeExport();
+

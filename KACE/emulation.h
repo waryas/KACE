@@ -3,16 +3,30 @@
 #include <intrin.h>
 #include <Zydis/Register.h>
 #include <unordered_map>
-#include "memory_translation.h"
 
 #define KUSD_MIN 0xFFFFF78000000000
 #define KUSD_MAX 0xFFFFF78000001000
 #define KUSD_USERMODE 0x7FFE0000
 
-extern "C" uint64_t u_cmp_8(uint64_t eflags, uintptr_t ptr, uint8_t value);
-extern "C" uint64_t u_cmp_16(uint64_t eflags, uintptr_t ptr, uint16_t value);
-extern "C" uint64_t u_cmp_32(uint64_t eflags, uintptr_t ptr, uint32_t value);
-extern "C" uint64_t u_cmp_64(uint64_t eflags, uintptr_t ptr, uint64_t value);
+extern "C" uint64_t u_cmp_8_sp(uint64_t eflags, uintptr_t ptr, uint8_t value);
+extern "C" uint64_t u_cmp_16_sp(uint64_t eflags, uintptr_t ptr, uint16_t value);
+extern "C" uint64_t u_cmp_32_sp(uint64_t eflags, uintptr_t ptr, uint32_t value);
+extern "C" uint64_t u_cmp_64_sp(uint64_t eflags, uintptr_t ptr, uint64_t value);
+
+extern "C" uint64_t u_test_8_sp(uint64_t eflags, uintptr_t ptr, uint8_t value);
+extern "C" uint64_t u_test_16_sp(uint64_t eflags, uintptr_t ptr, uint16_t value);
+extern "C" uint64_t u_test_32_sp(uint64_t eflags, uintptr_t ptr, uint32_t value);
+extern "C" uint64_t u_test_64_sp(uint64_t eflags, uintptr_t ptr, uint64_t value);
+
+extern "C" uint64_t u_cmp_8_dp(uint64_t eflags, uintptr_t ptr, uint8_t value);
+extern "C" uint64_t u_cmp_16_dp(uint64_t eflags, uintptr_t ptr, uint16_t value);
+extern "C" uint64_t u_cmp_32_dp(uint64_t eflags, uintptr_t ptr, uint32_t value);
+extern "C" uint64_t u_cmp_64_dp(uint64_t eflags, uintptr_t ptr, uint64_t value);
+
+extern "C" uint64_t u_test_8_dp(uint64_t eflags, uintptr_t ptr, uint8_t value);
+extern "C" uint64_t u_test_16_dp(uint64_t eflags, uintptr_t ptr, uint16_t value);
+extern "C" uint64_t u_test_32_dp(uint64_t eflags, uintptr_t ptr, uint32_t value);
+extern "C" uint64_t u_test_64_dp(uint64_t eflags, uintptr_t ptr, uint64_t value);
 
 
 namespace VCPU {
@@ -45,10 +59,20 @@ namespace VCPU {
 		bool EmulateRead(uintptr_t addr, PCONTEXT context);
 	}
 
+	namespace MemoryWrite {
+		bool Parse(uintptr_t addr, PCONTEXT context);
+		bool EmulateWrite(uintptr_t addr, PCONTEXT context);
+	}
+
 	namespace InstrEmu {
 
-		bool EmulateCMP(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+		bool EmulateCMPDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+		bool EmulateCMPSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
 		bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size);
+
+		bool EmulateTestSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+		bool EmulateTestDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
+		bool EmulateTestImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size);
 
 		namespace ReadPtr {
 			bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
@@ -58,6 +82,7 @@ namespace VCPU {
 			bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
 			bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
 			bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
+			bool EmulateMOVSX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
 		}
 
 		namespace WritePtr {

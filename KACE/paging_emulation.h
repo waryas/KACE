@@ -1,6 +1,9 @@
 #include <windows.h>
 #include <inttypes.h>
-void SetupCR3();
+
+namespace PagingEmulation {
+    void SetupCR3();
+}
 
 typedef struct _PML4E
 {

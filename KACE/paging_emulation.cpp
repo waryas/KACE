@@ -3,7 +3,7 @@
 
 
 
-void SetupCR3() {
+void PagingEmulation::SetupCR3() {
 	
 	for (int i = 0; i < 512; i++) {
 		PML4.entries[i].Value = 0xFFFFFFFFFFFFFFFF;

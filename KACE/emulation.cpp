@@ -1,9 +1,11 @@
 #include "emulation.h"
 #include <Zydis/Zydis.h>
+#include <MemoryTracker/memorytracker.h>
 #include <Logger/Logger.h>
 #include <assert.h>
 
 #include "paging_emulation.h"
+#include "environment.h"
 namespace VCPU {
 
 	static ZydisDecoder decoder;
@@ -23,7 +25,7 @@ namespace VCPU {
 			MSRData.insert(std::pair(0x1DB, std::pair(0, "MSRLASTBRANCH-_FROM_IP_MSR")));
 			MSRData.insert(std::pair(0x680, std::pair(0, "LastBranchFromIP_MSR")));
 			MSRData.insert(std::pair(0x1c9, std::pair(0, "MSR_LASTBRANCH_TOS")));
-			
+			MSRData.insert(std::pair(0, std::pair(0xFFF, "MSR_0_P5_IP_ADDR")));
 			MSRData.insert(std::pair(0xc0000082, std::pair(0x10000, "MSR_LSTAR")));
 
 			return true;
@@ -32,8 +34,8 @@ namespace VCPU {
 
 	void Initialize() {
 		ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64);
-		MemoryTranslation::AddMapping(KUSD_MIN, 0x1000, KUSD_USERMODE);
-		MemoryTranslation::AddMapping(0xFFFFcfe7f3f9f000, 512 * 8, (uintptr_t)&PML4.entries[0]);
+		MemoryTracker::AddMapping(KUSD_MIN, 0x1000, KUSD_USERMODE);
+		MemoryTracker::AddMapping(0xFFFFcfe7f3f9f000, 512 * 8, (uintptr_t)&PML4.entries[0]);
 		MSRContext::Initialize();
 	}
 
@@ -110,7 +112,7 @@ namespace VCPU {
 			if (instr.mnemonic == ZYDIS_MNEMONIC_CLI) {
 				Logger::Log("Clearing Interrupts\n");
 				return SkipToNext(context);
-			} 
+			}
 			else if (instr.mnemonic == ZYDIS_MNEMONIC_STI) {
 				Logger::Log("Restoring Interrupts\n");
 				return SkipToNext(context);
@@ -118,12 +120,14 @@ namespace VCPU {
 			else if (instr.mnemonic == ZYDIS_MNEMONIC_MOV) {
 				EmulatePrivilegedMOV(context);
 				return SkipToNext(context);
-			} else if (instr.mnemonic == ZYDIS_MNEMONIC_WRMSR) {
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_WRMSR) {
 				if (WriteMSR(context))
 					return SkipToNext(context);
 				else
 					return false;
-			} else if (instr.mnemonic == ZYDIS_MNEMONIC_RDMSR) {
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_RDMSR) {
 				if (ReadMSR(context))
 					return SkipToNext(context);
 				else
@@ -139,7 +143,7 @@ namespace VCPU {
 
 		bool EmulatePrivilegedMOV(PCONTEXT context) {
 			uint64_t* context_lookup = (uint64_t*)context;
-			
+
 
 			auto reg_to_write = GRegIndex(instr.operands[0].reg.value);
 			auto reg_to_read = GRegIndex(instr.operands[1].reg.value);
@@ -155,11 +159,11 @@ namespace VCPU {
 			if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR0) { //Write CR0
 				Logger::Log("Writing %llx to CR0\n", context_lookup[reg_to_read]);
 				VCPU::CR0 = context_lookup[reg_to_read];
-			} 
+			}
 			else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR0) { //Read CR0
 				Logger::Log("Reading CR0\n");
 				context_lookup[reg_to_write] = VCPU::CR0;
-			} 
+			}
 			else if (instr.operands[0].reg.value == ZYDIS_REGISTER_CR3) { //Write CR3
 				Logger::Log("Writing %llx to CR3\n", context_lookup[reg_to_read]);
 				VCPU::CR3 = context_lookup[reg_to_read];
@@ -191,7 +195,7 @@ namespace VCPU {
 			else {
 				DebugBreak();
 			}
-			
+
 			return true;
 		}
 
@@ -204,7 +208,7 @@ namespace VCPU {
 		bool ReadMSR(PCONTEXT context) {
 			uint32_t ECX = context->Rcx & 0xFFFFFFFF;
 
-			if (!MSRContext::MSRData.contains(ECX)) { 
+			if (!MSRContext::MSRData.contains(ECX)) {
 				Logger::Log("Reading from unsupported MSR : %llx\n", ECX);
 				return false;
 			}
@@ -241,6 +245,80 @@ namespace VCPU {
 
 	}
 
+	namespace MemoryWrite {
+
+		bool Parse(uintptr_t addr, PCONTEXT context) {
+			if (!Decode(context))
+				return false;
+
+			if (auto HVA = MemoryTracker::GetHVA(addr)) {
+				printf("Emulating write to %llx translated to %llx\n", addr, HVA);
+				return EmulateWrite(HVA, context);
+			}
+			else {
+				if (addr == 0xffffffffffffffff)
+					return false;
+				Environment::CheckPtr(addr);
+				Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
+				fflush(stdout);
+				return false;
+			}
+		}
+
+		bool EmulateWrite(uintptr_t addr, PCONTEXT context) { //We return true if we emulated it
+
+			if (instr.mnemonic == ZYDIS_MNEMONIC_MOV) {
+				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
+					InstrEmu::WritePtr::EmulateMOV(context, instr.operands[1].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else {
+					Logger::Log("This should never happen, please investigate\n");
+					DebugBreak();
+				}
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_OR) {
+				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
+					InstrEmu::WritePtr::EmulateOR(context, instr.operands[1].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else {
+
+					DebugBreak();
+				}
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_XOR) {
+				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
+					InstrEmu::WritePtr::EmulateXOR(context, instr.operands[1].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else {
+
+					DebugBreak();
+				}
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_AND) {
+				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
+
+					InstrEmu::WritePtr::EmulateAND(context, instr.operands[1].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else {
+
+					DebugBreak();
+				}
+			}
+			else {
+				Logger::Log("Unhandled Mnemonic.\n");
+				DebugBreak();
+				return false;
+			}
+			return false;
+		}
+
+
+	}
+
 
 	namespace MemoryRead {
 
@@ -248,12 +326,14 @@ namespace VCPU {
 			if (!Decode(context))
 				return false;
 
-			if (auto HVA = MemoryTranslation::GetHVA(addr)) {
+			if (auto HVA = MemoryTracker::GetHVA(addr)) {
+				printf("Emulating read from %llx translated to %llx\n", addr, HVA);
 				return EmulateRead(HVA, context);
 			}
 			else {
 				if (addr == 0xffffffffffffffff)
 					return false;
+				Environment::CheckPtr(addr);
 				Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
 				fflush(stdout);
 				return false;
@@ -327,11 +407,11 @@ namespace VCPU {
 			}
 			else if (instr.mnemonic == ZYDIS_MNEMONIC_CMP) {
 				if (instr.operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp [memory], reg
-					InstrEmu::EmulateCMP(context, instr.operands[1].reg.value, addr);
+					InstrEmu::EmulateCMPSourcePtr(context, instr.operands[1].reg.value, addr);
 					return SkipToNext(context);
 				}
 				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
-					InstrEmu::EmulateCMP(context, instr.operands[0].reg.value, addr);
+					InstrEmu::EmulateCMPDestPtr(context, instr.operands[0].reg.value, addr);
 					return SkipToNext(context);
 				}
 				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE) { //cmp reg, [memory]
@@ -346,9 +426,39 @@ namespace VCPU {
 					DebugBreak();
 				}
 			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_TEST) {
+				if (instr.operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp [memory], reg
+					InstrEmu::EmulateTestSourcePtr(context, instr.operands[1].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
+					InstrEmu::EmulateTestDestPtr(context, instr.operands[0].reg.value, addr);
+					return SkipToNext(context);
+				}
+				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_IMMEDIATE) { //cmp reg, [memory]
+					InstrEmu::EmulateTestImm(context, instr.operands[0].imm.value.s, addr, instr.operands[1].element_size);
+					return SkipToNext(context);
+				}
+				else if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_IMMEDIATE && instr.operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY) { //cmp reg, [memory]
+					InstrEmu::EmulateTestImm(context, instr.operands[1].imm.value.s, addr, instr.operands[0].element_size);
+					return SkipToNext(context);
+				}
+				else {
+					DebugBreak();
+				}
+			}
 			else if (instr.mnemonic == ZYDIS_MNEMONIC_MOVZX) {
 				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
 					InstrEmu::ReadPtr::EmulateMOVZX(context, instr.operands[0].reg.value, addr, instr.operands[1].size);
+					return SkipToNext(context);
+				}
+				else {
+					DebugBreak();
+				}
+			}
+			else if (instr.mnemonic == ZYDIS_MNEMONIC_MOVSXD) {
+				if (instr.operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr.operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
+					InstrEmu::ReadPtr::EmulateMOVSX(context, instr.operands[0].reg.value, addr, instr.operands[1].size);
 					return SkipToNext(context);
 				}
 				else {
@@ -369,24 +479,25 @@ namespace VCPU {
 
 
 	namespace InstrEmu {
-		bool EmulateCMP(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
+
+		bool EmulateCMPSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
 
 			uint64_t* context_lookup = (uint64_t*)ctx;
 			auto reg_class = ZydisRegisterGetClass(reg);
 			auto reg_value = ReadRegisterValue(ctx, reg);
 
 			if (reg_class == ZYDIS_REGCLASS_GPR64) {
-				ctx->EFlags = u_cmp_64(ctx->EFlags, ptr, reg_value) | 0x10000;
+				ctx->EFlags = u_cmp_64_sp(ctx->EFlags, ptr, reg_value);
 			}
 			else if (reg_class == ZYDIS_REGCLASS_GPR32) {
-				ctx->EFlags = u_cmp_32(ctx->EFlags, ptr, reg_value) | 0x10000;
+				ctx->EFlags = u_cmp_32_sp(ctx->EFlags, ptr, reg_value);
 			}
 			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
-				ctx->EFlags = u_cmp_16(ctx->EFlags, ptr, reg_value) | 0x10000;
+				ctx->EFlags = u_cmp_16_sp(ctx->EFlags, ptr, reg_value);
 
 			}
 			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
-				ctx->EFlags = u_cmp_8(ctx->EFlags, ptr, reg_value) | 0x10000;
+				ctx->EFlags = u_cmp_8_sp(ctx->EFlags, ptr, reg_value);
 			}
 			else {
 				DebugBreak();
@@ -394,22 +505,124 @@ namespace VCPU {
 			return true;
 		}
 
+		bool EmulateCMPDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
+
+			uint64_t* context_lookup = (uint64_t*)ctx;
+			auto reg_class = ZydisRegisterGetClass(reg);
+			auto reg_value = ReadRegisterValue(ctx, reg);
+
+			if (reg_class == ZYDIS_REGCLASS_GPR64) {
+				ctx->EFlags = u_cmp_64_dp(ctx->EFlags, ptr, reg_value);
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR32) {
+				ctx->EFlags = u_cmp_32_dp(ctx->EFlags, ptr, reg_value);
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
+				ctx->EFlags = u_cmp_16_dp(ctx->EFlags, ptr, reg_value);
+
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
+				ctx->EFlags = u_cmp_8_dp(ctx->EFlags, ptr, reg_value);
+			}
+			else {
+				DebugBreak();
+			}
+			return true;
+		}
+
+
 		bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
 
 			uint64_t* context_lookup = (uint64_t*)ctx;
 
 			if (size == 64) {
-				ctx->EFlags = u_cmp_64(ctx->EFlags, ptr, imm) | 0x10000;
+				ctx->EFlags = u_cmp_64_sp(ctx->EFlags, ptr, imm);
 			}
 			else if (size == 32) {
-				ctx->EFlags = u_cmp_32(ctx->EFlags, ptr, imm) | 0x10000;
+				ctx->EFlags = u_cmp_32_sp(ctx->EFlags, ptr, imm);
 			}
 			else if (size == 16) {
-				ctx->EFlags = u_cmp_16(ctx->EFlags, ptr, imm) | 0x10000;
+				ctx->EFlags = u_cmp_16_sp(ctx->EFlags, ptr, imm);
 
 			}
 			else if (size == 8) {
-				ctx->EFlags = u_cmp_8(ctx->EFlags, ptr, imm) | 0x10000;
+				ctx->EFlags = u_cmp_8_sp(ctx->EFlags, ptr, imm);
+			}
+			else {
+				DebugBreak();
+			}
+			return true;
+		}
+
+
+		bool EmulateTestSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
+
+			uint64_t* context_lookup = (uint64_t*)ctx;
+			auto reg_class = ZydisRegisterGetClass(reg);
+			auto reg_value = ReadRegisterValue(ctx, reg);
+
+			if (reg_class == ZYDIS_REGCLASS_GPR64) {
+				ctx->EFlags = u_test_64_sp(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR32) {
+				ctx->EFlags = u_test_32_sp(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
+				ctx->EFlags = u_test_16_sp(ctx->EFlags, ptr, reg_value) | 0x10000;
+
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
+				ctx->EFlags = u_test_8_sp(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else {
+				DebugBreak();
+			}
+			return true;
+		}
+
+
+		bool EmulateTestDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
+
+			uint64_t* context_lookup = (uint64_t*)ctx;
+			auto reg_class = ZydisRegisterGetClass(reg);
+			auto reg_value = ReadRegisterValue(ctx, reg);
+
+			if (reg_class == ZYDIS_REGCLASS_GPR64) {
+				ctx->EFlags = u_test_64_dp(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR32) {
+				ctx->EFlags = u_test_32_dp(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR16) {
+				ctx->EFlags = u_test_16_dp(ctx->EFlags, ptr, reg_value) | 0x10000;
+
+			}
+			else if (reg_class == ZYDIS_REGCLASS_GPR8) {
+				ctx->EFlags = u_test_8_dp(ctx->EFlags, ptr, reg_value) | 0x10000;
+			}
+			else {
+				DebugBreak();
+			}
+			return true;
+		}
+
+
+		bool EmulateTestImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size) { //Emulates cmp [ptr], reg // cmp reg, [ptr]
+
+			uint64_t* context_lookup = (uint64_t*)ctx;
+
+			if (size == 64) {
+				ctx->EFlags = u_test_64_sp(ctx->EFlags, ptr, imm) | 0x10000;
+			}
+			else if (size == 32) {
+				ctx->EFlags = u_test_32_sp(ctx->EFlags, ptr, imm) | 0x10000;
+			}
+			else if (size == 16) {
+				ctx->EFlags = u_test_16_sp(ctx->EFlags, ptr, imm) | 0x10000;
+
+			}
+			else if (size == 8) {
+				ctx->EFlags = u_test_8_sp(ctx->EFlags, ptr, imm) | 0x10000;
 			}
 			else {
 				DebugBreak();
@@ -633,6 +846,125 @@ namespace VCPU {
 				}
 				return true;
 			}
+
+			bool EmulateMOVSX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size) { //X86-compliant MOVZX R32/16, 8/16[PTR] emulation
+
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+				auto orig_value = context_lookup[GRegIndex(reg)];
+
+				if (size == 64) {
+					context_lookup[GRegIndex(reg)] = *(int64_t*)ptr;
+				}
+				else if (size == 32) {
+					context_lookup[GRegIndex(reg)] = *(int32_t*)ptr;
+				}
+
+				else if (size == 16) {
+					context_lookup[GRegIndex(reg)] = *(int16_t*)ptr;
+				}
+				else if (size == 8) {
+					context_lookup[GRegIndex(reg)] = *(int8_t*)ptr;
+				}
+
+				else {
+					DebugBreak();
+				}
+				return true;
+			}
+
+		}
+
+
+		namespace WritePtr {
+
+			bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
+
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+				auto orig_value = context_lookup[GRegIndex(reg)];
+
+
+				if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+					*(uint64_t*)ptr = context_lookup[GRegIndex(reg)];
+
+				}
+				else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+					*(uint32_t*)ptr = context_lookup[GRegIndex(reg)];
+				}
+				else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+					*(uint16_t*)ptr = context_lookup[GRegIndex(reg)];
+
+				}
+				else if (reg_class == ZYDIS_REGCLASS_GPR8) {  // 16/8bits operation do not overwrite the rest of the register
+					if (reg == ZYDIS_REGISTER_AH || reg == ZYDIS_REGISTER_BH || reg == ZYDIS_REGISTER_CH || reg == ZYDIS_REGISTER_DH) {
+						*(uint8_t*)ptr = context_lookup[GRegIndex(reg)] >> 8;
+					}
+					else {  // 16/8bits operation do not overwrite the rest of the register
+						*(uint8_t*)ptr = context_lookup[GRegIndex(reg)];
+					}
+				}
+				else {
+					DebugBreak();
+				}
+				return true;
+			}
+
+
+			bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+
+
+				DebugBreak();
+				return true;
+			}
+
+			bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+
+
+				DebugBreak();
+				return true;
+			}
+
+			bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+
+
+				DebugBreak();
+				return true;
+			}
+
+			bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+
+
+				DebugBreak();
+				return true;
+			}
+
+			bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr) { //X86-compliant MOV R64, [...] emulation
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+
+				DebugBreak();
+				return true;
+			}
+
+			bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size) { //X86-compliant MOVZX R32/16, 8/16[PTR] emulation
+
+				uint64_t* context_lookup = (uint64_t*)ctx;
+				auto reg_class = ZydisRegisterGetClass(reg);
+				auto orig_value = context_lookup[GRegIndex(reg)];
+
+				DebugBreak();
+				return true;
+			}
+
 		}
 	}
 }

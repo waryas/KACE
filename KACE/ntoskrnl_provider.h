@@ -19,8 +19,11 @@ KERNELDATA _KPRCB FakeCPU = { 0 };
 KERNELDATA _DRIVER_OBJECT drvObj = { 0 };
 KERNELDATA UNICODE_STRING RegistryPath = { 0 };
 
-inline std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider;
+//extern std::unordered_map<std::string, ConstantFunctionPrototype> myConstantProvider;
+extern std::unordered_map<std::string, PVOID> api_provider;
 
 NTSTATUS h_RtlInitUnicodeString(PUNICODE_STRING DestinationString, PCWSTR SourceString);
 
-void Initialize();
+namespace ntoskrnl_provider {
+	void Initialize();
+}

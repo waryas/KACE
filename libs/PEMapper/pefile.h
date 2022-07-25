@@ -7,26 +7,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <filesystem>
-
-
-typedef struct
-{
-    WORD	offset : 12;
-    WORD	type : 4;
-} IMAGE_RELOC, * PIMAGE_RELOC;
-
-#define IMAGE_REL_BASED_ABSOLUTE                                                                                                                          \
-    0 /* The base relocation is skipped.
-                         This type can be used to pad a
-                         block. */
-#define IMAGE_REL_BASED_HIGHLOW                                                                                                                           \
-    3 /* The base relocation applies all
-                         32 bits of the difference to the
-                         32-bit field at offset. */
-#define IMAGE_REL_BASED_DIR64                                                                                                                             \
-    10 /* The base relocation applies the
-                         difference to the 64-bit field at
-                         offset. */
+#include <ranges>
 
 
 
@@ -48,9 +29,17 @@ struct SectionData {
 class PEFile {
 
 private:
+
+
+    static std::unordered_map<std::string, PEFile*>  moduleList_namekey;
+    
+    
     std::string filename;
+    std::string name;
+
     uintmax_t size = 0;
     std::ifstream File;
+
 
     template <typename T>
     T makepointer(uint64_t buffer, uint64_t offset) {
@@ -58,7 +47,7 @@ private:
     }
 
     template <typename T>
-    T makepointer(char* buffer, uint64_t offset) {
+    T makepointer(unsigned char* buffer, uint64_t offset) {
         return (T)(reinterpret_cast<uint64_t>(buffer) + offset);
     }
 
@@ -77,32 +66,35 @@ private:
     PIMAGE_SECTION_HEADER pImageSectionHeader = 0;
 
 
-    char* filebuffer = 0;
-    char* mapped_buffer = 0;
+    
+    unsigned char* mapped_buffer = 0; //Will be set as NO_ACCESS once mapping is done
+    unsigned char* shadow_buffer = 0; //A 1:1 copy of the mapped buffer that will be used for read/write
+
     uintmax_t virtual_size = 0;
     uintmax_t imagebase = 0;
     uintmax_t entrypoint = 0;
 
+    bool isExecutable = false;
+
     void ParseHeader();
     void ParseSection();
-    void RelocationFix();
     void ParseImport();
     void ParseExport();
-    PEFile(std::string filename, uintmax_t size);
+
+    PEFile(std::string filename,std::string name,  uintmax_t size);
 
 public:
-    static PEFile* Open(std::string path) {
-        auto size = std::filesystem::file_size(path);
 
-        if (size) {
-            return new PEFile(path, size);
-        }
-        else {
-            return 0;
-        }
-    }
+    static std::vector<PEFile*>  LoadedModuleArray;
+
+    static PEFile* Open(std::string path, std::string name);
+    static PEFile* FindModule(uintptr_t ptr);
+    static PEFile* FindModule(std::string name); //find to which module a ptr belongs to.
+    static void SetPermission(); //This will prepare the page access for every loaded executable
 
     std::unordered_map<std::string, SectionData> sections;
+
+    void ResolveImport();
 
     ImportData* GetImport(std::string name);
     ImportData* GetImport(uint64_t rva);
@@ -110,9 +102,13 @@ public:
     const char* GetExport(uint64_t rva);
     uint64_t GetVirtualSize();
     uint64_t GetImageBase();
+    void CreateShadowBuffer();
+    uint64_t GetMappedImageBase();
+    uintptr_t GetShadowBuffer();
     uintmax_t GetEP();
+    void SetExecutable(bool isExecutable);
     std::unordered_map<uint64_t, std::string> GetAllExports();
-    ~PEFile();
+
 
 
 };

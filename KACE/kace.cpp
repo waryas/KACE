@@ -25,6 +25,8 @@
 
 #include <mutex>
 
+#include "environment.h"
+
 //#define MONITOR_ACCESS //This will monitor every read/write with a page_guard - SLOW - Better debugging
 
 //#define MONITOR_DATA_ACCESS 1//This will monitor every read/write with a page_guard - SLOW - Better debugging
@@ -41,10 +43,6 @@ proxyCall DriverEntry = nullptr;
 uint64_t fakeKUSER_SHARED_DATA = MemoryTracker::AllocateVariable(0x1000);
 
 
-
-void setKUSD() {
-	memcpy((PVOID)fakeKUSER_SHARED_DATA, (PVOID)0x7FFE0000, 0x1000);
-}
 
 uint64_t passthrough(...)
 {
@@ -65,7 +63,6 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 	exceptionMutex.lock();
 	uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 
-	auto offset = ep - GetMainModule()->base;
 
 	if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO)
 	{
@@ -91,101 +88,7 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		}
 
 	}
-	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
-	{
-		
-
-
-		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
-		if (lastPG == PAGE_ALIGN_DOWN((uintptr_t)&InitSafeBootMode))
-		{
-			auto accessedChar = self_data->GetExport(e->ExceptionRecord->ExceptionInformation[1] - (uintptr_t)GetModuleHandle(nullptr));
-			uintptr_t readAddr = e->ExceptionRecord->ExceptionInformation[1];
-			if (!accessedChar) { //?
-				while (!accessedChar) {
-					readAddr--;
-					accessedChar = self_data->GetExport(readAddr - (uintptr_t)GetModuleHandle(nullptr));
-				}
-				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-					Logger::Log("\033[38;5;46m[Reading]\033[0m %s:+%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
-				}
-				else {
-					Logger::Log("\033[38;5;46m[Writing]\033[0m %s:+%08x\n", accessedChar, e->ExceptionRecord->ExceptionInformation[1] - readAddr);
-				}
-			}
-			else {
-				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-					Logger::Log("\033[38;5;46m[Reading]\033[0m %s\n", accessedChar);
-				}
-				else {
-					Logger::Log("\033[38;5;46m[Writing]\033[0m %s\n", accessedChar);
-				}
-				
-			}
-
-		}
-		else if (!FindModule(lastPG))
-		{
-
-			if (MemoryTracker::isTracked(lastPG)) {
-				auto namevar = MemoryTracker::getName(lastPG);
-				auto offset = e->ExceptionRecord->ExceptionInformation[1] - MemoryTracker::getStart(namevar);
-				if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-					Logger::Log("\033[38;5;46m[Reading]\033[0m %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
-				}
-				else {
-					Logger::Log("\033[38;5;46m[Writing]\033[0m %s+0x%08x - Type : %d\n", namevar.c_str(), offset, e->ExceptionRecord->ExceptionInformation[0]);
-				}
-
-			}
-			else {
-				exceptionMutex.unlock();
-				Logger::Log("WEIRD, CONTACT WARYAS\n");
-				exit(0);
-			}
-
-		}
-		else
-		{
-
-			auto found = SetVariableInModulesEAT(e->ExceptionRecord->ExceptionInformation[1]);
-
-			if (!found) {
-
-				auto read_module = FindModule(e->ExceptionRecord->ExceptionInformation[1]);
-				if (read_module)
-				{
-					if (e->ExceptionRecord->ExceptionInformation[0] == 0) {
-						Logger::Log("\033[38;5;46m[Reading]\033[0m %s+%08x\n", read_module->name,
-							PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
-					}
-					else {
-						Logger::Log("\033[38;5;46m[Writing]\033[0m %s+%08x\n", read_module->name,
-							PVOID(e->ExceptionRecord->ExceptionInformation[1] - read_module->base));
-					}
-				}
-				else
-				{
-					Logger::Log("Accessing unknown data\n");
-				}
-			}
-
-		}
-		e->ContextRecord->EFlags |= 0x100ui32;
-		lastPG = PAGE_ALIGN_DOWN(e->ExceptionRecord->ExceptionInformation[1]);
-		exceptionMutex.unlock();
-		return EXCEPTION_CONTINUE_EXECUTION;
-	}
-	else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
-	{
-		DWORD oldProtect;
-
-		VirtualProtect((LPVOID)lastPG, 0x1000, PAGE_READWRITE | PAGE_GUARD, &oldProtect);
-
-		lastPG = 0;
-		exceptionMutex.unlock();
-		return EXCEPTION_CONTINUE_EXECUTION;
-	}
+	
 	else if (e->ExceptionRecord->ExceptionCode = EXCEPTION_ACCESS_VIOLATION)
 	{
 		auto bufferopcode = (uint8_t*)e->ContextRecord->Rip;
@@ -194,7 +97,13 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 		switch (e->ExceptionRecord->ExceptionInformation[0])
 		{
 		case WRITE_VIOLATION:
-			Logger::Log("Trying to write, not handled\n");
+			wasEmulated = VCPU::MemoryWrite::Parse(e->ExceptionRecord->ExceptionInformation[1], e->ContextRecord);
+
+			if (wasEmulated) {
+				exceptionMutex.unlock();
+				return EXCEPTION_CONTINUE_EXECUTION;
+			}
+
 			exceptionMutex.unlock();
 			exit(0);
 			break;
@@ -228,22 +137,27 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e)
 
 			break;
 		case EXECUTE_VIOLATION:
-			uintptr_t redirectRip = 0;
-			if (ep <= 0x1000000) //tried to execute a non-relocated IAT -- Dirty but does the trick for now
-				redirectRip = FindFunctionInModulesFromIAT(ep);
-			else //EAT execution
-				redirectRip = FindFunctionInModulesFromEAT(ep);
+			
+			auto pe_module = PEFile::FindModule(addr_access);
+			auto exported_func = pe_module->GetExport(addr_access - pe_module->GetMappedImageBase());
+			if (api_provider.contains(exported_func)) {
+				Logger::Log("Calling %s - Prototyped\n", exported_func);
+				e->ContextRecord->Rip = (uintptr_t)api_provider[exported_func];
 
-			if (!redirectRip) {
-#ifdef STUB_UNIMPLEMENTED
-				redirectRip = (uintptr_t)unimplemented_stub;
-#else
-				Logger::Log("Exiting...");
-				exit(0);
-#endif
 			}
+			else {
+				auto ptr = GetProcAddress(LoadLibraryA("ntdll.dll"), exported_func);
+				if (!ptr) {
+					Logger::Log("Calling %s - Stub\n", exported_func);
+					e->ContextRecord->Rip = (uintptr_t)unimplemented_stub;
+				}
+				else {
+					Logger::Log("Calling %s - Passthrough\n", exported_func);
+					e->ContextRecord->Rip = (uintptr_t)ptr;
+				}
+			}
+		
 
-			e->ContextRecord->Rip = redirectRip;
 			exceptionMutex.unlock();
 			return EXCEPTION_CONTINUE_EXECUTION;
 			break;
@@ -258,7 +172,6 @@ const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Se
 
 DWORD FakeDriverEntry(LPVOID)
 {
-	FixMainModuleSEH(); //Needed for EAC, they use __try/__except(1) redirection
 	
 	AddVectoredExceptionHandler(true, ExceptionHandler);
 
@@ -326,19 +239,20 @@ DWORD FakeDriverEntry(LPVOID)
 	__writeeflags(0x10286);
 
 	
+	drvObj.DriverSection = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
 
+
+	MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, "MainModule.DriverObject.DriverSection");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
-
 	MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
 	MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
 	MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
-
 	
-	drvObj.DriverSection = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);;
-	MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, "MainModule.DriverObject.DriverSection");
+	
+	
 
 	
 
@@ -349,26 +263,24 @@ DWORD FakeDriverEntry(LPVOID)
 }
 
 
-extern void Initialize();
-extern void InitializeExport();
-
 int main(int argc, char* argv[]) {
+
+	Environment::InitializeSystemModules();
 
 
 	MemoryTracker::Initiate();
 	VCPU::Initialize();
-	SetupCR3();
-	//exit(0);
-	PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
-
-	
-	Initialize();
-	InitializeExport();
-
 	
 
-	//FreeConsole();
-	//AllocConsole();
+	PagingEmulation::SetupCR3();
+
+	//ntoskrnl_export::Initialize();
+	ntoskrnl_provider::Initialize();
+
+
+	//PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
+
+
 	DWORD dwMode;
 
 	auto hOut = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -376,40 +288,24 @@ int main(int argc, char* argv[]) {
 	dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 	SetConsoleMode(hOut, dwMode);
 
-	//logging setup
-
-	// Uncomment to log to a file (file logging is blazingly fast (kekw))
-	//auto logger = spdlog::basic_logger_mt("console and file logger", "kace_log.txt");
-	//
-	//spdlog::set_default_logger(logger);
-
 	
 	Logger::Log("Loading modules\n");
 
+
+	auto MainModule = PEFile::Open("C:\\emu\\vgk.sys", "vgk.sys");
+	MainModule->ResolveImport();
+	MainModule->SetExecutable(true);
+
+	PEFile::SetPermission();
 	
+	for (int i = 0; i<PEFile::LoadedModuleArray.size(); i++) {
+		if (PEFile::LoadedModuleArray[i]->GetShadowBuffer()) {
+			MemoryTracker::AddMapping(PEFile::LoadedModuleArray[i]->GetMappedImageBase(), PEFile::LoadedModuleArray[i]->GetVirtualSize(), PEFile::LoadedModuleArray[i]->GetShadowBuffer());
+		}
+	}
 
-	LoadModule("c:\\EMU\\cng.sys", R"(c:\windows\system32\drivers\cng.sys)", "cng.sys", false);
-	LoadModule("c:\\EMU\\ntoskrnl.exe", R"(c:\windows\system32\ntoskrnl.exe)", "ntoskrnl.exe", false);
-	LoadModule("c:\\EMU\\fltmgr.sys", R"(c:\windows\system32\drivers\fltmgr.sys)", "FLTMGR.SYS", false);
-	LoadModule("c:\\EMU\\CI.dll", R"(c:\windows\system32\CI.dll)", "Ci.dll", false);
-	LoadModule("c:\\EMU\\HAL.dll", R"(c:\windows\system32\HAL.dll)", "HAL.dll", false);
-	LoadModule("c:\\EMU\\kd.dll", R"(c:\windows\system32\kd.dll)", "kd.dll", false);
-	LoadModule("c:\\EMU\\WdFilter.sys", R"(c:\windows\system32\drivers\WdFilter.sys)", "WdFilter.sys", false);
-	LoadModule("c:\\EMU\\ntdll.dll", R"(c:\windows\system32\ntdll.dll)", "ntdll.dll", false);
+	DriverEntry = (proxyCall)(MainModule->GetMappedImageBase() + MainModule->GetEP());
 
-	/*
-	VGK DriverEntry = 0 - done
-	EAC DriverEntry = 
-	*/
-
-
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\faceit.sys", "c:\\EMU\\faceit.sys", "faceit", true);
-	DriverEntry = reinterpret_cast<proxyCall>(LoadModule("c:\\EMU\\easyanticheat_03.sys", "c:\\EMU\\easyanticheat_03.sys", "EAC", true));
-	//DriverEntry = (proxyCall)LoadModule("c:\\EMU\\vgk.sys", "c:\\EMU\\vgk.sys", "VGK", true);
-	//DriverEntry = (proxyCall)LoadModule(R"(C:\Users\Generic\source\repos\KMDF Driver2\x64\Release\KMDFDriver2.sys)", "c:\\EMU\\vgk.sys", "VGK", true);
-
-	
-	HookSelf(argv[0]);
 	const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);
 
 	if (!ThreadHandle)

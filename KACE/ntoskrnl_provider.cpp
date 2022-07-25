@@ -4,7 +4,8 @@
 #include "provider.h"
 #include "ntoskrnl_provider.h"
 #include "handle_manager.h"
-
+#include <Logger/Logger.h>
+#include "nt_define.h"
 
 using fnFreeCall = uint64_t(__fastcall*)(...);
 
@@ -53,6 +54,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 	auto x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 
 	Logger::Log("\tClass %08x status : %08x\n", SystemInformationClass, x);
+
 	if (x == 0) {
 		Logger::Log("\tClass %08x success\n", SystemInformationClass);
 		if (SystemInformationClass == 0xb) { //SystemModuleInformation
@@ -66,10 +68,11 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 				while (strstr(modulename, "\\"))
 					modulename++;
 
-				auto modulebase = GetModuleBase(modulename);
-				if (modulebase) {
-					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase, (PVOID)modulebase);
-					loadedmodules->Modules[i].ImageBase = modulebase;
+				auto mapped_module = PEFile::FindModule(modulename);
+
+				if (mapped_module) {
+					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, (PVOID)loadedmodules->Modules[i].ImageBase, (PVOID)mapped_module->GetMappedImageBase());
+					loadedmodules->Modules[i].ImageBase = mapped_module->GetMappedImageBase();
 				}
 				else { //We're gonna pass the real module to the driver
 					//loadedmodules->Modules[i].ImageBase = 0;
@@ -97,17 +100,15 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 					modulename++;
 
 
-				auto modulebase = GetModuleBase(modulename);
-				if (modulebase) {
-					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, modulebase);
-					pMods->ImageBase = (PVOID)modulebase;
+				auto mapped_module = PEFile::FindModule(modulename);
+				if (mapped_module) {
+					Logger::Log("\tPatching %s base from %llx to %llx\n", modulename, pMods->ImageBase, mapped_module->GetMappedImageBase());
+					pMods->ImageBase = (PVOID)mapped_module->GetMappedImageBase();
 
 				}
 				else { //We're gonna pass the real module to the driver
-					pMods->ImageBase = 0;
-
-
-					pMods->LoadCount = 0;
+					//pMods->ImageBase = (PVOID)500000;
+					//pMods->LoadCount = 0;
 				}
 
 				NumModules++;
@@ -125,6 +126,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
 		}
 
 	}
+	
 	return x;
 }
 
@@ -661,7 +663,7 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc)
 
 	memcpy(&Timer->DueTime, &DueTime, sizeof(DueTime));
 	
-
+	Timer->Header.SignalState = 1;
 	
 	return true;
 }
@@ -842,7 +844,7 @@ BOOLEAN h_KeCancelTimer(_KTIMER* Timer)
 
 PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 {
-
+	/*
 	char cStr[512] = { 0 };
 	wchar_t* wStr = SystemRoutineName->Buffer;
 	PVOID funcptr = 0;
@@ -850,8 +852,8 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	Logger::Log("\tRetrieving %s ptr ", cStr);
 
 
-	if (constantTimeExportProvider.contains(cStr)) {
-		funcptr = constantTimeExportProvider[cStr];
+	if (api_provider.contains(cStr)) {
+		funcptr = api_provider[cStr];
 	}
 
 	if (funcptr) {//Was it static exported variable 
@@ -884,6 +886,8 @@ PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName)
 	}
 
 	return funcptr;
+	*/
+	return 0;
 }
 
 HANDLE h_PsGetThreadProcessId(_ETHREAD* Thread) {
@@ -1437,124 +1441,134 @@ void h_KeClearEvent(_KEVENT *Event) { //This should set the Event to non-signale
 
 }
 
-void Initialize() {
-	myConstantProvider.insert({ "KeClearEvent", {1, h_KeClearEvent} });
-	myConstantProvider.insert({ "KeWaitForMutexObject", {1, h_KeWaitForSingleObject} }); //KeWaitForMutexObject = KeWaitForSingleObject
-	myConstantProvider.insert({ "ExRegisterCallback", {1, h_ExRegisterCallback} });
-	myConstantProvider.insert({ "KeWaitForMultipleObjects", {1, h_KeWaitForMultipleObjects} });
-	myConstantProvider.insert({ "KeInitializeGuardedMutex", {1, h_KeInitializeGuardedMutex} });
-	myConstantProvider.insert({ "IoAllocateMdl", {1, h_IoAllocateMdl} });
-	myConstantProvider.insert({ "MmAllocateContiguousMemorySpecifyCache", {1, h_MmAllocateContiguousMemorySpecifyCache} });
-	myConstantProvider.insert({ "MmGetPhysicalMemoryRanges", {1, h_MmGetPhysicalMemoryRanges} });
-	myConstantProvider.insert({ "MmGetPhysicalAddress", {1, h_MmGetPhysicalAddress} });
-	myConstantProvider.insert({ "_vsnwprintf",	 {1, h__vsnwprintf} });
-	myConstantProvider.insert({ "ZwOpenSection", {1, h_ZwOpenSection} });
-	myConstantProvider.insert({ "MmGetSystemRoutineAddress", {1, h_MmGetSystemRoutineAddress} });
-	myConstantProvider.insert({ "IoDeleteSymbolicLink", { 1, h_IoDeleteSymbolicLink } });
-	myConstantProvider.insert({ "PsRemoveLoadImageNotifyRoutine", {1, h_PsRemoveLoadImageNotifyRoutine } });
-	myConstantProvider.insert({ "PsSetCreateProcessNotifyRoutineEx", {2, h_PsSetCreateProcessNotifyRoutineEx } });
-	myConstantProvider.insert({ "PsSetCreateProcessNotifyRoutine", {2, h_PsSetCreateProcessNotifyRoutineEx} });
-	myConstantProvider.insert({ "KeAcquireSpinLockRaiseToDpc",{ 1, h_KeAcquireSpinLockRaiseToDpc } });
-	myConstantProvider.insert({ "PsRemoveCreateThreadNotifyRoutine", {1, h_PsRemoveLoadImageNotifyRoutine} });
-	myConstantProvider.insert({ "KeReleaseSpinLock",{ 2, h_KeReleaseSpinLock} });
-	myConstantProvider.insert({ "ExpInterlockedPopEntrySList", {1, h_ExpInterlockedPopEntrySList} });
-	myConstantProvider.insert({ "KeDelayExecutionThread", {3, h_KeDelayExecutionThread} });
-	myConstantProvider.insert({ "ExWaitForRundownProtectionRelease", {1, h_ExWaitForRundownProtectionRelease} });
-	myConstantProvider.insert({ "KeCancelTimer", {1, h_KeCancelTimer} });
-	myConstantProvider.insert({ "KeSetEvent", {3, h_KeSetEvent} });
-	myConstantProvider.insert({ "KeSetTimer",{ 3, h_KeSetTimer} });
-	myConstantProvider.insert({ "ExCreateCallback", {4, h_ExCreateCallback } });
-	myConstantProvider.insert({ "IoCreateFileEx",{ 1, h_IoCreateFileEx } });
-	myConstantProvider.insert({ "RtlDuplicateUnicodeString", {1, h_RtlDuplicateUnicodeString } });
-	myConstantProvider.insert({ "IoDeleteController", {1, h_IoDeleteController } });
-	myConstantProvider.insert({ "SeQueryInformationToken", {1, h_SeQueryInformationToken } });
-	myConstantProvider.insert({ "PsReferencePrimaryToken",{ 1, h_PsReferencePrimaryToken } });
-	myConstantProvider.insert({ "PsIsProtectedProcess",{ 1, h_PsIsProtectedProcess } });
-	myConstantProvider.insert({ "NtQueryInformationProcess", {1, h_NtQueryInformationProcess } });
-	myConstantProvider.insert({ "PsGetCurrentThreadProcessId", {1, h_PsGetCurrentThreadProcessId } });
-	myConstantProvider.insert({ "IoGetCurrentThreadProcessId", {1, h_PsGetCurrentThreadProcessId} });
-	myConstantProvider.insert({ "PsGetCurrentThreadId", {1, h_PsGetCurrentThreadId} });
-	myConstantProvider.insert({ "IoGetCurrentThreadId", {1, h_PsGetCurrentThreadId} });
-	myConstantProvider.insert({ "PsGetCurrentProcess",{ 1, h_PsGetCurrentProcess } });
-	myConstantProvider.insert({ "IoGetCurrentProcess",{ 1, h_PsGetCurrentProcess } });
-	myConstantProvider.insert({ "PsGetProcessId", {1, h_PsGetProcessId} });
-	myConstantProvider.insert({ "PsGetProcessWow64Process",{ 1, h_PsGetProcessWow64Process} });
-	myConstantProvider.insert({ "PsLookupProcessByProcessId", {1, h_PsLookupProcessByProcessId} });
-	myConstantProvider.insert({ "RtlCompareString", {1, h_RtlCompareString} });
-	myConstantProvider.insert({ "PsGetProcessCreateTimeQuadPart", {1, h_PsGetProcessCreateTimeQuadPart} });
-	myConstantProvider.insert({ "ObfReferenceObject", {1, h_ObfReferenceObject} });
-	myConstantProvider.insert({ "ExAcquireFastMutex",{ 1, h_ExAcquireFastMutex } });
-	myConstantProvider.insert({ "ExReleaseFastMutex", {1, h_ExReleaseFastMutex} });
-	myConstantProvider.insert({ "ZwQueryFullAttributesFile", {2, h_ZwQueryFullAttributesFile} });
-	myConstantProvider.insert({ "RtlWriteRegistryValue",{ 6, h_RtlWriteRegistryValue} });
-	myConstantProvider.insert({ "RtlInitUnicodeString", {2, h_RtlInitUnicodeString} });
-	myConstantProvider.insert({ "ZwOpenKey", {3, h_ZwOpenKey} });
-	myConstantProvider.insert({ "ZwFlushKey",{ 1, h_ZwFlushKey} });
-	myConstantProvider.insert({ "ZwClose", {1, h_ZwClose} });
-	myConstantProvider.insert({ "NtClose",{ 1, h_ZwClose} });
-	myConstantProvider.insert({ "ZwQuerySystemInformation",{ 4, h_NtQuerySystemInformation } });
-	myConstantProvider.insert({ "NtQuerySystemInformation", {4, h_NtQuerySystemInformation } });
-	myConstantProvider.insert({ "ExAllocatePoolWithTag", {3, hM_AllocPoolTag} });
-	myConstantProvider.insert({ "ExAllocatePool", {2, hM_AllocPool} });
-	myConstantProvider.insert({ "ExFreePoolWithTag", {2, h_DeAllocPoolTag} });
-	myConstantProvider.insert({ "ExFreePool", {1, h_DeAllocPool} });
-	myConstantProvider.insert({ "RtlRandomEx",{ 1, h_RtlRandomEx } });
-	myConstantProvider.insert({ "IoCreateDevice", {7, h_IoCreateDevice} });
-	myConstantProvider.insert({ "IoIsSystemThread", {1, h_IoIsSystemThread} });
-	myConstantProvider.insert({ "KeInitializeEvent",{ 3, h_KeInitializeEvent } });
-	myConstantProvider.insert({ "RtlGetVersion", {1, h_RtlGetVersion} });
-	myConstantProvider.insert({ "DbgPrint", {1, printf } });
-	myConstantProvider.insert({ "__C_specific_handler",{ 1, _c_exception} });
-	myConstantProvider.insert({ "RtlMultiByteToUnicodeN", {1, h_RtlMultiByteToUnicodeN } });
-	myConstantProvider.insert({ "KeAreAllApcsDisabled", {1, h_KeAreAllApcsDisabled} });
-	myConstantProvider.insert({ "KeAreApcsDisabled", {1, h_KeAreApcsDisabled } });
-	myConstantProvider.insert({ "ZwCreateFile", {1, h_NtCreateFile} });
-	myConstantProvider.insert({ "ZwQueryInformationFile",{ 1, h_NtQueryInformationFile} });
-	myConstantProvider.insert({ "ZwReadFile", {1, h_NtReadFile} });
-	myConstantProvider.insert({ "ZwQueryValueKey", {1, h_ZwQueryValueKey} });
-	myConstantProvider.insert({ "IoWMIOpenBlock",{ 1, h_IoWMIOpenBlock} });
-	myConstantProvider.insert({ "IoWMIQueryAllData", {1, h_IoWMIQueryAllData} });
-	myConstantProvider.insert({ "ObfDereferenceObject", {1, h_ObfDereferenceObject } });
-	myConstantProvider.insert({ "PsLookupThreadByThreadId", {1, h_PsLookupThreadByThreadId } });
-	myConstantProvider.insert({ "RtlDuplicateUnicodeString", {3, h_RtlDuplicateUnicodeString } });
-	myConstantProvider.insert({ "ExSystemTimeToLocalTime", {2, h_ExSystemTimeToLocalTime} });
-	myConstantProvider.insert({ "ProbeForRead", { 3, h_ProbeForRead } });
-	myConstantProvider.insert({ "ProbeForWrite", { 3, h_ProbeForWrite } });
-	myConstantProvider.insert({ "RtlTimeToTimeFields", { 2, h_RtlTimeToTimeFields } });
-	myConstantProvider.insert({ "KeInitializeMutex", { 2, h_KeInitializeMutex } });
-	myConstantProvider.insert({ "KeReleaseMutex", { 2, h_KeReleaseMutex } });
-	myConstantProvider.insert({ "KeWaitForSingleObject", { 5, h_KeWaitForSingleObject } });
-	myConstantProvider.insert({ "PsCreateSystemThread", { 7, h_PsCreateSystemThread } });
-	myConstantProvider.insert({ "PsTerminateSystemThread", { 1, h_PsTerminateSystemThread } });
-	myConstantProvider.insert({ "IofCompleteRequest", { 2, h_IofCompleteRequest } });
-	myConstantProvider.insert({ "IoCreateSymbolicLink", { 2, h_IoCreateSymbolicLink } });
-	myConstantProvider.insert({ "IoDeleteDevice", { 1, h_IoDeleteDevice } });
-	myConstantProvider.insert({ "IoGetTopLevelIrp", { 0, h_IoGetTopLevelIrp } });
-	myConstantProvider.insert({ "ObReferenceObjectByHandle", { 6, h_ObReferenceObjectByHandle } });
-	myConstantProvider.insert({ "ObRegisterCallbacks", { 3, h_ObRegisterCallbacks } });
-	myConstantProvider.insert({ "ObUnRegisterCallbacks", { 1, h_ObUnRegisterCallbacks } });
-	myConstantProvider.insert({ "ObGetFilterVersion", { 1, h_ObGetFilterVersion } }); // undoc func
-	myConstantProvider.insert({ "MmIsAddressValid", { 1, h_MmIsAddressValid } });
-	myConstantProvider.insert({ "PsSetCreateThreadNotifyRoutine", { 1, h_PsSetCreateThreadNotifyRoutine } });
-	myConstantProvider.insert({ "PsSetLoadImageNotifyRoutine", { 1, h_PsSetLoadImageNotifyRoutine } });
-	myConstantProvider.insert({ "PsGetCurrentProcessId", { 1, h_PsGetCurrentThreadProcessId } });
-	myConstantProvider.insert({ "PsGetThreadId", { 1, h_PsGetThreadId } });
-	myConstantProvider.insert({ "PsGetThreadProcessId", { 1, h_PsGetThreadProcessId } });
-	myConstantProvider.insert({ "PsGetThreadProcess", { 1, h_PsGetThreadProcess } });
-	myConstantProvider.insert({ "IoQueryFileDosDeviceName", { 1, h_IoQueryFileDosDeviceName } });
-	myConstantProvider.insert({ "ObOpenObjectByPointer", { 1, h_ObOpenObjectByPointer } });
-	myConstantProvider.insert({ "ObQueryNameString", { 1, h_ObQueryNameString } });
-	myConstantProvider.insert({ "PsGetProcessInheritedFromUniqueProcessId", { 1, h_PsGetProcessInheritedFromUniqueProcessId } });
-	myConstantProvider.insert({ "PsGetProcessPeb", { 1, h_PsGetProcessPeb } });
-	myConstantProvider.insert({ "KeQueryTimeIncrement", {1, h_KeQueryTimeIncrement} });
-	myConstantProvider.insert({ "ExAcquireResourceExclusiveLite", {1, h_ExAcquireResourceExclusiveLite} });
-	myConstantProvider.insert({ "vswprintf_s", {1, h_vswprintf_s} });
-	myConstantProvider.insert({ "swprintf_s", {1, h_swprintf_s} });
-	myConstantProvider.insert({ "wcscpy_s", {1, h_wcscpy_s} });
-	myConstantProvider.insert({ "wcscat_s", {1, h_wcscat_s} });
-	myConstantProvider.insert({ "KeIpiGenericCall", {1, h_KeIpiGenericCall} });
-	myConstantProvider.insert({ "KeInitializeTimer", {1, h_KeInitializeTimer} });
-	myConstantProvider.insert({ "DbgPrompt", {1, h_DbgPrompt} });
-	myConstantProvider.insert({ "KdChangeOption", {1, h_KdChangeOption} });
-	myConstantProvider.insert({ "KdSystemDebugControl", { 1, h_KdSystemDebugControl } });
+BOOLEAN h_KeReadStateTimer(_KTIMER* timer) {
+	return false;
+
+}
+std::unordered_map<std::string, PVOID> api_provider;
+
+void ntoskrnl_provider::Initialize() {
+
+	api_provider.insert({ "KeReadStateTimer",h_KeReadStateTimer });
+	api_provider.insert({ "KeClearEvent", h_KeClearEvent });
+	api_provider.insert({ "KeWaitForMutexObject", h_KeWaitForSingleObject }); //KeWaitForMutexObject = KeWaitForSingleObject
+	api_provider.insert({ "ExRegisterCallback", h_ExRegisterCallback });
+	api_provider.insert({ "KeWaitForMultipleObjects", h_KeWaitForMultipleObjects });
+	api_provider.insert({ "KeInitializeGuardedMutex", h_KeInitializeGuardedMutex });
+	api_provider.insert({ "IoAllocateMdl", h_IoAllocateMdl });
+	api_provider.insert({ "MmAllocateContiguousMemorySpecifyCache", h_MmAllocateContiguousMemorySpecifyCache });
+	api_provider.insert({ "MmGetPhysicalMemoryRanges", h_MmGetPhysicalMemoryRanges });
+	api_provider.insert({ "MmGetPhysicalAddress", h_MmGetPhysicalAddress });
+	api_provider.insert({ "_vsnwprintf",	 h__vsnwprintf });
+	api_provider.insert({ "ZwOpenSection", h_ZwOpenSection });
+	api_provider.insert({ "MmGetSystemRoutineAddress", h_MmGetSystemRoutineAddress });
+	api_provider.insert({ "IoDeleteSymbolicLink", h_IoDeleteSymbolicLink });
+	api_provider.insert({ "PsRemoveLoadImageNotifyRoutine", h_PsRemoveLoadImageNotifyRoutine });
+	api_provider.insert({ "PsSetCreateProcessNotifyRoutineEx",h_PsSetCreateProcessNotifyRoutineEx});
+	api_provider.insert({ "PsSetCreateProcessNotifyRoutine",  h_PsSetCreateProcessNotifyRoutineEx});
+	api_provider.insert({ "KeAcquireSpinLockRaiseToDpc",h_KeAcquireSpinLockRaiseToDpc});
+	api_provider.insert({ "PsRemoveCreateThreadNotifyRoutine", h_PsRemoveLoadImageNotifyRoutine});
+	api_provider.insert({ "KeReleaseSpinLock", h_KeReleaseSpinLock});
+	api_provider.insert({ "ExpInterlockedPopEntrySList", h_ExpInterlockedPopEntrySList});
+	api_provider.insert({ "KeDelayExecutionThread", h_KeDelayExecutionThread});
+	api_provider.insert({ "ExWaitForRundownProtectionRelease", h_ExWaitForRundownProtectionRelease});
+	api_provider.insert({ "KeCancelTimer", h_KeCancelTimer});
+	api_provider.insert({ "KeSetEvent", h_KeSetEvent});
+	api_provider.insert({ "KeSetTimer", h_KeSetTimer});
+	api_provider.insert({ "ExCreateCallback", h_ExCreateCallback});
+	api_provider.insert({ "IoCreateFileEx",h_IoCreateFileEx});
+	api_provider.insert({ "RtlDuplicateUnicodeString", h_RtlDuplicateUnicodeString});
+	api_provider.insert({ "IoDeleteController", h_IoDeleteController});
+	api_provider.insert({ "SeQueryInformationToken", h_SeQueryInformationToken});
+	api_provider.insert({ "PsReferencePrimaryToken",h_PsReferencePrimaryToken});
+	api_provider.insert({ "PsIsProtectedProcess",h_PsIsProtectedProcess});
+	api_provider.insert({ "NtQueryInformationProcess", h_NtQueryInformationProcess});
+	api_provider.insert({ "PsGetCurrentThreadProcessId", h_PsGetCurrentThreadProcessId});
+	api_provider.insert({ "IoGetCurrentThreadProcessId", h_PsGetCurrentThreadProcessId});
+	api_provider.insert({ "PsGetCurrentThreadId", h_PsGetCurrentThreadId});
+	api_provider.insert({ "IoGetCurrentThreadId", h_PsGetCurrentThreadId});
+	api_provider.insert({ "PsGetCurrentProcess",h_PsGetCurrentProcess});
+	api_provider.insert({ "IoGetCurrentProcess",h_PsGetCurrentProcess});
+	api_provider.insert({ "PsGetProcessId", h_PsGetProcessId});
+	api_provider.insert({ "PsGetProcessWow64Process",h_PsGetProcessWow64Process});
+	api_provider.insert({ "PsLookupProcessByProcessId", h_PsLookupProcessByProcessId});
+	api_provider.insert({ "RtlCompareString", h_RtlCompareString});
+	api_provider.insert({ "PsGetProcessCreateTimeQuadPart", h_PsGetProcessCreateTimeQuadPart});
+	api_provider.insert({ "ObfReferenceObject", h_ObfReferenceObject});
+	api_provider.insert({ "ExAcquireFastMutex",h_ExAcquireFastMutex});
+	api_provider.insert({ "ExReleaseFastMutex", h_ExReleaseFastMutex});
+	api_provider.insert({ "ZwQueryFullAttributesFile", h_ZwQueryFullAttributesFile});
+	api_provider.insert({ "RtlWriteRegistryValue", h_RtlWriteRegistryValue});
+	api_provider.insert({ "RtlInitUnicodeString", h_RtlInitUnicodeString});
+	api_provider.insert({ "ZwOpenKey", h_ZwOpenKey});
+	api_provider.insert({ "ZwFlushKey",h_ZwFlushKey});
+	api_provider.insert({ "ZwClose", h_ZwClose});
+	api_provider.insert({ "NtClose",h_ZwClose});
+	api_provider.insert({ "ZwQuerySystemInformation", h_NtQuerySystemInformation});
+	api_provider.insert({ "NtQuerySystemInformation", h_NtQuerySystemInformation});
+	api_provider.insert({ "ExAllocatePoolWithTag", hM_AllocPoolTag});
+	api_provider.insert({ "ExAllocatePool",  hM_AllocPool});
+	api_provider.insert({ "ExFreePoolWithTag", h_DeAllocPoolTag});
+	api_provider.insert({ "ExFreePool", h_DeAllocPool});
+	api_provider.insert({ "RtlRandomEx",h_RtlRandomEx});
+	api_provider.insert({ "IoCreateDevice",  h_IoCreateDevice});
+	api_provider.insert({ "IoIsSystemThread", h_IoIsSystemThread});
+	api_provider.insert({ "KeInitializeEvent", h_KeInitializeEvent});
+	api_provider.insert({ "RtlGetVersion", h_RtlGetVersion});
+	api_provider.insert({ "DbgPrint", printf});
+	api_provider.insert({ "__C_specific_handler",_c_exception});
+	api_provider.insert({ "RtlMultiByteToUnicodeN", h_RtlMultiByteToUnicodeN});
+	api_provider.insert({ "KeAreAllApcsDisabled", h_KeAreAllApcsDisabled});
+	api_provider.insert({ "KeAreApcsDisabled", h_KeAreApcsDisabled});
+	api_provider.insert({ "ZwCreateFile", h_NtCreateFile});
+	api_provider.insert({ "ZwQueryInformationFile",h_NtQueryInformationFile});
+	api_provider.insert({ "ZwReadFile", h_NtReadFile});
+	api_provider.insert({ "ZwQueryValueKey", h_ZwQueryValueKey});
+	api_provider.insert({ "IoWMIOpenBlock",h_IoWMIOpenBlock});
+	api_provider.insert({ "IoWMIQueryAllData", h_IoWMIQueryAllData});
+	api_provider.insert({ "ObfDereferenceObject", h_ObfDereferenceObject});
+	api_provider.insert({ "PsLookupThreadByThreadId", h_PsLookupThreadByThreadId});
+	api_provider.insert({ "RtlDuplicateUnicodeString", h_RtlDuplicateUnicodeString});
+	api_provider.insert({ "ExSystemTimeToLocalTime",  h_ExSystemTimeToLocalTime});
+	api_provider.insert({ "ProbeForRead",  h_ProbeForRead});
+	api_provider.insert({ "ProbeForWrite",  h_ProbeForWrite});
+	api_provider.insert({ "RtlTimeToTimeFields",  h_RtlTimeToTimeFields});
+	api_provider.insert({ "KeInitializeMutex",  h_KeInitializeMutex});
+	api_provider.insert({ "KeReleaseMutex", h_KeReleaseMutex});
+	api_provider.insert({ "KeWaitForSingleObject",  h_KeWaitForSingleObject});
+	api_provider.insert({ "PsCreateSystemThread", h_PsCreateSystemThread});
+	api_provider.insert({ "PsTerminateSystemThread", h_PsTerminateSystemThread});
+	api_provider.insert({ "IofCompleteRequest",  h_IofCompleteRequest});
+	api_provider.insert({ "IoCreateSymbolicLink",  h_IoCreateSymbolicLink});
+	api_provider.insert({ "IoDeleteDevice", h_IoDeleteDevice});
+	api_provider.insert({ "IoGetTopLevelIrp", h_IoGetTopLevelIrp});
+	api_provider.insert({ "ObReferenceObjectByHandle",  h_ObReferenceObjectByHandle});
+	api_provider.insert({ "ObRegisterCallbacks", h_ObRegisterCallbacks});
+	api_provider.insert({ "ObUnRegisterCallbacks", h_ObUnRegisterCallbacks});
+	api_provider.insert({ "ObGetFilterVersion", h_ObGetFilterVersion}); // undoc func
+	api_provider.insert({ "MmIsAddressValid", h_MmIsAddressValid});
+	api_provider.insert({ "PsSetCreateThreadNotifyRoutine", h_PsSetCreateThreadNotifyRoutine});
+	api_provider.insert({ "PsSetLoadImageNotifyRoutine", h_PsSetLoadImageNotifyRoutine});
+	api_provider.insert({ "PsGetCurrentProcessId", h_PsGetCurrentThreadProcessId});
+	api_provider.insert({ "PsGetThreadId", h_PsGetThreadId});
+	api_provider.insert({ "PsGetThreadProcessId", h_PsGetThreadProcessId});
+	api_provider.insert({ "PsGetThreadProcess", h_PsGetThreadProcess});
+	api_provider.insert({ "IoQueryFileDosDeviceName", h_IoQueryFileDosDeviceName});
+	api_provider.insert({ "ObOpenObjectByPointer", h_ObOpenObjectByPointer});
+	api_provider.insert({ "ObQueryNameString", h_ObQueryNameString});
+	api_provider.insert({ "PsGetProcessInheritedFromUniqueProcessId", h_PsGetProcessInheritedFromUniqueProcessId});
+	api_provider.insert({ "PsGetProcessPeb", h_PsGetProcessPeb});
+	api_provider.insert({ "KeQueryTimeIncrement", h_KeQueryTimeIncrement});
+	api_provider.insert({ "ExAcquireResourceExclusiveLite", h_ExAcquireResourceExclusiveLite});
+	api_provider.insert({ "vswprintf_s", h_vswprintf_s});
+	api_provider.insert({ "swprintf_s", h_swprintf_s});
+	api_provider.insert({ "wcscpy_s", h_wcscpy_s});
+	api_provider.insert({ "wcscat_s", h_wcscat_s});
+	api_provider.insert({ "KeIpiGenericCall", h_KeIpiGenericCall});
+	api_provider.insert({ "KeInitializeTimer", h_KeInitializeTimer});
+	api_provider.insert({ "DbgPrompt", h_DbgPrompt});
+	api_provider.insert({ "KdChangeOption", h_KdChangeOption});
+	api_provider.insert({ "KdSystemDebugControl", h_KdSystemDebugControl});
+
+
 }
