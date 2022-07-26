@@ -1,6 +1,5 @@
-
-
 #include "pefile.h"
+#include <SymParser\symparser.hpp>
 
 
 #define IMPORT_MODULE_DIRECTORY "c:\\emu\\"
@@ -295,8 +294,10 @@ using RtlInsertInvertedFunctionTable = int(__fastcall*)(PVOID BaseAddress, uintm
 
 void PEFile::SetExecutable(bool isExecutable) {
 	this->isExecutable = isExecutable;
-	uint8_t rtlSig[] = "\x48\x89\x5C\x24\x00\x57\x48\x83\xEC\x30\x8B\xDA";
-	auto rtlinsert = (RtlInsertInvertedFunctionTable)find_pattern((uint64_t)LoadLibraryA("ntdll.dll"), 0x100000, rtlSig, sizeof(rtlSig) - 1);
+    auto sym = symparser::find_symbol("c:\\Windows\\System32\\ntdll.dll", "RtlInsertInvertedFunctionTable");
+    if (!sym || !sym->rva)
+        __debugbreak();
+    auto rtlinsert = reinterpret_cast<RtlInsertInvertedFunctionTable>((uint64_t)LoadLibraryA("ntdll.dll") + sym->rva);
 	rtlinsert(mapped_buffer, virtual_size);
 }
 

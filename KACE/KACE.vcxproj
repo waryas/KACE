@@ -133,7 +133,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>PEFile.lib;MemoryTracker.lib;Logger.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SymParser.lib;PEFile.lib;MemoryTracker.lib;Logger.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\x64\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
@@ -168,7 +168,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>PEFile.lib;MemoryTracker.lib;Logger.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SymParser.lib;PEFile.lib;MemoryTracker.lib;Logger.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\x64\Release\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ProgramDatabaseFile />
     </Link>
