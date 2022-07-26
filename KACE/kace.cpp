@@ -268,11 +268,6 @@ int main(int argc, char* argv[]) {
 
 	symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
 	symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
-	symparser::download_symbols("c:\\emu\\ci.dll");
-	symparser::download_symbols("c:\\emu\\cng.sys");
-	symparser::download_symbols("c:\\emu\\fltMgr.sys");
-	symparser::download_symbols("c:\\emu\\HAL.dll");
-	symparser::download_symbols("c:\\emu\\kd.dll");
 
 	Environment::InitializeSystemModules();
 	MemoryTracker::Initiate();
