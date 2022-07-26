@@ -1,0 +1,30 @@
+# es3n1n's clang-format, last upd 19 jun 22 17:50:03
+ 
+BasedOnStyle: WebKit
+ 
+Language: Cpp
+ 
+AlignTrailingComments: false
+AllowAllArgumentsOnNextLine: false
+AllowShortEnumsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterEnum: false
+  AfterStruct: false
+  SplitEmptyFunction: false
+  AfterFunction: false
+  AfterNamespace: false
+BreakBeforeTernaryOperators: false
+BreakConstructorInitializers: BeforeColon
+ColumnLimit: 155
+FixNamespaceComments: true
+IndentPPDirectives: BeforeHash
+ReflowComments: false
+NamespaceIndentation: All
+BreakStringLiterals: true
+CommentPragmas: true
+IndentCaseLabels: false
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: Yes
