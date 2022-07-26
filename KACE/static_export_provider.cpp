@@ -37,6 +37,7 @@ namespace ntoskrnl_export {
         Provider::AddDataImpl("PsProcessType", &PsProcessType, sizeof(PsProcessType));
         Provider::AddDataImpl("PsThreadType", &PsThreadType, sizeof(PsThreadType));
         Provider::AddDataImpl("InitSafeBootMode", &InitSafeBootMode, sizeof(InitSafeBootMode));
+        Provider::AddDataImpl("MmSystemRangeStart", &MmSystemRangeStart, sizeof(MmSystemRangeStart));
 
     }
 } // namespace ntoskrnl_export

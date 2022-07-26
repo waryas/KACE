@@ -280,9 +280,11 @@ void PEFile::CreateShadowBuffer() {
     for (auto section = sections.begin(); section != sections.end(); section++) {
         auto sectionName = section->first;
         auto sectionData = section->second;
-        if (sectionData.characteristics & 0x80000000) {
-            Logger::Log("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
-            VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_NOACCESS, &oldProtect);
+        if (sectionData.characteristics & 0x80000000 || sectionData.characteristics & 0x40000000) {
+            if (sectionName != ".edata") {
+                Logger::Log("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
+                VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_NOACCESS, &oldProtect);
+            }
         }
 
         if ((sectionData.characteristics & 0x20000000) || (sectionData.characteristics & 0x00000020)) {
