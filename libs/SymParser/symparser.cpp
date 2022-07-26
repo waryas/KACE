@@ -176,9 +176,7 @@ namespace symparser {
             fs::create_directory(pdb_dir.wstring() + util::str_to_wstr(codeview->pdb_name));
             fs::create_directory(local_pdbpath.substr(0, local_pdbpath.find_last_of('\\')));
 
-            // @todo: @es3n1n: probably this should be replaced to call to a logger
-            //
-            printf("symparser: Downloading %s\n", codeview->pdb_name);
+            Logger::Log("symparser: Downloading %s\n", codeview->pdb_name);
 
             const auto download_stat = URLDownloadToFileW(nullptr, std::wstring { L"http://msdl.microsoft.com/download/symbols/" + pdbpath }.c_str(),
                 local_pdbpath.c_str(), 0, nullptr);

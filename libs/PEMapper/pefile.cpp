@@ -1,5 +1,6 @@
 #include "pefile.h"
 #include <SymParser\symparser.hpp>
+#include <Logger/Logger.h>
 
 
 #define IMPORT_MODULE_DIRECTORY "c:\\emu\\"
@@ -172,7 +173,7 @@ void PEFile::ResolveImport() {
 		PEFile* importModule = nullptr;
 
 		if (!moduleList_namekey.contains(pDllName)) {
-			printf("Loading %s...\n", pDllName);
+			Logger::Log("Loading %s...\n", pDllName);
 			importModule = PEFile::Open(std::string(IMPORT_MODULE_DIRECTORY) + pDllName, pDllName);
 		} else {
 			importModule = moduleList_namekey[pDllName];
@@ -198,7 +199,7 @@ void PEFile::ResolveImport() {
 				
 				PIMAGE_IMPORT_BY_NAME pImageImportByName = makepointer<PIMAGE_IMPORT_BY_NAME>(mapped_buffer, pOriginalThunk->u1.AddressOfData);
 				pIATThunk->u1.Function =  modulebase + importModule->GetExport(pImageImportByName->Name);
-				//printf("Resolved %s::%s to %llx\n", pDllName, pImageImportByName->Name, pIATThunk->u1.Function);
+				//Logger::Log("Resolved %s::%s to %llx\n", pDllName, pImageImportByName->Name, pIATThunk->u1.Function);
 
 
 			}
@@ -311,18 +312,18 @@ void PEFile::CreateShadowBuffer() {
 		auto sectionName = section->first;
 		auto sectionData = section->second;
 		if (sectionData.characteristics & 0x80000000) {
-			printf("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
+			Logger::Log("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
 			VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_NOACCESS, &oldProtect);
 		}
 
 		if ((sectionData.characteristics & 0x20000000) || (sectionData.characteristics & 0x00000020)) {
-			printf("Hooking EXECUTE %s of %s\n", sectionName.c_str(), this->name.c_str());
+			Logger::Log("Hooking EXECUTE %s of %s\n", sectionName.c_str(), this->name.c_str());
 			VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_READONLY, &oldProtect);
 		}
 
 	}
 	
-	//printf("%llx\n", result);
+	//Logger::Log("%llx\n", result);
 
 }
 

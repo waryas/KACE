@@ -58,7 +58,7 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr) {
 		return (uintptr_t)data_providers[exported_func];
 
 	
-	printf("Exported Data %s::%s is not implemented\n", pe_file->name.c_str(), exported_func);
+	Logger::Log("Exported Data %s::%s is not implemented\n", pe_file->name.c_str(), exported_func);
 	DebugBreak();
 	return 0;
 

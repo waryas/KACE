@@ -25,6 +25,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Logger", "libs\Logger\Logger.vcxproj", "{9A82297E-FEEE-4B6E-A35F-86AF595D836E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SymParser", "libs\SymParser\SymParser.vcxproj", "{F332A348-4A69-4557-966A-49F572EA2B59}"
+	ProjectSection(ProjectDependencies) = postProject
+		{9A82297E-FEEE-4B6E-A35F-86AF595D836E} = {9A82297E-FEEE-4B6E-A35F-86AF595D836E}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

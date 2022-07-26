@@ -1,6 +1,7 @@
 #pragma once
 #include "structs.hpp"
 #include "util.hpp"
+#include <Logger/Logger.h>
 #include <Windows.h>
 #include <cstddef>
 #include <cstdint>

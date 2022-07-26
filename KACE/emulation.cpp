@@ -258,7 +258,7 @@ namespace VCPU {
 			}
 
 			if (auto HVA = MemoryTracker::GetHVA(addr)) {
-				printf("Emulating write to %llx translated to %llx\n", addr, HVA);
+				Logger::Log("Emulating write to %llx translated to %llx\n", addr, HVA);
 				return EmulateWrite(HVA, context);
 			}
 			else {
@@ -351,7 +351,7 @@ namespace VCPU {
 			}
 
 			if (auto HVA = MemoryTracker::GetHVA(addr)) {
-				printf("Emulating read from %llx translated to %llx\n", addr, HVA);
+				Logger::Log("Emulating read from %llx translated to %llx\n", addr, HVA);
 				return EmulateRead(HVA, context);
 			}
 			else {
