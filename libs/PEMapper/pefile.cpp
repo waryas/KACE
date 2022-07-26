@@ -160,12 +160,15 @@ void PEFile::ResolveImport() {
         PCHAR pDllName = makepointer<PCHAR>(mapped_buffer, pImageImportDescriptor->Name);
 
         PEFile* importModule = nullptr;
-
-        if (!moduleList_namekey.contains(pDllName)) {
+        char tmpName[256] = { 0 };
+        strcpy_s(tmpName, pDllName);
+        for (int nl = 0; nl < strlen(tmpName); nl++)
+            tmpName[nl] = tolower(tmpName[nl]);
+        if (!moduleList_namekey.contains(tmpName)) {
             Logger::Log("Loading %s...\n", pDllName);
             importModule = PEFile::Open(std::string(IMPORT_MODULE_DIRECTORY) + pDllName, pDllName);
         } else {
-            importModule = moduleList_namekey[pDllName];
+            importModule = moduleList_namekey[tmpName];
         }
         auto modulebase = importModule->GetMappedImageBase();
         PIMAGE_THUNK_DATA pOriginalThunk = NULL;

@@ -1,6 +1,7 @@
 #include "emulation.h"
 #include <Logger/Logger.h>
 #include <MemoryTracker/memorytracker.h>
+#include <PEMapper/pefile.h>
 #include <Zydis/Zydis.h>
 #include <assert.h>
 
@@ -165,10 +166,20 @@ namespace VCPU {
             } else if (instr.operands[1].reg.value == ZYDIS_REGISTER_CR8) { //Read CR8
                 Logger::Log("Reading CR8\n");
                 context_lookup[reg_to_write] = VCPU::CR8;
-            } else if (instr.operands[0].reg.value == ZYDIS_REGISTER_DR7) { //Read CR8
+            }
+            else if (instr.operands[0].reg.value == ZYDIS_REGISTER_DR7) { //Read CR8
                 Logger::Log("Writing %llx to DR7\n", context_lookup[reg_to_read]);
                 context->Dr7 = context_lookup[reg_to_read];
-            } else {
+            }
+            else if (instr.operands[1].reg.value == ZYDIS_REGISTER_DR6) { //Read DR6
+                Logger::Log("Reading DR6\n");
+                context_lookup[reg_to_write] = context->Dr6;
+            }
+            else if (instr.operands[1].reg.value == ZYDIS_REGISTER_DR7) { //Read DR6
+                Logger::Log("Reading DR7\n");
+                context_lookup[reg_to_write] = context->Dr7;
+            }
+            else {
                 DebugBreak();
             }
 
@@ -230,7 +241,29 @@ namespace VCPU {
             }
 
             if (auto HVA = MemoryTracker::GetHVA(addr)) {
-                Logger::Log("Emulating write to %llx translated to %llx\n", addr, HVA);
+                if (MemoryTracker::isTracked(HVA)) {
+                    DebugBreak();
+                }
+                else if (MemoryTracker::isTracked(addr)) {
+                    auto nameVar = MemoryTracker::getName(addr);
+                    auto offset = MemoryTracker::getStart(nameVar);
+                    Logger::Log("Emulating write to %s+%08x\n", nameVar.c_str(), addr - offset);
+                }
+                else if (KUSD_MIN <= addr && addr <= KUSD_MAX) {
+                    Logger::Log("Emulating write to %s+%08x\n", "KUSER_SHARED_DATA", addr - KUSD_MIN);
+                    DebugBreak();
+                }
+                else {
+                    auto pe_file = PEFile::FindModule(addr);
+                    if (!pe_file) {
+                        Logger::Log("Emulating write to %llx translated to %llx\n", addr, HVA);
+                        DebugBreak();
+                    }
+                    else
+                        Logger::Log("Emulating write to %s:+%08x\n", pe_file->name.c_str(), addr - pe_file->GetMappedImageBase());
+                    // DebugBreak();
+                }
+
                 return EmulateWrite(HVA, context);
             } else {
                 if (addr == 0xffffffffffffffff)
@@ -307,7 +340,28 @@ namespace VCPU {
             }
 
             if (auto HVA = MemoryTracker::GetHVA(addr)) {
-                Logger::Log("Emulating read from %llx translated to %llx\n", addr, HVA);
+                if (MemoryTracker::isTracked(HVA)) {
+                    DebugBreak();
+                }
+                else if (MemoryTracker::isTracked(addr))  {
+                    auto nameVar = MemoryTracker::getName(addr);
+                    auto offset = MemoryTracker::getStart(nameVar);
+                    Logger::Log("Emulating read from %s+%08x\n", nameVar.c_str(), addr-offset);
+                }
+                else if (KUSD_MIN <= addr && addr <= KUSD_MAX) {
+                    Logger::Log("Emulating read from %s+%08x\n", "KUSER_SHARED_DATA", addr - KUSD_MIN);
+                }
+                else {
+                    auto pe_file = PEFile::FindModule(addr);
+                    if (!pe_file) {
+                        Logger::Log("Emulating read from %llx translated to %llx\n", addr, HVA);
+                        DebugBreak();
+                    }
+                    else
+                        Logger::Log("Emulating read from %s:+%08x\n", pe_file->name.c_str(), addr - pe_file->GetMappedImageBase());
+                   // DebugBreak();
+                }
+                
                 return EmulateRead(HVA, context);
             } else {
                 if (addr == 0xffffffffffffffff)

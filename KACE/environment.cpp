@@ -95,7 +95,7 @@ void Environment::InitializeSystemModules() {
             strcpy(wm.FullPathName, pMods->BaseInfo.FullPathName);
             wm.OffsetToFileName = pMods->BaseInfo.OffsetToFileName;
             wm.overriden = true;
-
+            Logger::Log("PDB for %s\n", import_local_file.c_str());
             symparser::download_symbols(import_local_file);
         } else {
             wm.Section = pMods->BaseInfo.Section;

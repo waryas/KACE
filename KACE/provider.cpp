@@ -67,7 +67,6 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr) {
     if (!exported_func) {
         auto sym = symparser::find_symbol(pe_file->filename, rva);
         if (!sym || !sym->rva) {
-            DebugBreak();
             return 0;
         }
         reserved_str = sym->name;
@@ -80,7 +79,6 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr) {
         return (uintptr_t)data_providers[exported_func];
 
     Logger::Log("Exported Data %s!%s is not implemented\n", pe_file->name.c_str(), exported_func);
-    DebugBreak();
     return 0;
 }
 

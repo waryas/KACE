@@ -208,6 +208,8 @@ namespace symparser {
             __debugbreak();
 
         const auto codeview = image_find_codeview(image.data());
+        if (!strstr(codeview->pdb_name, ".pdb"))
+            return  std::vector<sym_t>();
         const auto pdb_path = cache_pdb(codeview);
         if (!pdb_path)
             __debugbreak();
