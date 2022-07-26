@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <mutex>
+#include <filesystem>
 
 #include <PEMapper/pefile.h>
 
@@ -253,8 +254,17 @@ DWORD FakeDriverEntry(LPVOID)
 	return 0;
 }
 
+__forceinline void init_dirs( ) { 
+	std::filesystem::path p = "c:\\";
+	for ( auto& key : { "\\kace", "\\ca", "\\ca", "\\windows" } ) {
+        p += key;
+        if (!std::filesystem::exists(p))
+            std::filesystem::create_directory(p);
+	}
+}
 
 int main(int argc, char* argv[]) {
+    init_dirs();
 
 	symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
 	symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
