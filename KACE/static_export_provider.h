@@ -2,12 +2,11 @@
 
 #include <unordered_map>
 
-#include <MemoryTracker/memorytracker.h>
 #include "ntoskrnl_struct.h"
+#include <MemoryTracker/memorytracker.h>
 
-
-#pragma section("hookaccess",read,write)
-#define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess")) 
+#pragma section("hookaccess", read, write)
+#define MONITOR extern "C" inline __declspec(dllexport, allocate("hookaccess"))
 
 MONITOR uint32_t InitSafeBootMode = 0;
 MONITOR unsigned char KdDebuggerNotPresent = true;
@@ -107,15 +106,9 @@ MONITOR uint64_t TmTransactionManagerObjectType = 0;
 MONITOR uint64_t TmTransactionObjectType = 0;
 MONITOR uint64_t psMUITest = 0;
 
-
-
 namespace ntoskrnl_export {
     void Initialize();
     void InitializePsProcessType();
     void InitializePsLoadedModuleList();
     void InitializeExport();
-}
-
-
-
-
+} // namespace ntoskrnl_export

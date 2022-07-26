@@ -4,12 +4,7 @@
 #include "provider.h"
 
 namespace ntoskrnl_export {
-
-
-    void Initialize() {
-        InitializeExport();
-    }
-
+    void Initialize() { InitializeExport(); }
 
     void InitializePsProcessType() {
         PsProcessType = (_OBJECT_TYPE*)MemoryTracker::AllocateVariable(sizeof(_OBJECT_TYPE) * 2);
@@ -18,7 +13,6 @@ namespace ntoskrnl_export {
     }
 
     void InitializePsLoadedModuleList() {
-
         PsLoadedModuleList = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
         PsLoadedModuleList->InLoadOrderLinks.Blink = &PsLoadedModuleList->InLoadOrderLinks;
         PsLoadedModuleList->InLoadOrderLinks.Flink = &PsLoadedModuleList->InLoadOrderLinks;
@@ -26,7 +20,6 @@ namespace ntoskrnl_export {
         h_RtlInitUnicodeString(&PsLoadedModuleList->FullDllName, L"C:\\Windows\\system32\\ntoskrnl.exe");
         PsLoadedModuleList->LoadCount = 1;
         MemoryTracker::TrackVariable((uint64_t)PsLoadedModuleList, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, (char*)"NTOSKRNL.PsLoadedModuleList");
-
     }
 
     void InitializeExport() {
@@ -43,10 +36,5 @@ namespace ntoskrnl_export {
         Provider::AddDataImpl("PsLoadedModuleList", &PsLoadedModuleList, sizeof(PsLoadedModuleList));
         Provider::AddDataImpl("PsProcessType", &PsProcessType, sizeof(PsProcessType));
         Provider::AddDataImpl("PsThreadType", &PsThreadType, sizeof(PsThreadType));
-
     }
-  
-}
-
-
-
+} // namespace ntoskrnl_export

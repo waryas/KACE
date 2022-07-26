@@ -11,12 +11,8 @@
 
 #define PAGE_ALIGN_DOWN(addr) (((addr)) & PAGE_MASK)
 
-
 class MemoryTracker {
-
-
 public:
-
     static void Initiate();
     static bool TrackVariable(uint64_t ptr, uint64_t size, std::string name);
     static bool isTracked(uint64_t ptr);

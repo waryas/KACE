@@ -507,7 +507,7 @@ struct _KTHREAD {
         };
         struct {
             UCHAR SchedulerApcFill4[72]; //0x288
-            VOID* LegoData; //0x2d0 
+            VOID* LegoData; //0x2d0
         };
         struct {
             UCHAR SchedulerApcFill5[83]; //0x288
@@ -1991,7 +1991,6 @@ enum _EVENT_TYPE {
     SynchronizationEvent = 1
 };
 
-
 typedef struct _TIME_FIELDS {
     SHORT Year;
     SHORT Month;
@@ -2001,379 +2000,337 @@ typedef struct _TIME_FIELDS {
     SHORT Second;
     SHORT Milliseconds;
     SHORT Weekday;
-} TIME_FIELDS, * PTIME_FIELDS;
+} TIME_FIELDS, *PTIME_FIELDS;
 
-
-struct _KPCR
-{
-    union
-    {
-        struct _NT_TIB NtTib;                                               //0x0
-        struct
-        {
-            union _KGDTENTRY64* GdtBase;                                    //0x0
-            struct _KTSS64* TssBase;                                        //0x8
-            ULONGLONG UserRsp;                                              //0x10
-            struct _KPCR* Self;                                             //0x18
-            struct _KPRCB* CurrentPrcb;                                     //0x20
-            struct _KSPIN_LOCK_QUEUE* LockArray;                            //0x28
-            VOID* Used_Self;                                                //0x30
+struct _KPCR {
+    union {
+        struct _NT_TIB NtTib; //0x0
+        struct {
+            union _KGDTENTRY64* GdtBase; //0x0
+            struct _KTSS64* TssBase; //0x8
+            ULONGLONG UserRsp; //0x10
+            struct _KPCR* Self; //0x18
+            struct _KPRCB* CurrentPrcb; //0x20
+            struct _KSPIN_LOCK_QUEUE* LockArray; //0x28
+            VOID* Used_Self; //0x30
         };
     };
-    union _KIDTENTRY64* IdtBase;                                            //0x38
-    ULONGLONG Unused[2];                                                    //0x40
-    UCHAR Irql;                                                             //0x50
-    UCHAR SecondLevelCacheAssociativity;                                    //0x51
-    UCHAR ObsoleteNumber;                                                   //0x52
-    UCHAR Fill0;                                                            //0x53
-    ULONG Unused0[3];                                                       //0x54
-    USHORT MajorVersion;                                                    //0x60
-    USHORT MinorVersion;                                                    //0x62
-    ULONG StallScaleFactor;                                                 //0x64
-    VOID* Unused1[3];                                                       //0x68
-    ULONG KernelReserved[15];                                               //0x80
-    ULONG SecondLevelCacheSize;                                             //0xbc
-    ULONG HalReserved[16];                                                  //0xc0
-    ULONG Unused2;                                                          //0x100
-    VOID* KdVersionBlock;                                                   //0x108
-    VOID* Unused3;                                                          //0x110
-    ULONG PcrAlign1[24];                                                    //0x118
+    union _KIDTENTRY64* IdtBase; //0x38
+    ULONGLONG Unused[2]; //0x40
+    UCHAR Irql; //0x50
+    UCHAR SecondLevelCacheAssociativity; //0x51
+    UCHAR ObsoleteNumber; //0x52
+    UCHAR Fill0; //0x53
+    ULONG Unused0[3]; //0x54
+    USHORT MajorVersion; //0x60
+    USHORT MinorVersion; //0x62
+    ULONG StallScaleFactor; //0x64
+    VOID* Unused1[3]; //0x68
+    ULONG KernelReserved[15]; //0x80
+    ULONG SecondLevelCacheSize; //0xbc
+    ULONG HalReserved[16]; //0xc0
+    ULONG Unused2; //0x100
+    VOID* KdVersionBlock; //0x108
+    VOID* Unused3; //0x110
+    ULONG PcrAlign1[24]; //0x118
 };
 
-struct _KDESCRIPTOR
-{
-    USHORT Pad[3];                                                          //0x0
-    USHORT Limit;                                                           //0x6
-    VOID* Base;                                                             //0x8
+struct _KDESCRIPTOR {
+    USHORT Pad[3]; //0x0
+    USHORT Limit; //0x6
+    VOID* Base; //0x8
 };
 
-struct _KSPECIAL_REGISTERS
-{
-    ULONGLONG Cr0;                                                          //0x0
-    ULONGLONG Cr2;                                                          //0x8
-    ULONGLONG Cr3;                                                          //0x10
-    ULONGLONG Cr4;                                                          //0x18
-    ULONGLONG KernelDr0;                                                    //0x20
-    ULONGLONG KernelDr1;                                                    //0x28
-    ULONGLONG KernelDr2;                                                    //0x30
-    ULONGLONG KernelDr3;                                                    //0x38
-    ULONGLONG KernelDr6;                                                    //0x40
-    ULONGLONG KernelDr7;                                                    //0x48
-    struct _KDESCRIPTOR Gdtr;                                               //0x50
-    struct _KDESCRIPTOR Idtr;                                               //0x60
-    USHORT Tr;                                                              //0x70
-    USHORT Ldtr;                                                            //0x72
-    ULONG MxCsr;                                                            //0x74
-    ULONGLONG DebugControl;                                                 //0x78
-    ULONGLONG LastBranchToRip;                                              //0x80
-    ULONGLONG LastBranchFromRip;                                            //0x88
-    ULONGLONG LastExceptionToRip;                                           //0x90
-    ULONGLONG LastExceptionFromRip;                                         //0x98
-    ULONGLONG Cr8;                                                          //0xa0
-    ULONGLONG MsrGsBase;                                                    //0xa8
-    ULONGLONG MsrGsSwap;                                                    //0xb0
-    ULONGLONG MsrStar;                                                      //0xb8
-    ULONGLONG MsrLStar;                                                     //0xc0
-    ULONGLONG MsrCStar;                                                     //0xc8
-    ULONGLONG MsrSyscallMask;                                               //0xd0
-    ULONGLONG Xcr0;                                                         //0xd8
-    ULONGLONG MsrFsBase;                                                    //0xe0
-    ULONGLONG SpecialPadding0;                                              //0xe8
+struct _KSPECIAL_REGISTERS {
+    ULONGLONG Cr0; //0x0
+    ULONGLONG Cr2; //0x8
+    ULONGLONG Cr3; //0x10
+    ULONGLONG Cr4; //0x18
+    ULONGLONG KernelDr0; //0x20
+    ULONGLONG KernelDr1; //0x28
+    ULONGLONG KernelDr2; //0x30
+    ULONGLONG KernelDr3; //0x38
+    ULONGLONG KernelDr6; //0x40
+    ULONGLONG KernelDr7; //0x48
+    struct _KDESCRIPTOR Gdtr; //0x50
+    struct _KDESCRIPTOR Idtr; //0x60
+    USHORT Tr; //0x70
+    USHORT Ldtr; //0x72
+    ULONG MxCsr; //0x74
+    ULONGLONG DebugControl; //0x78
+    ULONGLONG LastBranchToRip; //0x80
+    ULONGLONG LastBranchFromRip; //0x88
+    ULONGLONG LastExceptionToRip; //0x90
+    ULONGLONG LastExceptionFromRip; //0x98
+    ULONGLONG Cr8; //0xa0
+    ULONGLONG MsrGsBase; //0xa8
+    ULONGLONG MsrGsSwap; //0xb0
+    ULONGLONG MsrStar; //0xb8
+    ULONGLONG MsrLStar; //0xc0
+    ULONGLONG MsrCStar; //0xc8
+    ULONGLONG MsrSyscallMask; //0xd0
+    ULONGLONG Xcr0; //0xd8
+    ULONGLONG MsrFsBase; //0xe0
+    ULONGLONG SpecialPadding0; //0xe8
 };
 
-struct _KPROCESSOR_STATE
-{
-    struct _KSPECIAL_REGISTERS SpecialRegisters;                            //0x0
-    struct _CONTEXT ContextFrame;                                           //0xf0
+struct _KPROCESSOR_STATE {
+    struct _KSPECIAL_REGISTERS SpecialRegisters; //0x0
+    struct _CONTEXT ContextFrame; //0xf0
 };
 
-
-struct _KPRCB
-{
-    ULONG MxCsr;                                                            //0x0
-    UCHAR LegacyNumber;                                                     //0x4
-    UCHAR ReservedMustBeZero;                                               //0x5
-    UCHAR InterruptRequest;                                                 //0x6
-    UCHAR IdleHalt;                                                         //0x7
-    struct _KTHREAD* CurrentThread;                                         //0x8
-    struct _KTHREAD* NextThread;                                            //0x10
-    struct _KTHREAD* IdleThread;                                            //0x18
-    UCHAR NestingLevel;                                                     //0x20
-    UCHAR ClockOwner;                                                       //0x21
-    union
-    {
-        UCHAR PendingTickFlags;                                             //0x22
-        struct
-        {
-            UCHAR PendingTick : 1;                                            //0x22
-            UCHAR PendingBackupTick : 1;                                      //0x22
+struct _KPRCB {
+    ULONG MxCsr; //0x0
+    UCHAR LegacyNumber; //0x4
+    UCHAR ReservedMustBeZero; //0x5
+    UCHAR InterruptRequest; //0x6
+    UCHAR IdleHalt; //0x7
+    struct _KTHREAD* CurrentThread; //0x8
+    struct _KTHREAD* NextThread; //0x10
+    struct _KTHREAD* IdleThread; //0x18
+    UCHAR NestingLevel; //0x20
+    UCHAR ClockOwner; //0x21
+    union {
+        UCHAR PendingTickFlags; //0x22
+        struct {
+            UCHAR PendingTick : 1; //0x22
+            UCHAR PendingBackupTick : 1; //0x22
         };
     };
-    UCHAR IdleState;                                                        //0x23
-    ULONG Number;                                                           //0x24
-    ULONGLONG RspBase;                                                      //0x28
-    ULONGLONG PrcbLock;                                                     //0x30
-    CHAR* PriorityState;                                                    //0x38
-    CHAR CpuType;                                                           //0x40
-    CHAR CpuID;                                                             //0x41
-    union
-    {
-        USHORT CpuStep;                                                     //0x42
-        struct
-        {
-            UCHAR CpuStepping;                                              //0x42
-            UCHAR CpuModel;                                                 //0x43
+    UCHAR IdleState; //0x23
+    ULONG Number; //0x24
+    ULONGLONG RspBase; //0x28
+    ULONGLONG PrcbLock; //0x30
+    CHAR* PriorityState; //0x38
+    CHAR CpuType; //0x40
+    CHAR CpuID; //0x41
+    union {
+        USHORT CpuStep; //0x42
+        struct {
+            UCHAR CpuStepping; //0x42
+            UCHAR CpuModel; //0x43
         };
     };
-    ULONG MHz;                                                              //0x44
-    ULONGLONG HalReserved[8];                                               //0x48
-    USHORT MinorVersion;                                                    //0x88
-    USHORT MajorVersion;                                                    //0x8a
-    UCHAR BuildType;                                                        //0x8c
-    UCHAR CpuVendor;                                                        //0x8d
-    UCHAR CoresPerPhysicalProcessor;                                        //0x8e
-    UCHAR LogicalProcessorsPerCore;                                         //0x8f
-    ULONGLONG TscFrequency;                                                 //0x90
-    ULONGLONG PrcbPad04[5];                                                 //0x98
-    struct _KNODE* ParentNode;                                              //0xc0
-    ULONGLONG GroupSetMember;                                               //0xc8
-    UCHAR Group;                                                            //0xd0
-    UCHAR GroupIndex;                                                       //0xd1
-    UCHAR PrcbPad05[2];                                                     //0xd2
-    ULONG InitialApicId;                                                    //0xd4
-    ULONG ScbOffset;                                                        //0xd8
-    ULONG ApicMask;                                                         //0xdc
-    VOID* AcpiReserved;                                                     //0xe0
-    ULONG CFlushSize;                                                       //0xe8
-    ULONGLONG PrcbPad11[2];                                                 //0xf0
-    struct _KPROCESSOR_STATE ProcessorState;                                //0x100
-    struct _XSAVE_AREA_HEADER* ExtendedSupervisorState;                     //0x6c0
-    ULONG ProcessorSignature;                                               //0x6c8
-    ULONG ProcessorFlags;                                                   //0x6cc
-    ULONGLONG PrcbPad12a;                                                   //0x6d0
-    ULONGLONG PrcbPad12[3];                                                 //0x6d8
+    ULONG MHz; //0x44
+    ULONGLONG HalReserved[8]; //0x48
+    USHORT MinorVersion; //0x88
+    USHORT MajorVersion; //0x8a
+    UCHAR BuildType; //0x8c
+    UCHAR CpuVendor; //0x8d
+    UCHAR CoresPerPhysicalProcessor; //0x8e
+    UCHAR LogicalProcessorsPerCore; //0x8f
+    ULONGLONG TscFrequency; //0x90
+    ULONGLONG PrcbPad04[5]; //0x98
+    struct _KNODE* ParentNode; //0xc0
+    ULONGLONG GroupSetMember; //0xc8
+    UCHAR Group; //0xd0
+    UCHAR GroupIndex; //0xd1
+    UCHAR PrcbPad05[2]; //0xd2
+    ULONG InitialApicId; //0xd4
+    ULONG ScbOffset; //0xd8
+    ULONG ApicMask; //0xdc
+    VOID* AcpiReserved; //0xe0
+    ULONG CFlushSize; //0xe8
+    ULONGLONG PrcbPad11[2]; //0xf0
+    struct _KPROCESSOR_STATE ProcessorState; //0x100
+    struct _XSAVE_AREA_HEADER* ExtendedSupervisorState; //0x6c0
+    ULONG ProcessorSignature; //0x6c8
+    ULONG ProcessorFlags; //0x6cc
+    ULONGLONG PrcbPad12a; //0x6d0
+    ULONGLONG PrcbPad12[3]; //0x6d8
 };
 
-struct _OWNER_ENTRY
-{
-    ULONGLONG OwnerThread;                                                  //0x0
-    union
-    {
-        struct
-        {
-            ULONG IoPriorityBoosted : 1;                                      //0x8
-            ULONG OwnerReferenced : 1;                                        //0x8
-            ULONG IoQoSPriorityBoosted : 1;                                   //0x8
-            ULONG OwnerCount : 29;                                            //0x8
+struct _OWNER_ENTRY {
+    ULONGLONG OwnerThread; //0x0
+    union {
+        struct {
+            ULONG IoPriorityBoosted : 1; //0x8
+            ULONG OwnerReferenced : 1; //0x8
+            ULONG IoQoSPriorityBoosted : 1; //0x8
+            ULONG OwnerCount : 29; //0x8
         };
-        ULONG TableSize;                                                    //0x8
+        ULONG TableSize; //0x8
     };
 };
 
-struct _ERESOURCE
-{
-    struct _LIST_ENTRY SystemResourcesList;                                 //0x0
-    struct _OWNER_ENTRY* OwnerTable;                                        //0x10
-    SHORT ActiveCount;                                                      //0x18
-    union
-    {
-        USHORT Flag;                                                        //0x1a
-        struct
-        {
-            UCHAR ReservedLowFlags;                                         //0x1a
-            UCHAR WaiterPriority;                                           //0x1b
+struct _ERESOURCE {
+    struct _LIST_ENTRY SystemResourcesList; //0x0
+    struct _OWNER_ENTRY* OwnerTable; //0x10
+    SHORT ActiveCount; //0x18
+    union {
+        USHORT Flag; //0x1a
+        struct {
+            UCHAR ReservedLowFlags; //0x1a
+            UCHAR WaiterPriority; //0x1b
         };
     };
-    VOID* SharedWaiters;                                                    //0x20
-    VOID* ExclusiveWaiters;                                                 //0x28
-    struct _OWNER_ENTRY OwnerEntry;                                         //0x30
-    ULONG ActiveEntries;                                                    //0x40
-    ULONG ContentionCount;                                                  //0x44
-    ULONG NumberOfSharedWaiters;                                            //0x48
-    ULONG NumberOfExclusiveWaiters;                                         //0x4c
-    VOID* Reserved2;                                                        //0x50
-    union
-    {
-        VOID* Address;                                                      //0x58
-        ULONGLONG CreatorBackTraceIndex;                                    //0x58
+    VOID* SharedWaiters; //0x20
+    VOID* ExclusiveWaiters; //0x28
+    struct _OWNER_ENTRY OwnerEntry; //0x30
+    ULONG ActiveEntries; //0x40
+    ULONG ContentionCount; //0x44
+    ULONG NumberOfSharedWaiters; //0x48
+    ULONG NumberOfExclusiveWaiters; //0x4c
+    VOID* Reserved2; //0x50
+    union {
+        VOID* Address; //0x58
+        ULONGLONG CreatorBackTraceIndex; //0x58
     };
-    ULONGLONG SpinLock;                                                     //0x60
+    ULONGLONG SpinLock; //0x60
 };
 
 #define ushort unsigned short
 #define ulong unsigned long
 #define ulonglong uint64_t
 
-struct _SYSTEM_MODULE_EX
-{
-    ushort Size;//at 0x0
-    ushort Pad0;//at 0x2
-    ulong Pad1;//at 0x4
-    ulonglong Pad2;//at 0x8
-    ulonglong AlwaysZero;//at 0x10
-    void* ImageBase;//at 0x18
-    ulong SizeOfImage;//at 0x20
-    ulong Flags;//at 0x24
-    ushort Index;//at 0x28
-    ushort bUserMode;//at 0x2A,0 kernelmodule,sameas Index user
-    ushort LoadCount;//at 0x2C
-    ushort BaseNameOffset;//at 0x2E
-    unsigned char FullDllName[0x100];//at 0x30
-    ulong CheckSum;//at 0x130
-    ulong PadZero0;//at 0x134
-    ulonglong PadZero1;//at 0x138
+struct _SYSTEM_MODULE_EX {
+    ushort Size; //at 0x0
+    ushort Pad0; //at 0x2
+    ulong Pad1; //at 0x4
+    ulonglong Pad2; //at 0x8
+    ulonglong AlwaysZero; //at 0x10
+    void* ImageBase; //at 0x18
+    ulong SizeOfImage; //at 0x20
+    ulong Flags; //at 0x24
+    ushort Index; //at 0x28
+    ushort bUserMode; //at 0x2A,0 kernelmodule,sameas Index user
+    ushort LoadCount; //at 0x2C
+    ushort BaseNameOffset; //at 0x2E
+    unsigned char FullDllName[0x100]; //at 0x30
+    ulong CheckSum; //at 0x130
+    ulong PadZero0; //at 0x134
+    ulonglong PadZero1; //at 0x138
 };
 
-struct _KLDR_DATA_TABLE_ENTRY
-{
-    struct _LIST_ENTRY InLoadOrderLinks;                                    //0x0
-    VOID* ExceptionTable;                                                   //0x8
-    ULONG ExceptionTableSize;                                               //0xc
-    VOID* GpValue;                                                          //0x10
-    struct _NON_PAGED_DEBUG_INFO* NonPagedDebugInfo;                        //0x14
-    VOID* DllBase;                                                          //0x18
-    VOID* EntryPoint;                                                       //0x1c
-    ULONG SizeOfImage;                                                      //0x20
-    struct _UNICODE_STRING FullDllName;                                     //0x24
-    struct _UNICODE_STRING BaseDllName;                                     //0x2c
-    ULONG Flags;                                                            //0x34
-    USHORT LoadCount;                                                       //0x38
-    union
-    {
-        USHORT SignatureLevel : 4;                                            //0x3a
-        USHORT SignatureType : 3;                                             //0x3a
-        USHORT Unused : 9;                                                    //0x3a
-        USHORT EntireField;                                                 //0x3a
-    } u1;                                                                   //0x3a
-    VOID* SectionPointer;                                                   //0x3c
-    ULONG CheckSum;                                                         //0x40
-    ULONG CoverageSectionSize;                                              //0x44
-    VOID* CoverageSection;                                                  //0x48
-    VOID* LoadedImports;                                                    //0x4c
-    VOID* Spare;                                                            //0x50
-    ULONG SizeOfImageNotRounded;                                            //0x54
-    ULONG TimeDateStamp;                                                    //0x58
+struct _KLDR_DATA_TABLE_ENTRY {
+    struct _LIST_ENTRY InLoadOrderLinks; //0x0
+    VOID* ExceptionTable; //0x8
+    ULONG ExceptionTableSize; //0xc
+    VOID* GpValue; //0x10
+    struct _NON_PAGED_DEBUG_INFO* NonPagedDebugInfo; //0x14
+    VOID* DllBase; //0x18
+    VOID* EntryPoint; //0x1c
+    ULONG SizeOfImage; //0x20
+    struct _UNICODE_STRING FullDllName; //0x24
+    struct _UNICODE_STRING BaseDllName; //0x2c
+    ULONG Flags; //0x34
+    USHORT LoadCount; //0x38
+    union {
+        USHORT SignatureLevel : 4; //0x3a
+        USHORT SignatureType : 3; //0x3a
+        USHORT Unused : 9; //0x3a
+        USHORT EntireField; //0x3a
+    } u1; //0x3a
+    VOID* SectionPointer; //0x3c
+    ULONG CheckSum; //0x40
+    ULONG CoverageSectionSize; //0x44
+    VOID* CoverageSection; //0x48
+    VOID* LoadedImports; //0x4c
+    VOID* Spare; //0x50
+    ULONG SizeOfImageNotRounded; //0x54
+    ULONG TimeDateStamp; //0x58
 };
-
 
 typedef struct _MDL {
     struct _MDL* Next;
-    USHORT           Size;
-    USHORT           MdlFlags;
+    USHORT Size;
+    USHORT MdlFlags;
     struct _EPROCESS* Process;
-    PVOID            MappedSystemVa;
-    PVOID            StartVa;
-    ULONG            ByteCount;
-    ULONG            ByteOffset;
-} MDL, * PMDL;
+    PVOID MappedSystemVa;
+    PVOID StartVa;
+    ULONG ByteCount;
+    ULONG ByteOffset;
+} MDL, *PMDL;
 
-struct _IO_STATUS_BLOCK
-{
-    union
-    {
-        LONG Status;                                                        //0x0
-        VOID* Pointer;                                                      //0x0
+struct _IO_STATUS_BLOCK {
+    union {
+        LONG Status; //0x0
+        VOID* Pointer; //0x0
     };
-    ULONGLONG Information;                                                  //0x8
+    ULONGLONG Information; //0x8
 };
 
-struct _IRP
-{
-    SHORT Type;                                                             //0x0
-    USHORT Size;                                                            //0x2
-    USHORT AllocationProcessorNumber;                                       //0x4
-    USHORT Reserved;                                                        //0x6
-    struct _MDL* MdlAddress;                                                //0x8
-    ULONG Flags;                                                            //0x10
-    union
-    {
-        struct _IRP* MasterIrp;                                             //0x18
-        LONG IrpCount;                                                      //0x18
-        VOID* SystemBuffer;                                                 //0x18
-    } AssociatedIrp;                                                        //0x18
-    struct _LIST_ENTRY ThreadListEntry;                                     //0x20
-    struct _IO_STATUS_BLOCK IoStatus;                                       //0x30
-    CHAR RequestorMode;                                                     //0x40
-    UCHAR PendingReturned;                                                  //0x41
-    CHAR StackCount;                                                        //0x42
-    CHAR CurrentLocation;                                                   //0x43
-    UCHAR Cancel;                                                           //0x44
-    UCHAR CancelIrql;                                                       //0x45
-    CHAR ApcEnvironment;                                                    //0x46
-    UCHAR AllocationFlags;                                                  //0x47
-    union
-    {
-        struct _IO_STATUS_BLOCK* UserIosb;                                  //0x48
-        VOID* IoRingContext;                                                //0x48
+struct _IRP {
+    SHORT Type; //0x0
+    USHORT Size; //0x2
+    USHORT AllocationProcessorNumber; //0x4
+    USHORT Reserved; //0x6
+    struct _MDL* MdlAddress; //0x8
+    ULONG Flags; //0x10
+    union {
+        struct _IRP* MasterIrp; //0x18
+        LONG IrpCount; //0x18
+        VOID* SystemBuffer; //0x18
+    } AssociatedIrp; //0x18
+    struct _LIST_ENTRY ThreadListEntry; //0x20
+    struct _IO_STATUS_BLOCK IoStatus; //0x30
+    CHAR RequestorMode; //0x40
+    UCHAR PendingReturned; //0x41
+    CHAR StackCount; //0x42
+    CHAR CurrentLocation; //0x43
+    UCHAR Cancel; //0x44
+    UCHAR CancelIrql; //0x45
+    CHAR ApcEnvironment; //0x46
+    UCHAR AllocationFlags; //0x47
+    union {
+        struct _IO_STATUS_BLOCK* UserIosb; //0x48
+        VOID* IoRingContext; //0x48
     };
-    struct _KEVENT* UserEvent;                                              //0x50
-    union
-    {
-        struct
-        {
-            union
-            {
-                VOID(*UserApcRoutine)(VOID* arg1, struct _IO_STATUS_BLOCK* arg2, ULONG arg3); //0x58
-                VOID* IssuingProcess;                                       //0x58
+    struct _KEVENT* UserEvent; //0x50
+    union {
+        struct {
+            union {
+                VOID (*UserApcRoutine)(VOID* arg1, struct _IO_STATUS_BLOCK* arg2, ULONG arg3); //0x58
+                VOID* IssuingProcess; //0x58
             };
-            union
-            {
-                VOID* UserApcContext;                                       //0x60
-                struct _IORING_OBJECT* IoRing;                              //0x60
+            union {
+                VOID* UserApcContext; //0x60
+                struct _IORING_OBJECT* IoRing; //0x60
             };
-        } AsynchronousParameters;                                           //0x58
-        union _LARGE_INTEGER AllocationSize;                                //0x58
-    } Overlay;                                                              //0x58
-    VOID(*CancelRoutine)(struct _DEVICE_OBJECT* arg1, struct _IRP* arg2);  //0x68
-    VOID* UserBuffer;                                                       //0x70
-    union
-    {
-        struct
-        {
-            union
-            {
-                struct _KDEVICE_QUEUE_ENTRY DeviceQueueEntry;               //0x78
-                VOID* DriverContext[4];                                     //0x78
+        } AsynchronousParameters; //0x58
+        union _LARGE_INTEGER AllocationSize; //0x58
+    } Overlay; //0x58
+    VOID (*CancelRoutine)(struct _DEVICE_OBJECT* arg1, struct _IRP* arg2); //0x68
+    VOID* UserBuffer; //0x70
+    union {
+        struct {
+            union {
+                struct _KDEVICE_QUEUE_ENTRY DeviceQueueEntry; //0x78
+                VOID* DriverContext[4]; //0x78
             };
-            struct _ETHREAD* Thread;                                        //0x98
-            CHAR* AuxiliaryBuffer;                                          //0xa0
-            struct _LIST_ENTRY ListEntry;                                   //0xa8
-            union
-            {
-                struct _IO_STACK_LOCATION* CurrentStackLocation;            //0xb8
-                ULONG PacketType;                                           //0xb8
+            struct _ETHREAD* Thread; //0x98
+            CHAR* AuxiliaryBuffer; //0xa0
+            struct _LIST_ENTRY ListEntry; //0xa8
+            union {
+                struct _IO_STACK_LOCATION* CurrentStackLocation; //0xb8
+                ULONG PacketType; //0xb8
             };
-            struct _FILE_OBJECT* OriginalFileObject;                        //0xc0
-            VOID* IrpExtension;                                             //0xc8
-        } Overlay;                                                          //0x78
-        struct _KAPC Apc;                                                   //0x78
-        VOID* CompletionKey;                                                //0x78
-    } Tail;                                                                 //0x78
+            struct _FILE_OBJECT* OriginalFileObject; //0xc0
+            VOID* IrpExtension; //0xc8
+        } Overlay; //0x78
+        struct _KAPC Apc; //0x78
+        VOID* CompletionKey; //0x78
+    } Tail; //0x78
 };
 
-struct _KGATE
-{
-    struct _DISPATCHER_HEADER Header;                                       //0x0
+struct _KGATE {
+    struct _DISPATCHER_HEADER Header; //0x0
 };
 
-struct _KGUARDED_MUTEX
-{
-    volatile LONG Count;                                                    //0x0
-    struct _KTHREAD* Owner;                                                 //0x8
-    ULONG Contention;                                                       //0x10
-    struct _KGATE Gate;                                                     //0x18
-    union
-    {
-        struct
-        {
-            SHORT KernelApcDisable;                                         //0x30
-            SHORT SpecialApcDisable;                                        //0x32
+struct _KGUARDED_MUTEX {
+    volatile LONG Count; //0x0
+    struct _KTHREAD* Owner; //0x8
+    ULONG Contention; //0x10
+    struct _KGATE Gate; //0x18
+    union {
+        struct {
+            SHORT KernelApcDisable; //0x30
+            SHORT SpecialApcDisable; //0x32
         };
-        ULONG CombinedApcDisable;                                           //0x30
+        ULONG CombinedApcDisable; //0x30
     };
 };
-enum _KWAIT_REASON
-{
+enum _KWAIT_REASON {
     Executive = 0,
     FreePage = 1,
     PageIn = 2,
@@ -2417,63 +2374,64 @@ enum _KWAIT_REASON
     MaximumWaitReason = 40
 };
 
-struct _OBJECT_TYPE_INITIALIZER
-{
-    USHORT Length;                                                          //0x0
-    union
-    {
-        USHORT ObjectTypeFlags;                                             //0x2
-        struct
-        {
-            UCHAR CaseInsensitive : 1;                                        //0x2
-            UCHAR UnnamedObjectsOnly : 1;                                     //0x2
-            UCHAR UseDefaultObject : 1;                                       //0x2
-            UCHAR SecurityRequired : 1;                                       //0x2
-            UCHAR MaintainHandleCount : 1;                                    //0x2
-            UCHAR MaintainTypeList : 1;                                       //0x2
-            UCHAR SupportsObjectCallbacks : 1;                                //0x2
-            UCHAR CacheAligned : 1;                                           //0x2
-            UCHAR UseExtendedParameters : 1;                                  //0x3
-            UCHAR Reserved : 7;                                               //0x3
+struct _OBJECT_TYPE_INITIALIZER {
+    USHORT Length; //0x0
+    union {
+        USHORT ObjectTypeFlags; //0x2
+        struct {
+            UCHAR CaseInsensitive : 1; //0x2
+            UCHAR UnnamedObjectsOnly : 1; //0x2
+            UCHAR UseDefaultObject : 1; //0x2
+            UCHAR SecurityRequired : 1; //0x2
+            UCHAR MaintainHandleCount : 1; //0x2
+            UCHAR MaintainTypeList : 1; //0x2
+            UCHAR SupportsObjectCallbacks : 1; //0x2
+            UCHAR CacheAligned : 1; //0x2
+            UCHAR UseExtendedParameters : 1; //0x3
+            UCHAR Reserved : 7; //0x3
         };
     };
-    ULONG ObjectTypeCode;                                                   //0x4
-    ULONG InvalidAttributes;                                                //0x8
-    struct _GENERIC_MAPPING GenericMapping;                                 //0xc
-    ULONG ValidAccessMask;                                                  //0x1c
-    ULONG RetainAccess;                                                     //0x20
-    enum _POOL_TYPE PoolType;                                               //0x24
-    ULONG DefaultPagedPoolCharge;                                           //0x28
-    ULONG DefaultNonPagedPoolCharge;                                        //0x2c
-    VOID(*DumpProcedure)(VOID* arg1, struct _OBJECT_DUMP_CONTROL* arg2);   //0x30
-    LONG(*OpenProcedure)(enum _OB_OPEN_REASON arg1, CHAR arg2, struct _EPROCESS* arg3, VOID* arg4, ULONG* arg5, ULONG arg6); //0x38
-    VOID(*CloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, ULONGLONG arg3, ULONGLONG arg4); //0x40
-    VOID(*DeleteProcedure)(VOID* arg1);                                    //0x48
-    union
-    {
-        LONG(*ParseProcedure)(VOID* arg1, VOID* arg2, struct _ACCESS_STATE* arg3, CHAR arg4, ULONG arg5, struct _UNICODE_STRING* arg6, struct _UNICODE_STRING* arg7, VOID* arg8, struct _SECURITY_QUALITY_OF_SERVICE* arg9, VOID** arg10); //0x50
-        LONG(*ParseProcedureEx)(VOID* arg1, VOID* arg2, struct _ACCESS_STATE* arg3, CHAR arg4, ULONG arg5, struct _UNICODE_STRING* arg6, struct _UNICODE_STRING* arg7, VOID* arg8, struct _SECURITY_QUALITY_OF_SERVICE* arg9, struct _OB_EXTENDED_PARSE_PARAMETERS* arg10, VOID** arg11); //0x50
+    ULONG ObjectTypeCode; //0x4
+    ULONG InvalidAttributes; //0x8
+    struct _GENERIC_MAPPING GenericMapping; //0xc
+    ULONG ValidAccessMask; //0x1c
+    ULONG RetainAccess; //0x20
+    enum _POOL_TYPE PoolType; //0x24
+    ULONG DefaultPagedPoolCharge; //0x28
+    ULONG DefaultNonPagedPoolCharge; //0x2c
+    VOID (*DumpProcedure)(VOID* arg1, struct _OBJECT_DUMP_CONTROL* arg2); //0x30
+    LONG (*OpenProcedure)(enum _OB_OPEN_REASON arg1, CHAR arg2, struct _EPROCESS* arg3, VOID* arg4, ULONG* arg5, ULONG arg6); //0x38
+    VOID (*CloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, ULONGLONG arg3, ULONGLONG arg4); //0x40
+    VOID (*DeleteProcedure)(VOID* arg1); //0x48
+    union {
+        LONG (*ParseProcedure)
+        (VOID* arg1, VOID* arg2, struct _ACCESS_STATE* arg3, CHAR arg4, ULONG arg5, struct _UNICODE_STRING* arg6, struct _UNICODE_STRING* arg7, VOID* arg8,
+            struct _SECURITY_QUALITY_OF_SERVICE* arg9, VOID** arg10); //0x50
+        LONG (*ParseProcedureEx)
+        (VOID* arg1, VOID* arg2, struct _ACCESS_STATE* arg3, CHAR arg4, ULONG arg5, struct _UNICODE_STRING* arg6, struct _UNICODE_STRING* arg7, VOID* arg8,
+            struct _SECURITY_QUALITY_OF_SERVICE* arg9, struct _OB_EXTENDED_PARSE_PARAMETERS* arg10, VOID** arg11); //0x50
     };
-    LONG(*SecurityProcedure)(VOID* arg1, enum _SECURITY_OPERATION_CODE arg2, ULONG* arg3, VOID* arg4, ULONG* arg5, VOID** arg6, enum _POOL_TYPE arg7, struct _GENERIC_MAPPING* arg8, CHAR arg9); //0x58
-    LONG(*QueryNameProcedure)(VOID* arg1, UCHAR arg2, struct _OBJECT_NAME_INFORMATION* arg3, ULONG arg4, ULONG* arg5, CHAR arg6); //0x60
-    UCHAR(*OkayToCloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, VOID* arg3, CHAR arg4); //0x68
-    ULONG WaitObjectFlagMask;                                               //0x70
-    USHORT WaitObjectFlagOffset;                                            //0x74
-    USHORT WaitObjectPointerOffset;                                         //0x76
+    LONG (*SecurityProcedure)
+    (VOID* arg1, enum _SECURITY_OPERATION_CODE arg2, ULONG* arg3, VOID* arg4, ULONG* arg5, VOID** arg6, enum _POOL_TYPE arg7,
+        struct _GENERIC_MAPPING* arg8, CHAR arg9); //0x58
+    LONG (*QueryNameProcedure)(VOID* arg1, UCHAR arg2, struct _OBJECT_NAME_INFORMATION* arg3, ULONG arg4, ULONG* arg5, CHAR arg6); //0x60
+    UCHAR (*OkayToCloseProcedure)(struct _EPROCESS* arg1, VOID* arg2, VOID* arg3, CHAR arg4); //0x68
+    ULONG WaitObjectFlagMask; //0x70
+    USHORT WaitObjectFlagOffset; //0x74
+    USHORT WaitObjectPointerOffset; //0x76
 };
 
-struct _OBJECT_TYPE
-{
-    struct _LIST_ENTRY TypeList;                                            //0x0
-    struct _UNICODE_STRING Name;                                            //0x10
-    VOID* DefaultObject;                                                    //0x20
-    UCHAR Index;                                                            //0x28
-    ULONG TotalNumberOfObjects;                                             //0x2c
-    ULONG TotalNumberOfHandles;                                             //0x30
-    ULONG HighWaterNumberOfObjects;                                         //0x34
-    ULONG HighWaterNumberOfHandles;                                         //0x38
-    struct _OBJECT_TYPE_INITIALIZER TypeInfo;                               //0x40
-    struct _EX_PUSH_LOCK TypeLock;                                          //0xb8
-    ULONG Key;                                                              //0xc0
-    struct _LIST_ENTRY CallbackList;                                        //0xc8
+struct _OBJECT_TYPE {
+    struct _LIST_ENTRY TypeList; //0x0
+    struct _UNICODE_STRING Name; //0x10
+    VOID* DefaultObject; //0x20
+    UCHAR Index; //0x28
+    ULONG TotalNumberOfObjects; //0x2c
+    ULONG TotalNumberOfHandles; //0x30
+    ULONG HighWaterNumberOfObjects; //0x34
+    ULONG HighWaterNumberOfHandles; //0x38
+    struct _OBJECT_TYPE_INITIALIZER TypeInfo; //0x40
+    struct _EX_PUSH_LOCK TypeLock; //0xb8
+    ULONG Key; //0xc0
+    struct _LIST_ENTRY CallbackList; //0xc8
 };

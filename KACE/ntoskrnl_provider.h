@@ -5,12 +5,11 @@
 #include "ntoskrnl_struct.h"
 #include <shlwapi.h>
 
+#pragma section("fakek", read, write)
 
-#pragma section("fakek",read,write)
+#define KERNELDATA inline __declspec(align(0x1000), allocate("fakek"))
 
-#define KERNELDATA inline __declspec(align(0x1000), allocate("fakek")) 
-
-KERNELDATA _ETHREAD FakeKernelThread = {0};
+KERNELDATA _ETHREAD FakeKernelThread = { 0 };
 KERNELDATA _EPROCESS FakeSystemProcess = { 0 };
 KERNELDATA _KPCR FakeKPCR = { 0 };
 KERNELDATA _KPRCB FakeCPU = { 0 };
@@ -22,5 +21,5 @@ KERNELDATA UNICODE_STRING RegistryPath = { 0 };
 NTSTATUS h_RtlInitUnicodeString(PUNICODE_STRING DestinationString, PCWSTR SourceString);
 
 namespace ntoskrnl_provider {
-	void Initialize();
+    void Initialize();
 }

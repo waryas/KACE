@@ -1,15 +1,13 @@
 #pragma once
 
-#include <windows.h>
-#include <string>
 #include <cinttypes>
-#include <iostream>
-#include <fstream>
-#include <unordered_map>
 #include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <ranges>
-
-
+#include <string>
+#include <unordered_map>
+#include <windows.h>
 
 struct ImportData {
     std::string library;
@@ -25,20 +23,12 @@ struct SectionData {
     uint64_t characteristics;
 };
 
-
 class PEFile {
-
 private:
-
-
-    static std::unordered_map<std::string, PEFile*>  moduleList_namekey;
-    
-    
-
+    static std::unordered_map<std::string, PEFile*> moduleList_namekey;
 
     uintmax_t size = 0;
     std::ifstream File;
-
 
     template <typename T>
     T makepointer(uint64_t buffer, uint64_t offset) {
@@ -49,7 +39,6 @@ private:
     T makepointer(unsigned char* buffer, uint64_t offset) {
         return (T)(reinterpret_cast<uint64_t>(buffer) + offset);
     }
-
 
     std::unordered_map<uint64_t, ImportData> imports_rvakey;
     std::unordered_map<uint64_t, std::string> exports_rvakey;
@@ -64,8 +53,6 @@ private:
     PIMAGE_FILE_HEADER pImageFileHeader = 0;
     PIMAGE_SECTION_HEADER pImageSectionHeader = 0;
 
-
-    
     unsigned char* mapped_buffer = 0; //Will be set as NO_ACCESS once mapping is done
     unsigned char* shadow_buffer = 0; //A 1:1 copy of the mapped buffer that will be used for read/write
 
@@ -80,14 +67,13 @@ private:
     void ParseImport();
     void ParseExport();
 
-    PEFile(std::string filename,std::string name,  uintmax_t size);
+    PEFile(std::string filename, std::string name, uintmax_t size);
 
 public:
-
     std::string filename;
     std::string name;
 
-    static std::vector<PEFile*>  LoadedModuleArray;
+    static std::vector<PEFile*> LoadedModuleArray;
 
     static PEFile* Open(std::string path, std::string name);
     static PEFile* FindModule(uintptr_t ptr);
@@ -110,12 +96,4 @@ public:
     uintmax_t GetEP();
     void SetExecutable(bool isExecutable);
     std::unordered_map<uint64_t, std::string> GetAllExports();
-
-
-
 };
-
-
-
-
-
