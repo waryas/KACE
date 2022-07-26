@@ -196,6 +196,13 @@ namespace symparser {
     } // namespace
 
     std::vector<sym_t> download_symbols(const std::filesystem::path& img) {
+        auto img_path_str = img.string();
+
+        // @note: @es3n1n: if this image has cached parsed symbols
+        //
+        if (!cached_symbols[img_path_str].empty())
+            return cached_symbols[img_path_str];
+
         auto image = util::read_file(img);
         if (image.empty())
             __debugbreak();
@@ -206,7 +213,12 @@ namespace symparser {
             __debugbreak();
 
         auto pdb = util::read_file(*pdb_path);
-        return parse_symbols(pdb.data(), image.data());
+        auto symbols = parse_symbols(pdb.data(), image.data());
+
+        // @note: @es3n1n: caching the result and returning it
+        //
+        cached_symbols[img_path_str] = symbols;
+        return symbols;
     }
 
     std::optional<sym_t> find_symbol(const std::filesystem::path& img, std::string_view symbol) {
