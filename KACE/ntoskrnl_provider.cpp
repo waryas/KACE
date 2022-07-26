@@ -685,50 +685,30 @@ void h_ExWaitForRundownProtectionRelease(_EX_RUNDOWN_REF* RunRef) { }
 BOOLEAN h_KeCancelTimer(_KTIMER* Timer) { return true; }
 
 PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName) {
-    /*
-	char cStr[512] = { 0 };
-	wchar_t* wStr = SystemRoutineName->Buffer;
-	PVOID funcptr = 0;
-	wcstombs(cStr, SystemRoutineName->Buffer, 256);
-	Logger::Log("\tRetrieving %s ptr ", cStr);
 
+    char cStr[512] = { 0 };
+    wchar_t* wStr = SystemRoutineName->Buffer;
+    PVOID funcptr = 0;
+    wcstombs(cStr, SystemRoutineName->Buffer, 256);
+    Logger::Log("\tRetrieving %s ptr\n", cStr);
 
-	if (api_provider.contains(cStr)) {
-		funcptr = api_provider[cStr];
-	}
+    if (Provider::function_providers.contains(cStr))
+        return Provider::function_providers[cStr];
 
-	if (funcptr) {//Was it static exported variable 
-		Logger::Log(prototypedMsg);
-		return funcptr;
-	}
+    if (Provider::data_providers.contains(cStr))
+        return Provider::data_providers[cStr];
 
-	if (myConstantProvider.contains(cStr))
-		funcptr = myConstantProvider[cStr].hook;
+    if (Provider::passthrough_provider_cache.contains(cStr))
+        return Provider::passthrough_provider_cache[cStr];
 
-	if (funcptr == nullptr) {
-		funcptr = GetProcAddress(ntdll, cStr);
-		if (funcptr == nullptr) {
+    funcptr = GetProcAddress(LoadLibraryA("ntdll.dll"), cStr);
 
-#ifdef STUB_UNIMPLEMENTED
-			Logger::Log("\033[38;5;9mUSING STUB\033[0m\n");
-			funcptr = unimplemented_stub;
-#else
-			Logger::Log("\033[38;5;9mNOT_IMPLEMENTED\033[0m\n");
-			funcptr = 0;
-			exit(0);
-#endif
-		}
-		else {
-			Logger::Log(passthroughMsg);
-		}
-	}
-	else {
-		Logger::Log(prototypedMsg);
-	}
+    if (!funcptr)
+        funcptr = Provider::unimplemented_stub;
 
-	return funcptr;
-	*/
-    return 0;
+    Provider::passthrough_provider_cache.insert(std::pair(cStr, funcptr));
+
+    return funcptr;
 }
 
 HANDLE h_PsGetThreadProcessId(_ETHREAD* Thread) {

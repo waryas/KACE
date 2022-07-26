@@ -242,7 +242,7 @@ int main(int argc, char* argv[]) {
 
     Logger::Log("Loading modules\n");
 
-    auto MainModule = PEFile::Open("C:\\emu\\easyanticheat_03.sys", "easyanticheat_03.sys");
+    auto MainModule = PEFile::Open("C:\\emu\\faceit.sys", "easyanticheat_03.sys");
     MainModule->ResolveImport();
     MainModule->SetExecutable(true);
 
