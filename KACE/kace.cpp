@@ -268,6 +268,11 @@ int main(int argc, char* argv[]) {
 
 	symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
 	symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
+	symparser::download_symbols("c:\\emu\\ci.dll");
+	symparser::download_symbols("c:\\emu\\cng.sys");
+	symparser::download_symbols("c:\\emu\\fltMgr.sys");
+	symparser::download_symbols("c:\\emu\\HAL.dll");
+	symparser::download_symbols("c:\\emu\\kd.dll");
 
 	Environment::InitializeSystemModules();
 	MemoryTracker::Initiate();
@@ -287,7 +292,7 @@ int main(int argc, char* argv[]) {
 	Logger::Log("Loading modules\n");
 
 
-	auto MainModule = PEFile::Open("C:\\emu\\vgk.sys", "vgk.sys");
+	auto MainModule = PEFile::Open("C:\\emu\\vgk_old.sys", "vgk_old.sys");
 	MainModule->ResolveImport();
 	MainModule->SetExecutable(true);
 

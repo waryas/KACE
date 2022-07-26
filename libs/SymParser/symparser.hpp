@@ -26,4 +26,5 @@ namespace symparser {
 
     std::vector<sym_t> download_symbols(const std::filesystem::path& img);
     std::optional<sym_t> find_symbol(const std::filesystem::path& img, std::string_view symbol);
+    std::optional<sym_t> find_symbol(const std::filesystem::path& img, std::ptrdiff_t rva);
 } // namespace symparser

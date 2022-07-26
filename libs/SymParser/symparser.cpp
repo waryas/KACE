@@ -221,4 +221,17 @@ namespace symparser {
 
         return {};
     }
+
+    std::optional<sym_t> find_symbol(const std::filesystem::path& img, std::ptrdiff_t rva) {
+        const auto symbols = download_symbols(img);
+        if (symbols.empty())
+            return {};
+
+        const auto s = std::ranges::find_if(symbols, [&rva](const auto& ss) noexcept -> bool { return ss.rva == rva; });
+
+        if (s != std::end(symbols))
+            return *s;
+
+        return {};
+    }
 } // namespace symparser
