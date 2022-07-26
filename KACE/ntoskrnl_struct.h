@@ -2202,6 +2202,31 @@ struct _SYSTEM_MODULE_EX {
     ulonglong PadZero1; //at 0x138
 };
 
+typedef struct _LDR_DATA_TABLE_ENTRY {
+    LIST_ENTRY InLoadOrderLinks;
+    LIST_ENTRY InMemoryOrderLinks;
+    LIST_ENTRY InInitializationOrderModuleList;
+    PVOID DllBase;
+    PVOID EntryPoint;
+    ULONG SizeOfImage;
+    UNICODE_STRING FullDllName;
+    UNICODE_STRING BaseDllName;
+    ULONG Flags;
+    USHORT LoadCount;
+    USHORT TlsIndex;
+    union {
+        LIST_ENTRY HashLinks;
+        ULONG SectionPointer;
+    };
+    ULONG CheckSum;
+    union {
+        ULONG TimeDateStamp;
+        ULONG LoadedImports;
+    };
+    ULONG EntryPointActivationContext;
+    ULONG PatchInformation;
+} LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
+
 struct _KLDR_DATA_TABLE_ENTRY {
     struct _LIST_ENTRY InLoadOrderLinks; //0x0
     VOID* ExceptionTable; //0x8

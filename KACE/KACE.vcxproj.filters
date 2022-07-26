@@ -28,6 +28,9 @@
     <ClInclude Include="environment.h">
       <Filter>environment</Filter>
     </ClInclude>
+    <ClInclude Include="utils.h">
+      <Filter>utils</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />
@@ -83,6 +86,9 @@
     </Filter>
     <Filter Include="environment">
       <UniqueIdentifier>{2c1eb824-b5e9-413d-aa0f-2c7647958b24}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="utils">
+      <UniqueIdentifier>{72a2dbcd-0902-48c5-8c09-d701b991a4a9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -196,9 +196,12 @@ DWORD FakeDriverEntry(LPVOID) {
 
     __writeeflags(0x10286);
 
-    drvObj.DriverSection = (_KLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(_KLDR_DATA_TABLE_ENTRY) * 2);
+    drvObj.DriverSection = (_LDR_DATA_TABLE_ENTRY**)MemoryTracker::AllocateVariable(sizeof(UINT64));
 
-    MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(_KLDR_DATA_TABLE_ENTRY) * 2, "MainModule.DriverObject.DriverSection");
+    *(PLDR_DATA_TABLE_ENTRY**)drvObj.DriverSection = (PLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(UINT64));
+    **(PLDR_DATA_TABLE_ENTRY**)drvObj.DriverSection = Environment::PsLoadedModuleList;
+    
+    MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(UINT64), "MainModule.DriverObject.DriverSection");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
     MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
     MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
@@ -227,11 +230,11 @@ int main(int argc, char* argv[]) {
     symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
     symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
 
-    Environment::InitializeSystemModules();
     MemoryTracker::Initiate();
     VCPU::Initialize();
     PagingEmulation::SetupCR3();
     ntoskrnl_provider::Initialize();
+    Environment::InitializeSystemModules();
 
     DWORD dwMode;
 
@@ -242,7 +245,13 @@ int main(int argc, char* argv[]) {
 
     Logger::Log("Loading modules\n");
 
-    auto MainModule = PEFile::Open("C:\\emu\\easyanticheat_2.sys", "easyanticheat_03.sys");
+    std::string DriverPath;
+    if (argc > 1)
+        DriverPath = argv[1];
+    else
+        DriverPath = "C:\\emu\\easyanticheat_2.sys";
+
+    auto MainModule = PEFile::Open(DriverPath, "easyanticheat_03.sys");
     MainModule->ResolveImport();
     MainModule->SetExecutable(true);
 

@@ -194,6 +194,7 @@
     <ClInclude Include="provider.h" />
     <ClInclude Include="static_export_provider.h" />
     <ClInclude Include="emulation.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="inline_assembly.asm">
