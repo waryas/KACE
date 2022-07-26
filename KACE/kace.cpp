@@ -259,9 +259,6 @@ int main(int argc, char* argv[]) {
 	symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
 	symparser::download_symbols("c:\\Windows\\System32\\ntoskrnl.exe");
 
-	auto sym = symparser::find_symbol("c:\\Windows\\System32\\ntdll.dll", "RtlInsertInvertedFunctionTable");
-	assert(sym->rva == 0x20E0C);
-
 	Environment::InitializeSystemModules();
 	MemoryTracker::Initiate();
 	VCPU::Initialize();
