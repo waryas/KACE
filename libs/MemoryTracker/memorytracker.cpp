@@ -6,7 +6,7 @@ static __declspec(align(0x1000)) unsigned char PreAllocatedMemory[64 * 1024 * 10
 
 unsigned long MemoryTracker::usedPage = 0;
 
-static std::unordered_map<uint64_t, uint64_t> GVAMapping;
+inline std::unordered_map<uint64_t, uint64_t> GVAMapping{};
 
 bool MemoryTracker::AddMapping(uintptr_t GVA, size_t size, uintptr_t HVA) {
 

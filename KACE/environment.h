@@ -1,26 +1,12 @@
 #pragma once
 #include <unordered_map>
 #include <windows.h>
-
-struct windows_module {
-    ULONG Section;
-    PVOID MappedBase;
-    PVOID ImageBase;
-    ULONG ImageSize;
-    ULONG Flags;
-    USHORT LoadOrderIndex;
-    USHORT InitOrderIndex;
-    USHORT LoadCount;
-    USHORT OffsetToFileName;
-    CHAR FullPathName[256];
-    ULONG Checksum;
-    ULONG Timestamp;
-    PVOID Defaultbase;
-    bool overriden;
-};
+#include "ntoskrnl_struct.h"
+#include "utils.h"
 
 namespace Environment {
-    static std::unordered_map<uintptr_t, windows_module> environment_module;
+    inline std::unordered_map<uintptr_t, LDR_DATA_TABLE_ENTRY> environment_module{};
+    inline PLDR_DATA_TABLE_ENTRY PsLoadedModuleList;
 
     void InitializeSystemModules();
     void CheckPtr(uint64_t ptr);
