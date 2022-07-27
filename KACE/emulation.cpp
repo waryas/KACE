@@ -36,7 +36,9 @@ namespace VCPU {
     void Initialize() {
         ZydisDecoderInit(&decoder, ZYDIS_MACHINE_MODE_LONG_64, ZYDIS_ADDRESS_WIDTH_64);
         MemoryTracker::AddMapping(KUSD_MIN, 0x1000, KUSD_USERMODE);
-        MemoryTracker::AddMapping(0xFFFFcfe7f3f9f000, 512 * 8, (uintptr_t)&PML4.entries[0]);
+        
+
+        
         MSRContext::Initialize();
     }
 
@@ -340,10 +342,7 @@ namespace VCPU {
             }
 
             if (auto HVA = MemoryTracker::GetHVA(addr)) {
-                if (MemoryTracker::isTracked(HVA)) {
-                    DebugBreak();
-                }
-                else if (MemoryTracker::isTracked(addr))  {
+                if (MemoryTracker::isTracked(addr))  {
                     auto nameVar = MemoryTracker::getName(addr);
                     auto offset = MemoryTracker::getStart(nameVar);
                     Logger::Log("Emulating read from %s+%08x\n", nameVar.c_str(), addr-offset);

@@ -1,10 +1,6 @@
 #include <inttypes.h>
 #include <windows.h>
 
-namespace PagingEmulation {
-    void SetupCR3();
-}
-
 typedef struct _PML4E {
     union {
         struct {
@@ -24,7 +20,7 @@ typedef struct _PML4E {
         };
         ULONG64 Value;
     };
-} PML4E, *PPML4E;
+} PML4E, * PPML4E;
 
 typedef struct _PDPTE {
     union {
@@ -45,7 +41,7 @@ typedef struct _PDPTE {
         };
         ULONG64 Value;
     };
-} PDPTE, *PPDPTE;
+} PDPTE, * PPDPTE;
 
 typedef struct _PDE {
     union {
@@ -66,7 +62,7 @@ typedef struct _PDE {
         };
         ULONG64 Value;
     };
-} PDE, *PPDE;
+} PDE, * PPDE;
 
 typedef struct _PTE {
     union {
@@ -89,18 +85,10 @@ typedef struct _PTE {
         };
         ULONG64 Value;
     };
-} PTE, *PPTE;
+} PTE, * PPTE;
 
-static struct PML4 {
-    PML4E entries[512] = { 0 };
-} PML4;
+namespace PagingEmulation {
+    void SetupCR3();
+    PML4E* GetPML4();
 
-static struct PDPT { PDPTE entries[512] { 0 }; } PDPT;
-
-static struct PD {
-    PDE entries[512] = { 0 };
-} PD;
-
-static struct PT {
-    PTE entries[512] = { 0 };
-} PT;
+}

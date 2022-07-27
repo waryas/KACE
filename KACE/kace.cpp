@@ -134,7 +134,7 @@ const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Se
 
 DWORD FakeDriverEntry(LPVOID) {
 
-    AddVectoredExceptionHandler(true, ExceptionHandler);
+    
 
     Logger::Log("Calling the driver entrypoint\n");
 
@@ -225,6 +225,9 @@ __forceinline void init_dirs() {
 }
 
 int main(int argc, char* argv[]) {
+
+    AddVectoredExceptionHandler(true, ExceptionHandler);
+
     init_dirs();
 
     symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
@@ -233,8 +236,9 @@ int main(int argc, char* argv[]) {
     MemoryTracker::Initiate();
     VCPU::Initialize();
     PagingEmulation::SetupCR3();
-    ntoskrnl_provider::Initialize();
     Environment::InitializeSystemModules();
+    ntoskrnl_provider::Initialize();
+   
 
     DWORD dwMode;
 
