@@ -123,10 +123,10 @@ uint64_t h_RtlRandomEx(unsigned long* seed) {
 
 NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSize, PUNICODE_STRING DeviceName, DWORD DeviceType,
     ULONG DeviceCharacteristics, BOOLEAN Exclusive, _DEVICE_OBJECT** DeviceObject) {
-    *DeviceObject = (_DEVICE_OBJECT*)malloc(sizeof(_DEVICE_OBJECT));
+    *DeviceObject = (_DEVICE_OBJECT*)MemoryTracker::AllocateVariable(sizeof(_DEVICE_OBJECT));
     auto realDevice = *DeviceObject;
 
-    memset(*DeviceObject, 0, sizeof(_DEVICE_OBJECT));
+    memset(realDevice, 0, sizeof(_DEVICE_OBJECT));
 
     realDevice->DeviceType = DeviceType;
     realDevice->Type = 3;
@@ -134,6 +134,10 @@ NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSiz
     realDevice->ReferenceCount = 1;
     realDevice->DriverObject = DriverObject;
     realDevice->NextDevice = 0;
+    Logger::Log("\tCreated device : %ls\n", DeviceName->Buffer);
+
+    MemoryTracker::TrackVariable((uintptr_t)realDevice, sizeof(_DEVICE_OBJECT), "MainModule.CreatedDeviceObject");
+
 
     return 0;
 }
@@ -770,7 +774,13 @@ NTSTATUS h_PsTerminateSystemThread(NTSTATUS exitstatus) {
 void h_IofCompleteRequest(void* pirp, CHAR boost) { }
 
 //todo impl
-NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRING DeviceName) { return STATUS_SUCCESS; }
+NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRING DeviceName) { 
+    Logger::Log("\tSymbolic Link Name : %ls\n", SymbolicLinkName->Buffer);
+    Logger::Log("\tDeviceName : %ls\n", DeviceName->Buffer);
+
+    return STATUS_SUCCESS; 
+
+}
 
 BOOL h_IoIsSystemThread(_ETHREAD* thread) { return true; }
 
@@ -991,7 +1001,7 @@ unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
 
 	*/
     Logger::Log("\tGetting Physical address for %llx\n", BaseAddress);
-    uint64_t ret = 0x5100000;
+    uint64_t ret = BaseAddress/0x1000;
 
     if (BaseAddress == AllocatedContiguous) {
         Logger::Log("\tGetting physical for last Contiguous Allocated Memory.\n");
@@ -1145,8 +1155,51 @@ void h_KeClearEvent(_KEVENT* Event) { //This should set the Event to non-signale
 BOOLEAN h_KeReadStateTimer(_KTIMER* timer) { return false; }
 std::unordered_map<std::string, PVOID> api_provider;
 
+
+NTSTATUS h_ExGetFirmwareEnvironmentVariable(
+    PUNICODE_STRING VariableName,
+    LPGUID          VendorGuid,
+    PVOID           Value,
+    PULONG          ValueLength,
+    PULONG          Attributes
+) {
+    Logger::Log("\tReading UEFI Var : %ls - GUID : %llx-%llx-%llx-%llx\n", VariableName->Buffer, VendorGuid->Data1, VendorGuid->Data2, VendorGuid->Data3, VendorGuid->Data4);
+    if (*ValueLength)
+        Logger::Log("\tRequested length : %llx\n", *ValueLength);
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS h_ZwDeviceIoControlFile(
+    HANDLE           FileHandle,
+    HANDLE           Event,
+    PVOID  ApcRoutine,
+     PVOID            ApcContext,
+     PVOID IoStatusBlock,
+    ULONG            IoControlCode,
+    PVOID            InputBuffer,
+   ULONG            InputBufferLength,
+    PVOID            OutputBuffer,
+   ULONG            OutputBufferLength
+) {
+    auto ret = __NtRoutine("ZwDeviceIoControlFile", FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength);
+    Logger::Log("\tHandle : %llx\n", FileHandle);
+    Logger::Log("\tEvent : %llx\n", Event);
+    Logger::Log("\tAPC Routine : %llx\n", ApcRoutine);
+    Logger::Log("\tIOCTL : %llx\n", IoControlCode);
+    Logger::Log("\tLen : %d Buffer : \n\t", InputBufferLength);
+
+    for (int i = 0; i < InputBufferLength; i++) {
+        Logger::Log("%01x\n", ((unsigned char*)InputBuffer)[i]);
+    }
+    Logger::Log("\tRet : %llx\n", ret);
+
+    return ret;
+}
+
 void ntoskrnl_provider::Initialize() {
-    Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
+    Provider::AddFuncImpl("ZwDeviceIoControlFile", h_ZwDeviceIoControlFile);
+    Provider::AddFuncImpl("ExGetFirmwareEnvironmentVariable", h_ExGetFirmwareEnvironmentVariable);
     Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
     Provider::AddFuncImpl("KeClearEvent", h_KeClearEvent);
     Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForSingleObject); //KeWaitForMutexObject = KeWaitForSingleObject

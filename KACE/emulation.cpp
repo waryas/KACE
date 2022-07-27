@@ -412,7 +412,7 @@ namespace VCPU {
                                 Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
                                 _PML4E* pml4e1 = PagingEmulation::GetPML4();
                                 pml4e1[Offset / 8].Present = 1;
-                                pml4e1[Offset / 8].PageFrameNumber = 0x5a9000;
+                                pml4e1[Offset / 8].PageFrameNumber = translatedAddr / 0x1000;
                                 return EmulateRead((uintptr_t)PagingEmulation::GetPML4() + Offset, context);
                             }
                             else {
