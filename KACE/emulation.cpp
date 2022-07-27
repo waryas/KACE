@@ -363,12 +363,85 @@ namespace VCPU {
                 
                 return EmulateRead(HVA, context);
             } else {
-                if (addr == 0xffffffffffffffff)
+                if (addr == 0xffffffffffffffff) {
+                    if (context->Rax >= 0xFFFF000000000000) {
+                        context->Rax -= 0xFFFF000000000000;
+                        return true;
+                    }
                     return false;
-                Environment::CheckPtr(addr);
-                Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
-                fflush(stdout);
-                return false;
+                }
+                if (addr) {
+                    uint16_t PML4E = (uint16_t)((addr >> 39) & 0x1FF); //<! PML4 Entry Index
+                    uint16_t PDPTE = (uint16_t)((addr >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
+                    uint16_t PDTE = (uint16_t)((addr >> 21) & 0x1FF); //<! Page Directory Table Index
+                    uint16_t PTE = (uint16_t)((addr >> 12) & 0x1FF);
+                    uint16_t Offset = addr & 0xFFF;
+                    if (PML4E == 481) {
+                        Logger::Log("CR3 operation\n");
+                        if (PTE == 481 && PDPTE == 481 && PDTE == 481) {
+                            Logger::Log("Getting entry %d for PML4\n", Offset/8);
+                            _PML4E* pml4e1 = PagingEmulation::GetPML4();
+                            pml4e1[Offset / 8].Present = 1;
+                            if (Offset / 8 == 481)
+                                pml4e1[Offset / 8].PageFrameNumber = 0x1AD;
+                            else
+                                pml4e1[Offset / 8].PageFrameNumber = 0x401D9E;
+                            return EmulateRead((uintptr_t)PagingEmulation::GetPML4()+Offset, context);
+                        }
+                        else {
+                            if (PDPTE == 481 && PDTE == 481 && PTE != 481) {
+                                auto translatedAddr = ((UINT64)0x0000 << 48) |
+                                    ((UINT64)PTE << 39) |
+                                    ((UINT64)Offset / 8 << 30) |
+                                    ((UINT64)0 << 21) |
+                                    ((UINT64)0 << 12) |
+                                    ((UINT64)0);
+                                Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
+                                _PML4E* pml4e1 = PagingEmulation::GetPML4();
+                                
+                                pml4e1[Offset / 8].Present = 1;
+                                pml4e1[Offset / 8].PageFrameNumber = translatedAddr/0x1000;
+                                return EmulateRead((uintptr_t)PagingEmulation::GetPML4() + Offset, context);
+                            } else  if (PDPTE == 481 && PDTE != 481 && PTE != 481) {
+                                auto translatedAddr = ((UINT64)0x0000 << 48) |
+                                    ((UINT64)PDTE << 39) |
+                                    ((UINT64)PTE << 30) |
+                                    ((UINT64)Offset/8 << 21) |
+                                    ((UINT64)0 << 12) |
+                                    ((UINT64)0);
+                                Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
+                                _PML4E* pml4e1 = PagingEmulation::GetPML4();
+                                pml4e1[Offset / 8].Present = 1;
+                                pml4e1[Offset / 8].PageFrameNumber = 0x5a9000;
+                                return EmulateRead((uintptr_t)PagingEmulation::GetPML4() + Offset, context);
+                            }
+                            else {
+                                auto translatedAddr = ((UINT64)0x0000 << 48) |
+                                    ((UINT64)PDPTE << 39) |
+                                    ((UINT64)PDTE << 30) |
+                                    ((UINT64)PTE << 21) |
+                                    ((UINT64)Offset / 8 << 12) |
+                                    ((UINT64)0);
+                                Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
+                                _PML4E* pml4e1 = PagingEmulation::GetPML4();
+                                pml4e1[Offset / 8].Present = 0;
+                                pml4e1[Offset / 8].PageFrameNumber = 0x555;
+                                return EmulateRead((uintptr_t)PagingEmulation::GetPML4() + Offset, context);
+                            }
+                        }
+                    }
+                    else {
+                        Environment::CheckPtr(addr);
+                        Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
+                        fflush(stdout);
+                        return false;
+                    }
+                } else {
+                    Environment::CheckPtr(addr);
+                    Logger::Log("Logging from a memory that has no usermode mapping : %llx\n", addr);
+                    fflush(stdout);
+                    return false;
+                }
             }
         }
 

@@ -979,6 +979,8 @@ unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
     uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
     uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF); //<! Page Directory Table Index
     uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);
+
+
     /*
 
 
@@ -989,13 +991,13 @@ unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
 
 	*/
     Logger::Log("\tGetting Physical address for %llx\n", BaseAddress);
-    uint64_t ret = 0;
+    uint64_t ret = 0x5100000;
 
     if (BaseAddress == AllocatedContiguous) {
         Logger::Log("\tGetting physical for last Contiguous Allocated Memory.\n");
         ret = 0xb0000000;
     }
-    if (BaseAddress == 0xcfe7f3f9f000) {
+    if (BaseAddress == 0xf0f87c3e1000) {
         ret = 0x1ad000;
     } else if (BaseAddress == 0xfb7dbedf6000) {
         ret = 0x200000;
