@@ -1261,9 +1261,45 @@ NTSTATUS h_IoGetDeviceInterfaces(
     return STATUS_NOT_FOUND;
 }
 
+typedef struct _MM_COPY_ADDRESS {
+    union {
+        PVOID            VirtualAddress;
+        PVOID PhysicalAddress;
+    };
+} MM_COPY_ADDRESS, * PMMCOPY_ADDRESS;
 
+#define MM_COPY_MEMORY_PHYSICAL             0x1
+#define MM_COPY_MEMORY_VIRTUAL              0x2
+NTSTATUS h_MmCopyMemory(
+    PVOID           TargetAddress,
+    MM_COPY_ADDRESS SourceAddress,
+    SIZE_T          NumberOfBytes,
+    ULONG           Flags,
+    PSIZE_T         NumberOfBytesTransferred
+){
+    if (Flags == MM_COPY_MEMORY_PHYSICAL) {
+        *NumberOfBytesTransferred = NumberOfBytes;
+    }
+    else {
+        Logger::Log("\tCopyying %d bytes from %llx to %llx\n", NumberOfBytes, SourceAddress, TargetAddress);
+        *NumberOfBytesTransferred = NumberOfBytes;
+    }
+    return STATUS_SUCCESS;
+}
 
+PVOID k_MmMapIoSpaceEx(
+   uint64_t PhysicalAddress,
+   SIZE_T           NumberOfBytes,
+   ULONG            Protect
+) {
+    if (PhysicalAddress == 0xfee00000)
+        return 0;
+    return (PVOID)(PhysicalAddress * 0x1000);
+}
 void ntoskrnl_provider::Initialize() {
+    
+    Provider::AddFuncImpl("MmMapIoSpaceEx", k_MmMapIoSpaceEx);
+    Provider::AddFuncImpl("MmCopyMemory", h_MmCopyMemory);
     Provider::AddFuncImpl("IoGetDeviceInterfaces", h_IoGetDeviceInterfaces);
     Provider::AddFuncImpl("ZwDeviceIoControlFile", h_ZwDeviceIoControlFile);
     Provider::AddFuncImpl("NtDeviceIoControlFile", h_ZwDeviceIoControlFile);

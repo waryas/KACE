@@ -23,11 +23,16 @@ namespace VCPU {
 
         bool Initialize() {
             MSRData.insert(std::pair(0x1D9, std::pair(0, "DBGCTL_MSR")));
+            MSRData.insert(std::pair(0x122, std::pair(0,"IA32_TSX_CTRL MSR")));
             MSRData.insert(std::pair(0x1DB, std::pair(0, "MSRLASTBRANCH-_FROM_IP_MSR")));
             MSRData.insert(std::pair(0x680, std::pair(0, "LastBranchFromIP_MSR")));
             MSRData.insert(std::pair(0x1c9, std::pair(0, "MSR_LASTBRANCH_TOS")));
             MSRData.insert(std::pair(0, std::pair(0xFFF, "MSR_0_P5_IP_ADDR")));
             MSRData.insert(std::pair(0xc0000082, std::pair(0x10000, "MSR_LSTAR")));
+            MSRData.insert(std::pair(0x1B, std::pair(0xfee00800, "IA32_APIC_BASE")));
+            
+
+            
 
             return true;
         }
