@@ -1,4 +1,5 @@
 #include "environment.h"
+#include "utils.h"
 #include <MemoryTracker/memorytracker.h>
 #include <Logger/Logger.h>
 #include <PEMapper/pefile.h>
@@ -44,6 +45,11 @@ struct windows_module {
 };
 
 */
+
+
+
+
+
 void Environment::InitializeSystemModules() {
     uint64_t len = 0;
     PVOID data = 0;
@@ -106,42 +112,36 @@ void Environment::InitializeSystemModules() {
         pMods = (PRTL_PROCESS_MODULE_INFORMATION_EX)((uintptr_t)pMods + pMods->NextOffset);
     }
 
-    const auto LinkEntries = [](PLDR_DATA_TABLE_ENTRY EntryA, PLDR_DATA_TABLE_ENTRY EntryB) {
-        EntryB->InInitializationOrderModuleList.Blink = &EntryA->InInitializationOrderModuleList;
-        EntryA->InInitializationOrderModuleList.Flink = &EntryB->InInitializationOrderModuleList;
-        EntryB->InLoadOrderLinks.Blink = &EntryA->InLoadOrderLinks;
-        EntryA->InLoadOrderLinks.Flink = &EntryB->InLoadOrderLinks;
-        EntryB->InMemoryOrderLinks.Blink = &EntryA->InMemoryOrderLinks;
-        EntryA->InMemoryOrderLinks.Flink = &EntryB->InMemoryOrderLinks;
-    };
+    
 
-    // Link the whole list
-    PLDR_DATA_TABLE_ENTRY PreviousEntry = NULL;
-    for (auto& [_, LdrEntry] : environment_module) {
-        if (PreviousEntry) {
-            LinkEntries(PreviousEntry, &LdrEntry);
-        }
+    PLDR_DATA_TABLE_ENTRY head = 0;
+    
+  
 
-        PreviousEntry = &LdrEntry;
-    }
 
-    PLDR_DATA_TABLE_ENTRY FirstEntry = &environment_module.begin()->second;
-    PLDR_DATA_TABLE_ENTRY LastEntry = &(--environment_module.end())->second;
-
-    LinkEntries(FirstEntry, LastEntry);
-
-    // Track this shit
     for (auto& [_, LdrEntry] : environment_module) {
         PLDR_DATA_TABLE_ENTRY TrackedLdrEntry = (PLDR_DATA_TABLE_ENTRY)MemoryTracker::AllocateVariable(sizeof(LDR_DATA_TABLE_ENTRY));
-        if (PsLoadedModuleList == NULL)
-            PsLoadedModuleList = TrackedLdrEntry;
+
 
         memcpy(TrackedLdrEntry, &LdrEntry, sizeof(LdrEntry));
 
+        if (!head) {
+            head = TrackedLdrEntry;
+            InitializeListHead(&head->InLoadOrderLinks);
+        }
+        else {
+            InsertTailList(&head->InLoadOrderLinks, &TrackedLdrEntry->InLoadOrderLinks);
+        }
+
+        if (wcsstr(TrackedLdrEntry->BaseDllName.Buffer, L"ntoskrnl.exe"))
+            PsLoadedModuleList = TrackedLdrEntry;
+
         std::string VariableName = std::string("LdrEntry.")
             + UtilStringFromWidestring(LdrEntry.BaseDllName.Buffer);
+        
         MemoryTracker::TrackVariable((uintptr_t)TrackedLdrEntry, sizeof(LDR_DATA_TABLE_ENTRY), VariableName);
     }
+   
 }
 
 void Environment::CheckPtr(uint64_t ptr) {

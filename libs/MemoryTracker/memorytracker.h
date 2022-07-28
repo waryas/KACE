@@ -15,6 +15,7 @@ class MemoryTracker {
 public:
     static void Initiate();
     static bool TrackVariable(uint64_t ptr, uint64_t size, std::string name);
+    static bool TrackVariable(uint64_t ptr, uint64_t size, std::string name, uintptr_t GVA);
     static bool isTracked(uint64_t ptr);
     static std::string getName(uint64_t ptr);
     static uint64_t getStart(std::string name);

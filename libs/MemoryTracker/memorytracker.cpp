@@ -58,6 +58,33 @@ bool MemoryTracker::TrackVariable(uint64_t ptr, uint64_t size, std::string name)
     return true;
 }
 
+
+bool MemoryTracker::TrackVariable(uint64_t ptr, uint64_t size, std::string name, uintptr_t gva) {
+
+    if (ptr != PAGE_ALIGN_DOWN(ptr)) {
+        DebugBreak(); //Can only track variables that are page_aligned;
+    }
+    if (gva != PAGE_ALIGN_DOWN(gva)) {
+        DebugBreak(); //Can only track variables that are page_aligned;
+    }
+    DWORD oldProtect = 0;
+    uint64_t totalPage = (size / 4096) + ((size % 4096) ? 1 : 0);
+
+    for (int i = 0; i < totalPage; i++) {
+        mem->mapping.insert(std::pair(ptr + (i * 0x1000), name));
+        mem->mapping.insert(std::pair(gva + (i * 0x1000), name));
+        auto shadowmemory = (uintptr_t)_aligned_malloc(0x1000, 0x1000);
+        AddMapping(ptr + (i * 0x1000), 0x1000, shadowmemory);
+        AddMapping(gva + (i * 0x1000), 0x1000, shadowmemory);
+        memcpy((PVOID)shadowmemory, (PVOID)(ptr + (i * 0x1000)), 0x1000);
+        VirtualProtect((PVOID)(ptr + (i * 0x1000)), 0x1000, PAGE_NOACCESS, &oldProtect);
+    }
+
+    mem->firstAlloc.insert(std::pair(name, gva));
+    return true;
+}
+
+
 bool MemoryTracker::isTracked(uint64_t ptr) { return mem->mapping.contains(PAGE_ALIGN_DOWN(ptr)); }
 
 uintptr_t MemoryTracker::AllocateVariable(uint64_t size) {

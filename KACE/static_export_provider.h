@@ -87,13 +87,13 @@ MONITOR uint64_t NtGlobalFlag = 0;
 MONITOR uint64_t POGOBuffer = 0;
 MONITOR uint64_t PsInitialSystemProcess = 70000000;
 MONITOR uint64_t PsJobType = 0;
-MONITOR _KLDR_DATA_TABLE_ENTRY* PsLoadedModuleList = 0;
+MONITOR PLDR_DATA_TABLE_ENTRY PsLoadedModuleList = 0;
 MONITOR uint64_t PsLoadedModuleResource = 0x600000;
 MONITOR uint64_t PsPartitionType = 0;
 MONITOR _OBJECT_TYPE* PsProcessType = 0x0; //crashes here atm, need ot fix. it's a _OBJECT_TYPE*
 MONITOR uint64_t PsSiloContextNonPagedType = 0;
 MONITOR uint64_t PsSiloContextPagedType = 0;
-MONITOR uint64_t PsThreadType = 0x660606000;
+MONITOR _OBJECT_TYPE* PsThreadType = 0x0;
 MONITOR uint64_t PsUILanguageComitted = 0;
 MONITOR uint64_t SeILSigningPolicyPtr = 0;
 MONITOR uint64_t SePublicDefaultDacl = 0;
@@ -108,7 +108,7 @@ MONITOR uint64_t psMUITest = 0;
 
 namespace ntoskrnl_export {
     void Initialize();
-    void InitializePsProcessType();
+    void InitializeObjectType();
     void InitializePsLoadedModuleList();
     void InitializeExport();
 } // namespace ntoskrnl_export

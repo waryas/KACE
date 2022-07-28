@@ -9,6 +9,8 @@
 #include "nt_define.h"
 #include <Logger/Logger.h>
 
+#include "environment.h"
+
 using fnFreeCall = uint64_t(__fastcall*)(...);
 
 template <typename... Params>
@@ -19,6 +21,43 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
 
 #define NtQuerySystemInformation(...) __NtRoutine("NtQuerySystemInformation", __VA_ARGS__)
 
+struct ThreadInfo {
+    LPTHREAD_START_ROUTINE routineStart;
+    PVOID routineContext;
+    HANDLE mutex;
+    _ETHREAD* ethread;
+};
+
+void TrampolineThread(ThreadInfo* info) {
+    auto newETHREAD = (_ETHREAD*)MemoryTracker::AllocateVariable(sizeof(_ETHREAD));
+    __writegsqword(0x188, (DWORD64)newETHREAD); //Fake KTHREAD
+    __writegsqword(0x18, (DWORD64)&FakeKPCR); //Fake _KPCR
+    __writegsqword(0x20, (DWORD64)&FakeCPU); //Fake _KPRCB
+
+    newETHREAD->Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
+    newETHREAD->Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
+
+    newETHREAD->Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
+    newETHREAD->Cid.UniqueThread = (PVOID)GetCurrentThreadId(); //PsGetThreadId
+
+    newETHREAD->Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
+    newETHREAD->Tcb.State = 1; //
+    newETHREAD->Tcb.InitialStack = (void*)0x1000;
+    newETHREAD->Tcb.StackBase = (void*)0x1500;
+    newETHREAD->Tcb.StackLimit = (void*)0x2000;
+    newETHREAD->Tcb.ThreadLock = 11;
+    newETHREAD->Tcb.LockEntries = (_KLOCK_ENTRY*)22;
+    char ThreadName[256] = { 0 };
+    sprintf(ThreadName, "ETHREAD%04x", GetCurrentThreadId());
+    MemoryTracker::TrackVariable((uintptr_t)newETHREAD, sizeof(*newETHREAD), ThreadName);
+    __writeeflags(0x10286);
+    Logger::Log("Thread Initialized, starting...\n");
+    info->ethread = newETHREAD;
+    SetEvent(info->mutex);
+    auto ret = info->routineStart(info->routineContext);
+    Logger::Log("End of thread with return : %llx\n", ret);
+    
+}
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     auto ptr = _aligned_malloc(size, 0x1000);
     return ptr;
@@ -123,10 +162,10 @@ uint64_t h_RtlRandomEx(unsigned long* seed) {
 
 NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSize, PUNICODE_STRING DeviceName, DWORD DeviceType,
     ULONG DeviceCharacteristics, BOOLEAN Exclusive, _DEVICE_OBJECT** DeviceObject) {
-    *DeviceObject = (_DEVICE_OBJECT*)malloc(sizeof(_DEVICE_OBJECT));
+    *DeviceObject = (_DEVICE_OBJECT*)MemoryTracker::AllocateVariable(sizeof(_DEVICE_OBJECT));
     auto realDevice = *DeviceObject;
 
-    memset(*DeviceObject, 0, sizeof(_DEVICE_OBJECT));
+    memset(realDevice, 0, sizeof(_DEVICE_OBJECT));
 
     realDevice->DeviceType = DeviceType;
     realDevice->Type = 3;
@@ -134,6 +173,10 @@ NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSiz
     realDevice->ReferenceCount = 1;
     realDevice->DriverObject = DriverObject;
     realDevice->NextDevice = 0;
+    Logger::Log("\tCreated device : %ls\n", DeviceName->Buffer);
+
+    MemoryTracker::TrackVariable((uintptr_t)realDevice, sizeof(_DEVICE_OBJECT), "MainModule.CreatedDeviceObject");
+
 
     return 0;
 }
@@ -142,29 +185,13 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
     PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess, ULONG Disposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength,
     void* CreateFileType, PVOID InternalParameters, ULONG Options, void* DriverContext) {
 
-    PUNICODE_STRING OLDBuffer;
-    OLDBuffer = ObjectAttributes->ObjectName;
-    UNICODE_STRING TempBuffer;
-    TempBuffer.Buffer = (wchar_t*)malloc(512);
-    memset(TempBuffer.Buffer, 0, 512);
 
-    wcscat(TempBuffer.Buffer, L"\\??\\C:\\kace");
-    wcscat(TempBuffer.Buffer, OLDBuffer->Buffer);
-    TempBuffer.Buffer[12] = 'c';
-    TempBuffer.Buffer[13] = 'a';
-    TempBuffer.Buffer[16] = 'a';
-    TempBuffer.Length = wcslen(TempBuffer.Buffer) * 2;
-    TempBuffer.MaximumLength = wcslen(TempBuffer.Buffer) * 2;
-    ObjectAttributes->ObjectName = &TempBuffer;
-    ObjectAttributes->Attributes = 0x00000040;
     Logger::Log("\tCreating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
     if (DesiredAccess == 0xC0000000)
         DesiredAccess = 0xC0100080;
     auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess,
         Disposition, CreateOptions, EaBuffer, EaLength);
     Logger::Log("\tReturn : %08x\n", ret);
-    ObjectAttributes->ObjectName = OLDBuffer;
-    free(TempBuffer.Buffer);
 
     return 0;
 }
@@ -178,7 +205,10 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State) {
     *(WORD*)((char*)&Event->Header.Lock + 1) = 0x600; //saw this on ida, someone explain me
 
     auto hEvent = CreateEvent(NULL, NULL, State, NULL);
+    auto hMutex = CreateMutex(NULL, false, NULL);
     HandleManager::AddMap((uintptr_t)Event, (uintptr_t)hEvent);
+    MutexManager::mutex_manager.insert(std::pair((uintptr_t)Event, (uintptr_t)hMutex));
+
     Logger::Log("\tEvent object : %llx\n", Event);
 }
 
@@ -248,8 +278,15 @@ NTSTATUS h_ZwClose(HANDLE Handle) {
     Logger::Log("\tClosing Kernel Handle : %llx\n", Handle);
     if (!Handle)
         return STATUS_NOT_FOUND;
-    auto ret = __NtRoutine("NtClose", Handle);
-    return ret;
+    __try {
+        auto ret = __NtRoutine("NtClose", Handle);
+        return STATUS_SUCCESS;
+    }
+    __except (1) {
+        return STATUS_NOT_FOUND;
+    }
+    return STATUS_SUCCESS;
+    
 }
 
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData, ULONG ValueLength) {
@@ -332,17 +369,40 @@ NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, P
 }
 
 void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex) {
-    auto fm = &FastMutex[0];
+    auto fm = FastMutex;
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)&fm->Gate))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)&fm->Gate];
+
+    auto ret = WaitForSingleObject((HANDLE)hMutex, INFINITE);
+
+    if (ret) {
+        DebugBreak();
+    }
+
     fm->OldIrql = 0; //PASSIVE_LEVEL
     fm->Owner = (_KTHREAD*)h_KeGetCurrentThread();
-    //fm = &FastMutex[0];
-    //fm->OldIrql = 0; //PASSIVE_LEVEL
-    // fm->Owner = (_KTHREAD*)&FakeKernelThread;
     fm->Count--;
+
+
     return;
 }
 
 void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex) {
+
+    auto fm = FastMutex;
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)&fm->Gate))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)&fm->Gate];
+    auto ret = ReleaseMutex((HANDLE)hMutex);
+
+    if (!ret)
+        DebugBreak();
+
     FastMutex->OldIrql = 0; //PASSIVE_LEVEL
     FastMutex->Owner = 0;
     FastMutex->Count++;
@@ -406,7 +466,12 @@ _EPROCESS* h_PsGetCurrentThreadProcess() { return (_EPROCESS*)h_KeGetCurrentThre
 
 HANDLE h_PsGetCurrentThreadId() { return h_KeGetCurrentThread()->Cid.UniqueThread; }
 
-HANDLE h_PsGetCurrentThreadProcessId() { return h_KeGetCurrentThread()->Cid.UniqueProcess; }
+HANDLE h_PsGetCurrentThreadProcessId() { 
+    //Logger::Log("About to do stuff\n");
+    auto meh = h_KeGetCurrentThread()->Cid.UniqueProcess; 
+    //Logger::Log("Done\n");
+    return meh;
+}
 
 NTSTATUS h_NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass, PVOID ProcessInformation,
     ULONG ProcessInformationLength, PULONG ReturnLength) {
@@ -548,14 +613,26 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc) {
     Logger::Log("\tTimer object : %llx\n", Timer);
     Logger::Log("\tDPC object : %llx\n", Dpc);
 
+    if (Dpc)
+        DebugBreak();
+
     memcpy(&Timer->DueTime, &DueTime, sizeof(DueTime));
 
-    Timer->Header.SignalState = 1;
+    if (TimerManager::timer_manager.contains(Timer))
+        TimerManager::timer_manager[Timer] = GetTickCount64();
+    else
+        TimerManager::timer_manager.insert(std::pair(Timer, GetTickCount64()));
+
+    Timer->Header.SignalState = 0;
 
     return true;
 }
 
-void h_KeInitializeTimer(_KTIMER* Timer) { InitializeListHead(&Timer->TimerListEntry); }
+void h_KeInitializeTimer(_KTIMER* Timer) { 
+    InitializeListHead(&Timer->TimerListEntry); 
+    Timer->Header.SignalState = 0;
+}
+
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context) {
     Logger::Log("\tBroadcastFunction: %llx\n", static_cast<const void*>(BroadcastFunction));
     Logger::Log("\tContent: %llx\n", reinterpret_cast<const void*>(Context));
@@ -676,7 +753,9 @@ NTSTATUS h_PsSetCreateProcessNotifyRoutineEx(void* NotifyRoutine, BOOLEAN Remove
     }
 }
 
-UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock) { return (UCHAR)0x00; }
+UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock) { 
+    return (UCHAR)0x00; 
+}
 
 void h_KeReleaseSpinLock(PKSPIN_LOCK SpinLock, UCHAR NewIrql) { }
 
@@ -736,45 +815,95 @@ int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list 
 }
 
 //todo fix mutex bs
-void h_KeInitializeMutex(PVOID Mutex, ULONG level) { }
+void h_KeInitializeMutex(PVOID Mutex, ULONG level) { 
+    DebugBreak();
 
-LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { return 0; }
+}
 
-//todo object might be invalid
+LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { 
+    DebugBreak();
+    return 0; }
+
+
 NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
 
     auto hEvent = HandleManager::GetHandle((uintptr_t)Object);
+    if (!hEvent)
+        DebugBreak();
     WaitForSingleObject((HANDLE)hEvent, INFINITE);
     return STATUS_SUCCESS;
 };
 
-ULONG h_KeQueryTimeIncrement() { return 1000; }
 
-//todo impl might be broken
-NTSTATUS h_PsCreateSystemThread(PHANDLE ThreadHandle, ULONG DesiredAccess, void* ObjectAttributes, HANDLE ProcessHandle, void* ClientId,
+NTSTATUS h_KeWaitForMutextObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)Object))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)Object];
+
+    WaitForSingleObject((HANDLE)hMutex, INFINITE);
+    return STATUS_SUCCESS;
+};
+
+ULONG h_KeQueryTimeIncrement() { 
+    return 156250; //machine with no hv
+}
+
+
+NTSTATUS h_PsCreateSystemThread(PHANDLE ThreadHandle, ULONG DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes, HANDLE ProcessHandle, void* ClientId,
     void* StartRoutine, PVOID StartContext) {
-    auto ret = CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
+    ThreadInfo* ti = (ThreadInfo*)malloc(sizeof(ThreadInfo));
+    if (!ti)
+        return STATUS_NO_MEMORY;
+
+    ti->routineContext = StartContext;
+    ti->routineStart = (LPTHREAD_START_ROUTINE)StartRoutine;
+    ti->mutex = CreateEvent(NULL, false, false, NULL);
+
+    if (!ti->mutex)
+        return STATUS_NO_MEMORY;
+
+    auto ret = CreateThread(nullptr, 8192, (LPTHREAD_START_ROUTINE)TrampolineThread, ti, 0, 0);
+    WaitForSingleObject(ti->mutex, INFINITE);
     *ThreadHandle = ret;
-    //Sleep(100000);
+    Environment::ThreadManager::environment_threads.insert(std::pair((uintptr_t)ret, ti->ethread));
+
     return STATUS_SUCCESS;
 }
 
 //todo impl
 NTSTATUS h_PsTerminateSystemThread(NTSTATUS exitstatus) {
     Logger::Log("\tthread boom\n");
-    //__debugbreak(); int* a = 0; *a = 1; return 0;
+
     ExitThread(exitstatus);
 }
 
 //todo impl
-void h_IofCompleteRequest(void* pirp, CHAR boost) { }
+void h_IofCompleteRequest(void* pirp, CHAR boost) {
+
+
+}
 
 //todo impl
-NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRING DeviceName) { return STATUS_SUCCESS; }
+NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRING DeviceName) { 
+    Logger::Log("\tSymbolic Link Name : %ls\n", SymbolicLinkName->Buffer);
+    Logger::Log("\tDeviceName : %ls\n", DeviceName->Buffer);
 
-BOOL h_IoIsSystemThread(_ETHREAD* thread) { return true; }
+    return STATUS_SUCCESS; 
 
-void h_IoDeleteDevice(_DEVICE_OBJECT* obj) { }
+}
+
+BOOL h_IoIsSystemThread(_ETHREAD* thread) { 
+    auto ret = (thread->Tcb.MiscFlags & 0x400) != 0;
+
+    return ret;
+
+}
+
+void h_IoDeleteDevice(_DEVICE_OBJECT* obj) {
+    
+}
 
 //todo definitely will blowup
 void* h_IoGetTopLevelIrp() {
@@ -783,13 +912,34 @@ void* h_IoGetTopLevelIrp() {
     return &irp;
 }
 
-NTSTATUS h_ObReferenceObjectByHandle(HANDLE handle, ACCESS_MASK DesiredAccess, GUID* ObjectType, uint64_t AccessMode, PVOID* Object,
+NTSTATUS h_ObReferenceObjectByHandle(HANDLE handle, ACCESS_MASK DesiredAccess, _OBJECT_TYPE* ObjectType, uint64_t AccessMode, PVOID* Object,
     void* HandleInformation) {
-    Logger::Log("\th_ObReferenceObjectByHandle blows up sorry\n");
-    *(PHANDLE)(Object) = &FakeKernelThread;
+
     if (HandleInformation) {
-        *(PHANDLE)(HandleInformation) = handle;
+        
     }
+
+    if (ObjectType == PsThreadType) {
+        *(PHANDLE)(Object) = &FakeKernelThread;
+
+        if (Environment::ThreadManager::environment_threads.contains((uintptr_t)handle)) {
+            *(_ETHREAD**)(Object) = Environment::ThreadManager::environment_threads[(uintptr_t)handle];
+        }
+        else {
+            DebugBreak();
+        }
+    }
+    else if (ObjectType == PsProcessType) {
+        *(PHANDLE)(Object) = handle;
+    }
+    else if (!ObjectType) //Ugh
+    {
+        *(PHANDLE)(Object) = handle;
+    }
+    else {
+        *(PHANDLE)(Object) = handle;
+    }
+
 
     return 0;
 }
@@ -800,15 +950,16 @@ NTSTATUS h_ObRegisterCallbacks(PVOID CallbackRegistration, PVOID* RegistrationHa
     return STATUS_SUCCESS;
 }
 
-void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) { }
+void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) { 
+
+}
 
 void* h_ObGetFilterVersion(void* arg) { return 0; }
 
 BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
-    Logger::Log("\tChecking for %llx\n", VirtualAddress);
-    if (VirtualAddress == 0)
+    if ((uintptr_t)VirtualAddress <= 0x10000)
         return false;
-    return true; // rand() % 2 :troll:
+    return true;
 }
 
 NTSTATUS h_PsSetCreateThreadNotifyRoutine(PVOID NotifyRoutine) { return STATUS_SUCCESS; }
@@ -835,103 +986,6 @@ NTSTATUS h_ZwOpenSection(PHANDLE SectionHandle, ACCESS_MASK DesiredAccess, OBJEC
     return ret;
 }
 
-/*
-uint64_t TranslateLinearAddress(uint64_t directoryTableBase, uint64_t virtualAddress)
-{
-	uint16_t PML4 = (uint16_t)((virtualAddress >> 39) & 0x1FF);         //<! PML4 Entry Index
-	uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
-	uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF);    //<! Page Directory Table Index
-	uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);        //<! Page Table Index
-
-																	// Read the PML4 Entry. DirectoryTableBase has the base address of the table.
-																	// It can be read from the CR3 register or from the kernel process object.
-	uint64_t PML4E = 0;// ReadPhysicalAddress<ulong>(directoryTableBase + (ulong)PML4 * sizeof(ulong));
-	Read(directoryTableBase + (uint64_t)PML4 * sizeof(uint64_t), (uint8_t*)&PML4E, sizeof(PML4E));
-
-	if (PML4E == 0)
-		return 0;
-
-	// The PML4E that we read is the base address of the next table on the chain,
-	// the Page-Directory-Pointer Table.
-	uint64_t PDPTE = 0;// ReadPhysicalAddress<ulong>((PML4E & 0xFFFF1FFFFFF000) + (ulong)DirectoryPtr * sizeof(ulong));
-	Read((PML4E & 0xFFFF1FFFFFF000) + (uint64_t)DirectoryPtr * sizeof(uint64_t), (uint8_t*)&PDPTE, sizeof(PDPTE));
-
-	if (PDPTE == 0)
-		return 0;
-
-	//Check the PS bit
-	if ((PDPTE & (1 << 7)) != 0)
-	{
-		// If the PDPTE¨s PS flag is 1, the PDPTE maps a 1-GByte page. The
-		// final physical address is computed as follows:
-		// ！ Bits 51:30 are from the PDPTE.
-		// ！ Bits 29:0 are from the original va address.
-		return (PDPTE & 0xFFFFFC0000000) + (virtualAddress & 0x3FFFFFFF);
-	}
-
-	// PS bit was 0. That means that the PDPTE references the next table
-	// on the chain, the Page Directory Table. Read it.
-	uint64_t PDE = 0;// ReadPhysicalAddress<ulong>((PDPTE & 0xFFFFFFFFFF000) + (ulong)Directory * sizeof(ulong));
-	Read((PDPTE & 0xFFFFFFFFFF000) + (uint64_t)Directory * sizeof(uint64_t), (uint8_t*)&PDE, sizeof(PDE));
-
-	if (PDE == 0)
-		return 0;
-
-	if ((PDE & (1 << 7)) != 0)
-	{
-		// If the PDE¨s PS flag is 1, the PDE maps a 2-MByte page. The
-		// final physical address is computed as follows:
-		// ！ Bits 51:21 are from the PDE.
-		// ！ Bits 20:0 are from the original va address.
-		return (PDE & 0xFFFFFFFE00000) + (virtualAddress & 0x1FFFFF);
-	}
-
-	// PS bit was 0. That means that the PDE references a Page Table.
-	uint64_t PTE = 0;// ReadPhysicalAddress<ulong>((PDE & 0xFFFFFFFFFF000) + (ulong)Table * sizeof(ulong));
-	Read((PDE & 0xFFFFFFFFFF000) + (uint64_t)Table * sizeof(uint64_t), (uint8_t*)&PTE, sizeof(PTE));
-
-	if (PTE == 0)
-		return 0;
-
-	// The PTE maps a 4-KByte page. The
-	// final physical address is computed as follows:
-	// ！ Bits 51:12 are from the PTE.
-	// ！ Bits 11:0 are from the original va address.
-	return (PTE & 0xFFFFFFFFFF000) + (virtualAddress & 0xFFF);
-}*/
-
-typedef struct _MMPTE_HARDWARE {
-    union {
-        struct {
-            UINT64 Valid : 1;
-            UINT64 Write : 1;
-            UINT64 Owner : 1;
-            UINT64 WriteThrough : 1;
-            UINT64 CacheDisable : 1;
-            UINT64 Accessed : 1;
-            UINT64 Dirty : 1;
-            UINT64 LargePage : 1;
-            UINT64 Available : 4;
-            UINT64 PageFrameNumber : 36;
-            UINT64 ReservedForHardware : 4;
-            UINT64 ReservedForSoftware : 11;
-            UINT64 NoExecute : 1;
-        };
-        UINT64 AsUlonglong;
-    };
-} MMPTE_HARDWARE, *PMMPTE_HARDWARE;
-
-static constexpr auto s_1MB = 1ULL * 1024 * 1024;
-static constexpr auto s_1GB = 1ULL * 1024 * 1024 * 1024;
-static constexpr auto s_256GB = 256ULL * s_1GB;
-static constexpr auto s_512GB = 512ULL * s_1GB;
-
-static const auto s_UserSharedData = reinterpret_cast<PVOID>(0x7FFE0000ULL);
-static const auto s_UserSharedDataEnd = reinterpret_cast<PVOID>(0x7FFF0000ULL);
-static const auto s_LowestValidAddress = reinterpret_cast<PVOID>(0x10000ULL);
-static const auto s_HighestValidAddress = reinterpret_cast<PVOID>(s_256GB - 1);
-
-static constexpr auto s_Pml4PhysicalAddress = s_512GB - s_1GB;
 
 struct RamRange {
     uint64_t base;
@@ -952,50 +1006,18 @@ PVOID h_MmAllocateContiguousMemorySpecifyCache(SIZE_T NumberOfBytes, uintptr_t L
     AllocatedContiguous = (uint64_t)hM_AllocPool(CacheType, NumberOfBytes);
     return (PVOID)AllocatedContiguous;
 }
-/*
-Result for cfe7f3f9f000 : 1ad000
-0 : 1000
-0 : 57000
-1 : 59000
-1 : 46000
-2 : 100000
-2 : b81b9000
-3 : b82f1000
-3 : 3b0000
-4 : b86a3000
-4 : cc58000
-5 : c6b99000
-5 : fd000
-6 : c7ba2000
-6 : 5e000
-7 : 100000000
-7 : 337000000
-*/
+
 
 unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
-    auto virtualAddress = BaseAddress;
 
-    uint16_t PML4 = (uint16_t)((virtualAddress >> 39) & 0x1FF); //<! PML4 Entry Index
-    uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
-    uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF); //<! Page Directory Table Index
-    uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);
-    /*
-
-
-	Logger::Log("\tPML4 : %llx\n", PML4);
-	Logger::Log("\tDirectoryPtr : %llx\n", DirectoryPtr);
-	Logger::Log("\tDirectory : %llx\n", Directory);
-	Logger::Log("\tTable : %llx\n", Table);
-
-	*/
     Logger::Log("\tGetting Physical address for %llx\n", BaseAddress);
-    uint64_t ret = 0;
+    uint64_t ret = BaseAddress/0x1000;
 
     if (BaseAddress == AllocatedContiguous) {
         Logger::Log("\tGetting physical for last Contiguous Allocated Memory.\n");
         ret = 0xb0000000;
     }
-    if (BaseAddress == 0xcfe7f3f9f000) {
+    if (BaseAddress == 0xf0f87c3e1000) {
         ret = 0x1ad000;
     } else if (BaseAddress == 0xfb7dbedf6000) {
         ret = 0x200000;
@@ -1085,18 +1107,25 @@ PMDL NTAPI h_IoAllocateMdl(IN PVOID VirtualAddress, IN ULONG Length, IN BOOLEAN 
     return Mdl;
 }
 
-PVOID h_ExRegisterCallback(PVOID CallbackObject, PVOID CallbackFunction, PVOID CallbackContext) { return CallbackObject; }
+PVOID h_ExRegisterCallback(PVOID CallbackObject, PVOID CallbackFunction, PVOID CallbackContext) { 
+    return CallbackObject; 
+}
 
 void h_KeInitializeGuardedMutex(_KGUARDED_MUTEX* Mutex) {
     Mutex->Owner = 0i64;
     Mutex->Count = 1;
     Mutex->Contention = 0;
+    Logger::Log("\tMutex gate : %llx\n", &Mutex->Gate);
     Mutex->Gate.Header.Type = 1;
     Mutex->Gate.Header.Size = 6;
     Mutex->Gate.Header.Signalling = 0;
     Mutex->Gate.Header.SignalState = 0;
     Mutex->Gate.Header.WaitListHead.Flink = &Mutex->Gate.Header.WaitListHead;
     Mutex->Gate.Header.WaitListHead.Blink = &Mutex->Gate.Header.WaitListHead;
+    auto hMutex = CreateMutex(NULL, false, NULL);
+    MutexManager::mutex_manager.insert(std::pair((uintptr_t)&Mutex->Gate, (uintptr_t)hMutex));
+
+    
 }
 
 NTSTATUS
@@ -1117,6 +1146,7 @@ h_KeWaitForMultipleObjects(ULONG Count, PVOID Object[], uint32_t WaitType, _KWAI
     DWORD WaitMS = 0;
     if (Timeout && Timeout->QuadPart < 0) {
         WaitMS = Timeout->QuadPart * -1 / 10000;
+        DebugBreak();
     } else if (!Timeout) {
         WaitMS = INFINITE;
 
@@ -1132,22 +1162,265 @@ void h_KeClearEvent(_KEVENT* Event) { //This should set the Event to non-signale
 
     auto hEvent = HandleManager::GetHandle((uintptr_t)Event);
 
-    if (!hEvent) {
+    if (!hEvent)
         DebugBreak;
-    }
+    
+    if (!MutexManager::mutex_manager.contains((uintptr_t)Event))
+        DebugBreak();
 
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)Event];
+
+    ReleaseMutex((HANDLE)hMutex);
     ResetEvent((HANDLE)hEvent);
+
     return;
 }
 
-BOOLEAN h_KeReadStateTimer(_KTIMER* timer) { return false; }
-std::unordered_map<std::string, PVOID> api_provider;
+BOOLEAN h_KeReadStateTimer(_KTIMER* timer) { 
+    if (TimerManager::timer_manager.contains(timer)) {
+        auto timeSet = TimerManager::timer_manager[timer];
+        if ((timer->DueTime.QuadPart * -1 / 10000) + timeSet < GetTickCount64()) {
+            timer->Header.SignalState = 1;
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    else {
+        DebugBreak();
+    }
+    return false; 
+}
+
+
+NTSTATUS h_ExGetFirmwareEnvironmentVariable(
+    PUNICODE_STRING VariableName,
+    LPGUID          VendorGuid,
+    PVOID           Value,
+    PULONG          ValueLength,
+    PULONG          Attributes
+) {
+    Logger::Log("\tReading UEFI Var : %ls - GUID : %llx-%llx-%llx-%llx\n", VariableName->Buffer, VendorGuid->Data1, VendorGuid->Data2, VendorGuid->Data3, VendorGuid->Data4);
+    if (*ValueLength)
+        Logger::Log("\tRequested length : %llx\n", *ValueLength);
+
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS h_ZwDeviceIoControlFile(
+    HANDLE           FileHandle,
+    HANDLE           Event,
+    PVOID  ApcRoutine,
+     PVOID            ApcContext,
+     PVOID IoStatusBlock,
+    ULONG            IoControlCode,
+    PVOID            InputBuffer,
+   ULONG            InputBufferLength,
+    PVOID            OutputBuffer,
+   ULONG            OutputBufferLength
+) {
+    auto ret = __NtRoutine("NtDeviceIoControlFile", FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength);
+    Logger::Log("\tHandle : %llx\n", FileHandle);
+    Logger::Log("\tEvent : %llx\n", Event);
+    Logger::Log("\tAPC Routine : %llx\n", ApcRoutine);
+    Logger::Log("\tIOCTL : %llx\n", IoControlCode);
+    Logger::Log("\tLen : %d Buffer : \n\t", InputBufferLength);
+
+    //for (int i = 0; i < InputBufferLength; i++) {
+    //    Logger::Log("%01x\n", ((unsigned char*)InputBuffer)[i]);
+    //}
+    Logger::Log("\tRet : %llx\n", ret);
+
+    return ret;
+}
+
+NTSTATUS h_IoGetDeviceInterfaces(
+    const GUID* InterfaceClassGuid,
+    _DEVICE_OBJECT* PhysicalDeviceObject,
+    ULONG          Flags,
+    wchar_t** SymbolicLinkList
+) {
+    wchar_t GUID[256] = { 0 };
+    StringFromGUID2(*InterfaceClassGuid, GUID, 64);
+    Logger::Log("\tInterface Class Guid : %ls\n", GUID);
+    if (PhysicalDeviceObject) {
+        if (PhysicalDeviceObject->DriverObject) {
+            
+            Logger::Log("Device driver name : %ls\t", PhysicalDeviceObject->DriverObject->DriverName.Buffer);
+        }
+    }
+    *SymbolicLinkList = (wchar_t*)0;
+    //wcscpy(*SymbolicLinkList, L"\\??\\PCI#VEN_8086&DEV_15B8&SUBSYS_86721043&REV_00#3&11583659&0&FE#{cac88484-7515-4c03-82e6-71a87abac361}");
+
+    return STATUS_NOT_FOUND;
+}
+
+typedef struct _MM_COPY_ADDRESS {
+    union {
+        PVOID            VirtualAddress;
+        PVOID PhysicalAddress;
+    };
+} MM_COPY_ADDRESS, * PMMCOPY_ADDRESS;
+
+#define MM_COPY_MEMORY_PHYSICAL             0x1
+#define MM_COPY_MEMORY_VIRTUAL              0x2
+NTSTATUS h_MmCopyMemory(
+    PVOID           TargetAddress,
+    MM_COPY_ADDRESS SourceAddress,
+    SIZE_T          NumberOfBytes,
+    ULONG           Flags,
+    PSIZE_T         NumberOfBytesTransferred
+){
+    if (Flags == MM_COPY_MEMORY_PHYSICAL) {
+        *NumberOfBytesTransferred = NumberOfBytes;
+    }
+    else {
+        Logger::Log("\tCopyying %d bytes from %llx to %llx\n", NumberOfBytes, SourceAddress, TargetAddress);
+        *NumberOfBytesTransferred = NumberOfBytes;
+    }
+    return STATUS_SUCCESS;
+}
+
+PVOID k_MmMapIoSpaceEx(
+   uint64_t PhysicalAddress,
+   SIZE_T           NumberOfBytes,
+   ULONG            Protect
+) {
+    if (PhysicalAddress == 0xfee00000)
+        return 0;
+    return (PVOID)(PhysicalAddress * 0x1000);
+}
+
+#define EX_SPIN_LOCK volatile LONG
+
+
+__int64 __fastcall ExpWaitForSpinLockSharedAndAcquire(EX_SPIN_LOCK* a1)
+{
+    unsigned int v2; // esi
+    unsigned __int32 v4; // edi
+    bool v6; // zf
+    signed __int32 v7; // eax
+
+    v2 = 0;
+    do
+    {
+        v4 = *a1;
+        while (v4 < 0)
+        {
+            if ((v4 & 0x40000000) == 0)
+            {
+                v7 = _InterlockedCompareExchange(a1, v4 | 0x40000000, v4);
+                v6 = v4 == v7;
+                v4 = v7;
+                if (!v6)
+                    continue;
+            }
+            
+            ++v2;
+            _mm_pause();
+            v4 = *a1;
+        }
+    } while (v4 != _InterlockedCompareExchange(a1, (v4 + 1) & 0xBFFFFFFF, v4));
+    return v2;
+}
+
+__int64 __fastcall ExpWaitForSpinLockExclusiveAndAcquire(volatile LONG* a1)
+{
+    unsigned int v2; // ebx
+    signed __int32 v4; // eax
+    signed __int32 v6; // ett
+
+    v2 = 0;
+    do
+    {
+        v4 = *a1;
+        while (v4 < 0)
+        {
+            if ((v4 & 0x40000000) == 0)
+            {
+                v6 = v4;
+                v4 = _InterlockedCompareExchange(a1, v4 | 0x40000000, v4);
+                if (v6 != v4)
+                    continue;
+            }
+          
+            ++v2;
+            _mm_pause();
+        
+            v4 = *a1;
+        }
+    } while (_interlockedbittestandset(a1, 0x1Fu));
+    return v2;
+}
+
+
+uint64_t  h_ExAcquireSpinLockExclusive(EX_SPIN_LOCK* SpinLock)
+{
+
+    __int64 v2; // rdx
+    bool v3; // zf
+    unsigned __int32 v4; // eax
+    int v5; // [rsp+38h] [rbp+10h] BYREF
+
+    v5 = 0;
+    if (_interlockedbittestandset(SpinLock, 0x1Fu))
+        v5 = ExpWaitForSpinLockExclusiveAndAcquire(SpinLock);
+    v2 = *(unsigned int*)SpinLock;
+    if ((*SpinLock & 0xBFFFFFFF) != 0x80000000)
+    {
+        do
+        {
+            if ((v2 & 0x40000000) == 0)
+            {
+                v4 = _InterlockedCompareExchange(SpinLock, v2 | 0x40000000, v2);
+                v3 = (DWORD)v2 == v4;
+                v2 = v4;
+                if (!v3)
+                    continue;
+            }
+            Sleep(0);
+            v2 = *(unsigned int*)SpinLock;
+        } while ((v2 & 0xBFFFFFFF) != 0x80000000);
+    }
+    return 0;
+}
+
+uint64_t  h_ExAcquireSpinLockShared(EX_SPIN_LOCK* SpinLock)
+{
+
+    _m_prefetchw((const void*)SpinLock);
+    int v2 = *SpinLock & 0x7FFFFFFF;
+    if (v2 != _InterlockedCompareExchange(SpinLock, v2 + 1, v2))
+        ExpWaitForSpinLockSharedAndAcquire(SpinLock);
+    return 0;
+}
+
+void  h_ExReleaseSpinLockShared(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
+{
+    _InterlockedAnd(SpinLock, 0xBFFFFFFF);
+    _InterlockedDecrement(SpinLock);
+}
+
+void  h_ExReleaseSpinLockExclusive(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
+{
+    *SpinLock = 0;
+}
 
 void ntoskrnl_provider::Initialize() {
-    Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
+    Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
+    Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
+    Provider::AddFuncImpl("ExAcquireSpinLockExclusive", h_ExAcquireSpinLockExclusive);
+    Provider::AddFuncImpl("ExReleaseSpinLockExclusive", h_ExReleaseSpinLockExclusive);
+    Provider::AddFuncImpl("MmMapIoSpaceEx", k_MmMapIoSpaceEx);
+    Provider::AddFuncImpl("MmCopyMemory", h_MmCopyMemory);
+    Provider::AddFuncImpl("IoGetDeviceInterfaces", h_IoGetDeviceInterfaces);
+    Provider::AddFuncImpl("ZwDeviceIoControlFile", h_ZwDeviceIoControlFile);
+    Provider::AddFuncImpl("NtDeviceIoControlFile", h_ZwDeviceIoControlFile);
+    Provider::AddFuncImpl("ExGetFirmwareEnvironmentVariable", h_ExGetFirmwareEnvironmentVariable);
     Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
     Provider::AddFuncImpl("KeClearEvent", h_KeClearEvent);
-    Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForSingleObject); //KeWaitForMutexObject = KeWaitForSingleObject
+    Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForMutextObject);
     Provider::AddFuncImpl("ExRegisterCallback", h_ExRegisterCallback);
     Provider::AddFuncImpl("KeWaitForMultipleObjects", h_KeWaitForMultipleObjects);
     Provider::AddFuncImpl("KeInitializeGuardedMutex", h_KeInitializeGuardedMutex);

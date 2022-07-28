@@ -1,4 +1,4 @@
-#include <Zydis/Register.h>
+#include <Zydis/Zydis.h>
 #include <intrin.h>
 #include <inttypes.h>
 #include <unordered_map>
@@ -42,52 +42,52 @@ namespace VCPU {
 
     void Initialize();
 
-    bool Decode(PCONTEXT context);
+    bool Decode(PCONTEXT context, ZydisDecodedInstruction* instr);
 
     namespace PrivilegedInstruction {
         bool Parse(PCONTEXT context);
-        bool ReadMSR(PCONTEXT context);
-        bool WriteMSR(PCONTEXT context);
-        bool EmulatePrivilegedMOV(PCONTEXT context);
+        bool ReadMSR(PCONTEXT context, ZydisDecodedInstruction* instr);
+        bool WriteMSR(PCONTEXT context, ZydisDecodedInstruction* instr);
+        bool EmulatePrivilegedMOV(PCONTEXT context, ZydisDecodedInstruction* instr);
     } // namespace PrivilegedInstruction
 
     namespace MemoryRead {
         bool Parse(uintptr_t addr, PCONTEXT context);
-        bool EmulateRead(uintptr_t addr, PCONTEXT context);
+        bool EmulateRead(uintptr_t addr, PCONTEXT context, ZydisDecodedInstruction* instr);
     } // namespace MemoryRead
 
     namespace MemoryWrite {
         bool Parse(uintptr_t addr, PCONTEXT context);
-        bool EmulateWrite(uintptr_t addr, PCONTEXT context);
+        bool EmulateWrite(uintptr_t addr, PCONTEXT context, ZydisDecodedInstruction* instr);
     } // namespace MemoryWrite
 
     namespace InstrEmu {
 
-        bool EmulateCMPDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-        bool EmulateCMPSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-        bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size);
+        bool EmulateCMPDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+        bool EmulateCMPSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+        bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size, ZydisDecodedInstruction* instr);
 
-        bool EmulateTestSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-        bool EmulateTestDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-        bool EmulateTestImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size);
+        bool EmulateTestSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+        bool EmulateTestDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+        bool EmulateTestImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size, ZydisDecodedInstruction* instr);
 
         namespace ReadPtr {
-            bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
-            bool EmulateMOVSX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
+            bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr);
+            bool EmulateMOVSX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr);
         } // namespace ReadPtr
 
         namespace WritePtr {
-            bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr);
-            bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size);
+            bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr);
         } // namespace WritePtr
     } // namespace InstrEmu
 }; // namespace VCPU

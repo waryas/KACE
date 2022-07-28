@@ -38,25 +38,26 @@ uintptr_t lastPG = 0;
 
 extern "C" void u_iret();
 
-std::mutex exceptionMutex;
+
 
 LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
-    exceptionMutex.lock();
+   // exceptionMutex.lock();
     uintptr_t ep = (uintptr_t)e->ExceptionRecord->ExceptionAddress;
 
     if (e->ExceptionRecord->ExceptionCode == EXCEPTION_FLT_DIVIDE_BY_ZERO) {
-        exceptionMutex.unlock();
+        //exceptionMutex.unlock();
         return EXCEPTION_CONTINUE_SEARCH;
     } else if (e->ExceptionRecord->ExceptionCode == EXCEPTION_PRIV_INSTRUCTION) {
         bool wasEmulated = false;
 
+
         wasEmulated = VCPU::PrivilegedInstruction::Parse(e->ContextRecord);
 
         if (wasEmulated) {
-            exceptionMutex.unlock();
+           // exceptionMutex.unlock();
             return EXCEPTION_CONTINUE_EXECUTION;
         } else {
-            exceptionMutex.unlock();
+           // exceptionMutex.unlock();
             Logger::Log("Failed to emulate instruction\n");
 
             return EXCEPTION_CONTINUE_SEARCH;
@@ -75,11 +76,11 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
             wasEmulated = VCPU::MemoryWrite::Parse(addr_access, e->ContextRecord);
 
             if (wasEmulated) {
-                exceptionMutex.unlock();
+               // exceptionMutex.unlock();
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
 
-            exceptionMutex.unlock();
+           // exceptionMutex.unlock();
             exit(0);
             break;
 
@@ -88,25 +89,25 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
             wasEmulated = VCPU::MemoryRead::Parse(addr_access, e->ContextRecord);
 
             if (wasEmulated) {
-                exceptionMutex.unlock();
+                //exceptionMutex.unlock();
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
 
             if (e->ExceptionRecord->ExceptionInformation[1] == e->ExceptionRecord->ExceptionInformation[0]
                 && e->ExceptionRecord->ExceptionInformation[0] == 0) {
-                exceptionMutex.unlock();
+               // exceptionMutex.unlock();
                 return EXCEPTION_CONTINUE_SEARCH;
             }
 
             if (bufferopcode[0] == 0xCD && bufferopcode[1] == 0x20) {
                 Logger::Log("\033[38;5;46m[Info]\033[0m Checking for Patchguard (int 20)\n");
                 e->ContextRecord->Rip += 2;
-                exceptionMutex.unlock();
+                //exceptionMutex.unlock();
                 return EXCEPTION_CONTINUE_EXECUTION;
             } else if (bufferopcode[0] == 0x48 && bufferopcode[1] == 0xCF) {
                 e->ContextRecord->Rip = (uintptr_t)u_iret;
                 Logger::Log("\033[38;5;46m[Info]\033[0m IRET Timing Emulation\n");
-                exceptionMutex.unlock();
+                //exceptionMutex.unlock();
                 return EXCEPTION_CONTINUE_EXECUTION;
             }
 
@@ -117,15 +118,20 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
 
             if (!rip)
                 DebugBreak();
-
+            
             e->ContextRecord->Rip = rip;
-
-            exceptionMutex.unlock();
+            /*
+            auto retaddr = *(uint64_t*)e->ContextRecord->Rsp;
+            auto pe = PEFile::FindModule(retaddr);
+            if (pe)
+                Logger::Log("Return address : %s:%llx\n", pe->name.c_str(), retaddr - pe->GetImageBase());
+                */
+           // exceptionMutex.unlock();
             return EXCEPTION_CONTINUE_EXECUTION;
             break;
         }
     }
-    exceptionMutex.unlock();
+  //  exceptionMutex.unlock();
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -134,7 +140,7 @@ const wchar_t* registryBuffer = L"\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Se
 
 DWORD FakeDriverEntry(LPVOID) {
 
-    AddVectoredExceptionHandler(true, ExceptionHandler);
+    
 
     Logger::Log("Calling the driver entrypoint\n");
 
@@ -172,6 +178,7 @@ DWORD FakeDriverEntry(LPVOID) {
     FakeKernelThread.Tcb.StackLimit = (void*)0x2000;
     FakeKernelThread.Tcb.ThreadLock = 11;
     FakeKernelThread.Tcb.LockEntries = (_KLOCK_ENTRY*)22;
+    FakeKernelThread.Tcb.MiscFlags |= 0x400; //Make it a system thread
 
     FakeSystemProcess.UniqueProcessId = (void*)4;
     FakeSystemProcess.Protection.Level = 7;
@@ -196,16 +203,23 @@ DWORD FakeDriverEntry(LPVOID) {
 
     __writeeflags(0x10286);
 
-    drvObj.DriverSection = (_LDR_DATA_TABLE_ENTRY**)MemoryTracker::AllocateVariable(sizeof(UINT64));
-
-    *(PLDR_DATA_TABLE_ENTRY**)drvObj.DriverSection = (PLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(UINT64));
-    **(PLDR_DATA_TABLE_ENTRY**)drvObj.DriverSection = Environment::PsLoadedModuleList;
+    LDR_DATA_TABLE_ENTRY* ldrentry = (LDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(LDR_DATA_TABLE_ENTRY));
+    drvObj.DriverSection = ldrentry;
     
-    MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(UINT64), "MainModule.DriverObject.DriverSection");
+    ldrentry->FullDllName.Buffer = (wchar_t*)L"c:\\Program Files\\Riot Vanguard\\vgk.sys";
+    ldrentry->FullDllName.Length = lstrlenW(ldrentry->FullDllName.Buffer) * 2;
+    ldrentry->FullDllName.MaximumLength = ldrentry->FullDllName.Length;
+
+    
+
+    InsertTailList(&Environment::PsLoadedModuleList->InLoadOrderLinks, &ldrentry->InLoadOrderLinks);
+
+    MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(UINT64), "MainModule.DriverObject.DriverSectionLdrEntry");
+    MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
     MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
-    MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
-    MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
+
+   // MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
     MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
@@ -225,6 +239,9 @@ __forceinline void init_dirs() {
 }
 
 int main(int argc, char* argv[]) {
+    _unlink("C:\\Windows\\vgkbootstatus.dat");
+    AddVectoredExceptionHandler(true, ExceptionHandler);
+
     init_dirs();
 
     symparser::download_symbols("c:\\Windows\\System32\\ntdll.dll");
@@ -233,8 +250,9 @@ int main(int argc, char* argv[]) {
     MemoryTracker::Initiate();
     VCPU::Initialize();
     PagingEmulation::SetupCR3();
-    ntoskrnl_provider::Initialize();
     Environment::InitializeSystemModules();
+    ntoskrnl_provider::Initialize();
+   
 
     DWORD dwMode;
 
@@ -251,7 +269,7 @@ int main(int argc, char* argv[]) {
     else
         DriverPath = "C:\\emu\\easyanticheat_2.sys";
 
-    auto MainModule = PEFile::Open(DriverPath, "easyanticheat_03.sys");
+    auto MainModule = PEFile::Open(DriverPath, "MyDriver");
     MainModule->ResolveImport();
     MainModule->SetExecutable(true);
 
