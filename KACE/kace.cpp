@@ -236,7 +236,7 @@ __forceinline void init_dirs() {
 }
 
 int main(int argc, char* argv[]) {
-
+    _unlink("C:\\Windows\\vgkbootstatus.dat");
     AddVectoredExceptionHandler(true, ExceptionHandler);
 
     init_dirs();

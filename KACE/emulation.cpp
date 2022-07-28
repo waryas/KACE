@@ -381,10 +381,6 @@ namespace VCPU {
                 return EmulateRead(HVA, context, &instr);
             } else {
                 if (addr == 0xffffffffffffffff) {
-                    if (context->Rax >= 0xFFFF000000000000) {
-                        context->Rax -= 0xFFFF000000000000;
-                        return true;
-                    }
                     return false;
                 }
                 if (addr) {
@@ -394,9 +390,9 @@ namespace VCPU {
                     uint16_t PTE = (uint16_t)((addr >> 12) & 0x1FF);
                     uint16_t Offset = addr & 0xFFF;
                     if (PML4E == 481) {
-                        Logger::Log("CR3 operation\n");
+                        //Logger::Log("CR3 operation\n");
                         if (PTE == 481 && PDPTE == 481 && PDTE == 481) {
-                            Logger::Log("Getting entry %d for PML4\n", Offset/8);
+                            //Logger::Log("Getting entry %d for PML4\n", Offset/8);
                             _PML4E* pml4e1 = PagingEmulation::GetPML4();
                             pml4e1[Offset / 8].Present = 1;
                             if (Offset / 8 == 481)
@@ -413,7 +409,7 @@ namespace VCPU {
                                     ((UINT64)0 << 21) |
                                     ((UINT64)0 << 12) |
                                     ((UINT64)0);
-                                Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
+                               // Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
                                 _PML4E* pml4e1 = PagingEmulation::GetPML4();
                                 
                                 pml4e1[Offset / 8].Present = 1;
@@ -426,7 +422,7 @@ namespace VCPU {
                                     ((UINT64)Offset/8 << 21) |
                                     ((UINT64)0 << 12) |
                                     ((UINT64)0);
-                                Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
+                               // Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
                                 _PML4E* pml4e1 = PagingEmulation::GetPML4();
                                 pml4e1[Offset / 8].Present = 1;
                                 pml4e1[Offset / 8].PageFrameNumber = translatedAddr / 0x1000;
@@ -439,7 +435,7 @@ namespace VCPU {
                                     ((UINT64)PTE << 21) |
                                     ((UINT64)Offset / 8 << 12) |
                                     ((UINT64)0);
-                                Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
+                                //Logger::Log("Getting physical PFN for %llx\n", translatedAddr);
                                 _PML4E* pml4e1 = PagingEmulation::GetPML4();
                                 pml4e1[Offset / 8].Present = 0;
                                 pml4e1[Offset / 8].PageFrameNumber = 0x555;
