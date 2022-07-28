@@ -118,12 +118,14 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
 
             if (!rip)
                 DebugBreak();
-
+            
             e->ContextRecord->Rip = rip;
+            /*
             auto retaddr = *(uint64_t*)e->ContextRecord->Rsp;
             auto pe = PEFile::FindModule(retaddr);
             if (pe)
                 Logger::Log("Return address : %s:%llx\n", pe->name.c_str(), retaddr - pe->GetImageBase());
+                */
            // exceptionMutex.unlock();
             return EXCEPTION_CONTINUE_EXECUTION;
             break;
@@ -176,6 +178,7 @@ DWORD FakeDriverEntry(LPVOID) {
     FakeKernelThread.Tcb.StackLimit = (void*)0x2000;
     FakeKernelThread.Tcb.ThreadLock = 11;
     FakeKernelThread.Tcb.LockEntries = (_KLOCK_ENTRY*)22;
+    FakeKernelThread.Tcb.MiscFlags |= 0x400; //Make it a system thread
 
     FakeSystemProcess.UniqueProcessId = (void*)4;
     FakeSystemProcess.Protection.Level = 7;

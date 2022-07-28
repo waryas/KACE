@@ -54,7 +54,8 @@ void TrampolineThread(ThreadInfo* info) {
     Logger::Log("Thread Initialized, starting...\n");
     info->ethread = newETHREAD;
     SetEvent(info->mutex);
-    info->routineStart(info->routineContext);
+    auto ret = info->routineStart(info->routineContext);
+    Logger::Log("End of thread with return : %llx\n", ret);
     
 }
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
@@ -204,7 +205,10 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State) {
     *(WORD*)((char*)&Event->Header.Lock + 1) = 0x600; //saw this on ida, someone explain me
 
     auto hEvent = CreateEvent(NULL, NULL, State, NULL);
+    auto hMutex = CreateMutex(NULL, false, NULL);
     HandleManager::AddMap((uintptr_t)Event, (uintptr_t)hEvent);
+    MutexManager::mutex_manager.insert(std::pair((uintptr_t)Event, (uintptr_t)hMutex));
+
     Logger::Log("\tEvent object : %llx\n", Event);
 }
 
@@ -366,18 +370,42 @@ NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, P
 
 void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex) {
     auto fm = FastMutex;
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)&fm->Gate))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)&fm->Gate];
+
+    auto ret = WaitForSingleObject((HANDLE)hMutex, INFINITE);
+
+    if (ret) {
+        DebugBreak();
+    }
+
     fm->OldIrql = 0; //PASSIVE_LEVEL
     fm->Owner = (_KTHREAD*)h_KeGetCurrentThread();
     fm->Count--;
-    DebugBreak();
+
+
     return;
 }
 
 void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex) {
+
+    auto fm = FastMutex;
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)&fm->Gate))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)&fm->Gate];
+    auto ret = ReleaseMutex((HANDLE)hMutex);
+
+    if (!ret)
+        DebugBreak();
+
     FastMutex->OldIrql = 0; //PASSIVE_LEVEL
     FastMutex->Owner = 0;
     FastMutex->Count++;
-    DebugBreak();
     return;
 }
 
@@ -794,7 +822,7 @@ LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) {
     DebugBreak();
     return 0; }
 
-//todo object might be invalid
+
 NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
 
     auto hEvent = HandleManager::GetHandle((uintptr_t)Object);
@@ -804,6 +832,17 @@ NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode,
     return STATUS_SUCCESS;
 };
 
+
+NTSTATUS h_KeWaitForMutextObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)Object))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)Object];
+
+    WaitForSingleObject((HANDLE)hMutex, INFINITE);
+    return STATUS_SUCCESS;
+};
 
 ULONG h_KeQueryTimeIncrement() { 
     return 156250; //machine with no hv
@@ -854,8 +893,9 @@ NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRIN
 }
 
 BOOL h_IoIsSystemThread(_ETHREAD* thread) { 
-    DebugBreak();
-    return true; 
+    auto ret = (thread->Tcb.MiscFlags & 0x400) != 0;
+
+    return ret;
 
 }
 
@@ -874,7 +914,7 @@ NTSTATUS h_ObReferenceObjectByHandle(HANDLE handle, ACCESS_MASK DesiredAccess, _
     void* HandleInformation) {
 
     if (HandleInformation) {
-        DebugBreak();
+        
     }
 
     if (ObjectType == PsThreadType) {
@@ -888,11 +928,14 @@ NTSTATUS h_ObReferenceObjectByHandle(HANDLE handle, ACCESS_MASK DesiredAccess, _
         }
     }
     else if (ObjectType == PsProcessType) {
-        DebugBreak();
+        *(PHANDLE)(Object) = handle;
     }
-    else
+    else if (!ObjectType) //Ugh
     {
-        DebugBreak();
+        *(PHANDLE)(Object) = handle;
+    }
+    else {
+        *(PHANDLE)(Object) = handle;
     }
 
 
@@ -1097,6 +1140,7 @@ h_KeWaitForMultipleObjects(ULONG Count, PVOID Object[], uint32_t WaitType, _KWAI
     DWORD WaitMS = 0;
     if (Timeout && Timeout->QuadPart < 0) {
         WaitMS = Timeout->QuadPart * -1 / 10000;
+        DebugBreak();
     } else if (!Timeout) {
         WaitMS = INFINITE;
 
@@ -1112,11 +1156,17 @@ void h_KeClearEvent(_KEVENT* Event) { //This should set the Event to non-signale
 
     auto hEvent = HandleManager::GetHandle((uintptr_t)Event);
 
-    if (!hEvent) {
+    if (!hEvent)
         DebugBreak;
-    }
+    
+    if (!MutexManager::mutex_manager.contains((uintptr_t)Event))
+        DebugBreak();
 
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)Event];
+
+    ReleaseMutex((HANDLE)hMutex);
     ResetEvent((HANDLE)hEvent);
+
     return;
 }
 
@@ -1125,11 +1175,9 @@ BOOLEAN h_KeReadStateTimer(_KTIMER* timer) {
         auto timeSet = TimerManager::timer_manager[timer];
         if ((timer->DueTime.QuadPart * -1 / 10000) + timeSet < GetTickCount64()) {
             timer->Header.SignalState = 1;
-            DebugBreak();
             return true;
         }
         else {
-            DebugBreak();
             return false;
         }
     }
@@ -1247,7 +1295,7 @@ void ntoskrnl_provider::Initialize() {
     Provider::AddFuncImpl("ExGetFirmwareEnvironmentVariable", h_ExGetFirmwareEnvironmentVariable);
     Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
     Provider::AddFuncImpl("KeClearEvent", h_KeClearEvent);
-    Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForSingleObject); //KeWaitForMutexObject = KeWaitForSingleObject
+    Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForMutextObject);
     Provider::AddFuncImpl("ExRegisterCallback", h_ExRegisterCallback);
     Provider::AddFuncImpl("KeWaitForMultipleObjects", h_KeWaitForMultipleObjects);
     Provider::AddFuncImpl("KeInitializeGuardedMutex", h_KeInitializeGuardedMutex);

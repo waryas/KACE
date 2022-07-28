@@ -11,3 +11,7 @@ namespace HandleManager {
 namespace TimerManager {
     inline std::unordered_map<_KTIMER*, uint64_t> timer_manager;
 }
+
+namespace MutexManager {
+    inline std::unordered_map<uintptr_t, uint64_t> mutex_manager;
+}
