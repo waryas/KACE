@@ -19,6 +19,37 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
 
 #define NtQuerySystemInformation(...) __NtRoutine("NtQuerySystemInformation", __VA_ARGS__)
 
+struct ThreadInfo {
+    LPTHREAD_START_ROUTINE routineStart;
+    PVOID routineContext;
+};
+void TrampolineThread(ThreadInfo* info) {
+    auto newETHREAD = (_ETHREAD*)MemoryTracker::AllocateVariable(sizeof(_ETHREAD));
+    __writegsqword(0x188, (DWORD64)newETHREAD); //Fake KTHREAD
+    __writegsqword(0x18, (DWORD64)&FakeKPCR); //Fake _KPCR
+    __writegsqword(0x20, (DWORD64)&FakeCPU); //Fake _KPRCB
+
+    newETHREAD->Tcb.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetThreadProcess
+    newETHREAD->Tcb.ApcState.Process = (_KPROCESS*)&FakeSystemProcess; //PsGetCurrentProcess
+
+    newETHREAD->Cid.UniqueProcess = (void*)4; //PsGetThreadProcessId
+    newETHREAD->Cid.UniqueThread = (PVOID)GetCurrentThreadId(); //PsGetThreadId
+
+    newETHREAD->Tcb.PreviousMode = 0; //PsGetThreadPreviousMode
+    newETHREAD->Tcb.State = 1; //
+    newETHREAD->Tcb.InitialStack = (void*)0x1000;
+    newETHREAD->Tcb.StackBase = (void*)0x1500;
+    newETHREAD->Tcb.StackLimit = (void*)0x2000;
+    newETHREAD->Tcb.ThreadLock = 11;
+    newETHREAD->Tcb.LockEntries = (_KLOCK_ENTRY*)22;
+    char ThreadName[256] = { 0 };
+    sprintf(ThreadName, "ETHREAD%04x", GetCurrentThreadId());
+    MemoryTracker::TrackVariable((uintptr_t)newETHREAD, sizeof(*newETHREAD), ThreadName);
+    __writeeflags(0x10286);
+    Logger::Log("Thread Initialized, starting...\n");
+    info->routineStart(info->routineContext);
+    
+}
 void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
     auto ptr = _aligned_malloc(size, 0x1000);
     return ptr;
@@ -250,10 +281,10 @@ NTSTATUS h_ZwFlushKey(PHANDLE KeyHandle) {
 
 NTSTATUS h_ZwClose(HANDLE Handle) {
     Logger::Log("\tClosing Kernel Handle : %llx\n", Handle);
-    if (!Handle)
-        return STATUS_NOT_FOUND;
-    auto ret = __NtRoutine("NtClose", Handle);
-    return ret;
+   // if (!Handle)
+   //     return STATUS_NOT_FOUND;
+  //  auto ret = __NtRoutine("NtClose", Handle);
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData, ULONG ValueLength) {
@@ -410,7 +441,12 @@ _EPROCESS* h_PsGetCurrentThreadProcess() { return (_EPROCESS*)h_KeGetCurrentThre
 
 HANDLE h_PsGetCurrentThreadId() { return h_KeGetCurrentThread()->Cid.UniqueThread; }
 
-HANDLE h_PsGetCurrentThreadProcessId() { return h_KeGetCurrentThread()->Cid.UniqueProcess; }
+HANDLE h_PsGetCurrentThreadProcessId() { 
+    //Logger::Log("About to do stuff\n");
+    auto meh = h_KeGetCurrentThread()->Cid.UniqueProcess; 
+    //Logger::Log("Done\n");
+    return meh;
+}
 
 NTSTATUS h_NtQueryInformationProcess(HANDLE ProcessHandle, PROCESSINFOCLASS ProcessInformationClass, PVOID ProcessInformation,
     ULONG ProcessInformationLength, PULONG ReturnLength) {
@@ -757,7 +793,14 @@ ULONG h_KeQueryTimeIncrement() { return 1000; }
 //todo impl might be broken
 NTSTATUS h_PsCreateSystemThread(PHANDLE ThreadHandle, ULONG DesiredAccess, void* ObjectAttributes, HANDLE ProcessHandle, void* ClientId,
     void* StartRoutine, PVOID StartContext) {
-    auto ret = CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)StartRoutine, StartContext, 0, 0);
+    ThreadInfo* ti = (ThreadInfo*)malloc(sizeof(ThreadInfo));
+    if (!ti)
+        return STATUS_NO_MEMORY;
+
+    ti->routineContext = StartContext;
+    ti->routineStart = (LPTHREAD_START_ROUTINE)StartRoutine;
+
+    auto ret = CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)TrampolineThread, ti, 0, 0);
     *ThreadHandle = ret;
     //Sleep(100000);
     return STATUS_SUCCESS;
@@ -1182,23 +1225,48 @@ NTSTATUS h_ZwDeviceIoControlFile(
     PVOID            OutputBuffer,
    ULONG            OutputBufferLength
 ) {
-    auto ret = __NtRoutine("ZwDeviceIoControlFile", FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength);
+    auto ret = __NtRoutine("NtDeviceIoControlFile", FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, IoControlCode, InputBuffer, InputBufferLength, OutputBuffer, OutputBufferLength);
     Logger::Log("\tHandle : %llx\n", FileHandle);
     Logger::Log("\tEvent : %llx\n", Event);
     Logger::Log("\tAPC Routine : %llx\n", ApcRoutine);
     Logger::Log("\tIOCTL : %llx\n", IoControlCode);
     Logger::Log("\tLen : %d Buffer : \n\t", InputBufferLength);
 
-    for (int i = 0; i < InputBufferLength; i++) {
-        Logger::Log("%01x\n", ((unsigned char*)InputBuffer)[i]);
-    }
+    //for (int i = 0; i < InputBufferLength; i++) {
+    //    Logger::Log("%01x\n", ((unsigned char*)InputBuffer)[i]);
+    //}
     Logger::Log("\tRet : %llx\n", ret);
 
     return ret;
 }
 
+NTSTATUS h_IoGetDeviceInterfaces(
+    const GUID* InterfaceClassGuid,
+    _DEVICE_OBJECT* PhysicalDeviceObject,
+    ULONG          Flags,
+    wchar_t** SymbolicLinkList
+) {
+    wchar_t GUID[256] = { 0 };
+    StringFromGUID2(*InterfaceClassGuid, GUID, 64);
+    Logger::Log("\tInterface Class Guid : %ls\n", GUID);
+    if (PhysicalDeviceObject) {
+        if (PhysicalDeviceObject->DriverObject) {
+            
+            Logger::Log("Device driver name : %ls\t", PhysicalDeviceObject->DriverObject->DriverName.Buffer);
+        }
+    }
+    *SymbolicLinkList = (wchar_t*)0;
+    //wcscpy(*SymbolicLinkList, L"\\??\\PCI#VEN_8086&DEV_15B8&SUBSYS_86721043&REV_00#3&11583659&0&FE#{cac88484-7515-4c03-82e6-71a87abac361}");
+
+    return STATUS_NOT_FOUND;
+}
+
+
+
 void ntoskrnl_provider::Initialize() {
+    Provider::AddFuncImpl("IoGetDeviceInterfaces", h_IoGetDeviceInterfaces);
     Provider::AddFuncImpl("ZwDeviceIoControlFile", h_ZwDeviceIoControlFile);
+    Provider::AddFuncImpl("NtDeviceIoControlFile", h_ZwDeviceIoControlFile);
     Provider::AddFuncImpl("ExGetFirmwareEnvironmentVariable", h_ExGetFirmwareEnvironmentVariable);
     Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
     Provider::AddFuncImpl("KeClearEvent", h_KeClearEvent);
