@@ -753,7 +753,9 @@ NTSTATUS h_PsSetCreateProcessNotifyRoutineEx(void* NotifyRoutine, BOOLEAN Remove
     }
 }
 
-UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock) { return (UCHAR)0x00; }
+UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock) { 
+    return (UCHAR)0x00; 
+}
 
 void h_KeReleaseSpinLock(PKSPIN_LOCK SpinLock, UCHAR NewIrql) { }
 
@@ -1113,13 +1115,17 @@ void h_KeInitializeGuardedMutex(_KGUARDED_MUTEX* Mutex) {
     Mutex->Owner = 0i64;
     Mutex->Count = 1;
     Mutex->Contention = 0;
+    Logger::Log("\tMutex gate : %llx\n", &Mutex->Gate);
     Mutex->Gate.Header.Type = 1;
     Mutex->Gate.Header.Size = 6;
     Mutex->Gate.Header.Signalling = 0;
     Mutex->Gate.Header.SignalState = 0;
     Mutex->Gate.Header.WaitListHead.Flink = &Mutex->Gate.Header.WaitListHead;
     Mutex->Gate.Header.WaitListHead.Blink = &Mutex->Gate.Header.WaitListHead;
-    DebugBreak();
+    auto hMutex = CreateMutex(NULL, false, NULL);
+    MutexManager::mutex_manager.insert(std::pair((uintptr_t)&Mutex->Gate, (uintptr_t)hMutex));
+
+    
 }
 
 NTSTATUS
@@ -1285,8 +1291,127 @@ PVOID k_MmMapIoSpaceEx(
         return 0;
     return (PVOID)(PhysicalAddress * 0x1000);
 }
+
+#define EX_SPIN_LOCK volatile LONG
+
+
+__int64 __fastcall ExpWaitForSpinLockSharedAndAcquire(EX_SPIN_LOCK* a1)
+{
+    unsigned int v2; // esi
+    unsigned __int32 v4; // edi
+    bool v6; // zf
+    signed __int32 v7; // eax
+
+    v2 = 0;
+    do
+    {
+        v4 = *a1;
+        while (v4 < 0)
+        {
+            if ((v4 & 0x40000000) == 0)
+            {
+                v7 = _InterlockedCompareExchange(a1, v4 | 0x40000000, v4);
+                v6 = v4 == v7;
+                v4 = v7;
+                if (!v6)
+                    continue;
+            }
+            
+            ++v2;
+            _mm_pause();
+            v4 = *a1;
+        }
+    } while (v4 != _InterlockedCompareExchange(a1, (v4 + 1) & 0xBFFFFFFF, v4));
+    return v2;
+}
+
+__int64 __fastcall ExpWaitForSpinLockExclusiveAndAcquire(volatile LONG* a1)
+{
+    unsigned int v2; // ebx
+    signed __int32 v4; // eax
+    signed __int32 v6; // ett
+
+    v2 = 0;
+    do
+    {
+        v4 = *a1;
+        while (v4 < 0)
+        {
+            if ((v4 & 0x40000000) == 0)
+            {
+                v6 = v4;
+                v4 = _InterlockedCompareExchange(a1, v4 | 0x40000000, v4);
+                if (v6 != v4)
+                    continue;
+            }
+          
+            ++v2;
+            _mm_pause();
+        
+            v4 = *a1;
+        }
+    } while (_interlockedbittestandset(a1, 0x1Fu));
+    return v2;
+}
+
+
+uint64_t  h_ExAcquireSpinLockExclusive(EX_SPIN_LOCK* SpinLock)
+{
+
+    __int64 v2; // rdx
+    bool v3; // zf
+    unsigned __int32 v4; // eax
+    int v5; // [rsp+38h] [rbp+10h] BYREF
+
+    v5 = 0;
+    if (_interlockedbittestandset(SpinLock, 0x1Fu))
+        v5 = ExpWaitForSpinLockExclusiveAndAcquire(SpinLock);
+    v2 = *(unsigned int*)SpinLock;
+    if ((*SpinLock & 0xBFFFFFFF) != 0x80000000)
+    {
+        do
+        {
+            if ((v2 & 0x40000000) == 0)
+            {
+                v4 = _InterlockedCompareExchange(SpinLock, v2 | 0x40000000, v2);
+                v3 = (DWORD)v2 == v4;
+                v2 = v4;
+                if (!v3)
+                    continue;
+            }
+            Sleep(0);
+            v2 = *(unsigned int*)SpinLock;
+        } while ((v2 & 0xBFFFFFFF) != 0x80000000);
+    }
+    return 0;
+}
+
+uint64_t  h_ExAcquireSpinLockShared(EX_SPIN_LOCK* SpinLock)
+{
+
+    _m_prefetchw((const void*)SpinLock);
+    int v2 = *SpinLock & 0x7FFFFFFF;
+    if (v2 != _InterlockedCompareExchange(SpinLock, v2 + 1, v2))
+        ExpWaitForSpinLockSharedAndAcquire(SpinLock);
+    return 0;
+}
+
+void  h_ExReleaseSpinLockShared(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
+{
+    _InterlockedAnd(SpinLock, 0xBFFFFFFF);
+    _InterlockedDecrement(SpinLock);
+}
+
+void  h_ExReleaseSpinLockExclusive(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
+{
+    *SpinLock = 0;
+}
+
 void ntoskrnl_provider::Initialize() {
-    
+    Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
+    Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
+    Provider::AddFuncImpl("ExAcquireSpinLockExclusive", h_ExAcquireSpinLockExclusive);
+    Provider::AddFuncImpl("ExReleaseSpinLockExclusive", h_ExReleaseSpinLockExclusive);
     Provider::AddFuncImpl("MmMapIoSpaceEx", k_MmMapIoSpaceEx);
     Provider::AddFuncImpl("MmCopyMemory", h_MmCopyMemory);
     Provider::AddFuncImpl("IoGetDeviceInterfaces", h_IoGetDeviceInterfaces);
