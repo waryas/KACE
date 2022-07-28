@@ -120,7 +120,10 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
                 DebugBreak();
 
             e->ContextRecord->Rip = rip;
-
+            auto retaddr = *(uint64_t*)e->ContextRecord->Rsp;
+            auto pe = PEFile::FindModule(retaddr);
+            if (pe)
+                Logger::Log("Return address : %s:%llx\n", pe->name.c_str(), retaddr - pe->GetImageBase());
            // exceptionMutex.unlock();
             return EXCEPTION_CONTINUE_EXECUTION;
             break;
@@ -197,16 +200,16 @@ DWORD FakeDriverEntry(LPVOID) {
 
     __writeeflags(0x10286);
 
-    drvObj.DriverSection = (_LDR_DATA_TABLE_ENTRY**)MemoryTracker::AllocateVariable(sizeof(UINT64));
+    LDR_DATA_TABLE_ENTRY* ldrentry = (LDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(LDR_DATA_TABLE_ENTRY));
+    drvObj.DriverSection = ldrentry;
 
-    *(PLDR_DATA_TABLE_ENTRY**)drvObj.DriverSection = (PLDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(UINT64));
-    **(PLDR_DATA_TABLE_ENTRY**)drvObj.DriverSection = Environment::PsLoadedModuleList;
-    
-    MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(UINT64), "MainModule.DriverObject.DriverSection");
+    InsertTailList(&Environment::PsLoadedModuleList->InLoadOrderLinks, &ldrentry->InLoadOrderLinks);
+
+    MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(UINT64), "MainModule.DriverObject.DriverSectionLdrEntry");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
     MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
     MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
-    MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
+   // MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
     MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
 
@@ -256,7 +259,7 @@ int main(int argc, char* argv[]) {
     else
         DriverPath = "C:\\emu\\easyanticheat_2.sys";
 
-    auto MainModule = PEFile::Open(DriverPath, "easyanticheat_03.sys");
+    auto MainModule = PEFile::Open(DriverPath, "MyDriver");
     MainModule->ResolveImport();
     MainModule->SetExecutable(true);
 

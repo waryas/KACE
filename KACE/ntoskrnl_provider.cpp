@@ -177,29 +177,13 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
     PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess, ULONG Disposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength,
     void* CreateFileType, PVOID InternalParameters, ULONG Options, void* DriverContext) {
 
-    PUNICODE_STRING OLDBuffer;
-    OLDBuffer = ObjectAttributes->ObjectName;
-    UNICODE_STRING TempBuffer;
-    TempBuffer.Buffer = (wchar_t*)malloc(512);
-    memset(TempBuffer.Buffer, 0, 512);
 
-    wcscat(TempBuffer.Buffer, L"\\??\\C:\\kace");
-    wcscat(TempBuffer.Buffer, OLDBuffer->Buffer);
-    TempBuffer.Buffer[12] = 'c';
-    TempBuffer.Buffer[13] = 'a';
-    TempBuffer.Buffer[16] = 'a';
-    TempBuffer.Length = wcslen(TempBuffer.Buffer) * 2;
-    TempBuffer.MaximumLength = wcslen(TempBuffer.Buffer) * 2;
-    ObjectAttributes->ObjectName = &TempBuffer;
-    ObjectAttributes->Attributes = 0x00000040;
     Logger::Log("\tCreating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
     if (DesiredAccess == 0xC0000000)
         DesiredAccess = 0xC0100080;
     auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess,
         Disposition, CreateOptions, EaBuffer, EaLength);
     Logger::Log("\tReturn : %08x\n", ret);
-    ObjectAttributes->ObjectName = OLDBuffer;
-    free(TempBuffer.Buffer);
 
     return 0;
 }
@@ -281,10 +265,17 @@ NTSTATUS h_ZwFlushKey(PHANDLE KeyHandle) {
 
 NTSTATUS h_ZwClose(HANDLE Handle) {
     Logger::Log("\tClosing Kernel Handle : %llx\n", Handle);
-   // if (!Handle)
-   //     return STATUS_NOT_FOUND;
-  //  auto ret = __NtRoutine("NtClose", Handle);
+    if (!Handle)
+        return STATUS_NOT_FOUND;
+    __try {
+        auto ret = __NtRoutine("NtClose", Handle);
+        return STATUS_SUCCESS;
+    }
+    __except (1) {
+        return STATUS_NOT_FOUND;
+    }
     return STATUS_SUCCESS;
+    
 }
 
 NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData, ULONG ValueLength) {
