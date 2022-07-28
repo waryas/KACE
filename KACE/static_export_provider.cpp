@@ -6,10 +6,13 @@
 namespace ntoskrnl_export {
     void Initialize() { InitializeExport(); }
 
-    void InitializePsProcessType() {
+    void InitializeObjectType() {
         PsProcessType = (_OBJECT_TYPE*)MemoryTracker::AllocateVariable(sizeof(_OBJECT_TYPE) * 2);
         PsProcessType->TotalNumberOfObjects = 1;
         MemoryTracker::TrackVariable((uint64_t)PsProcessType, sizeof(_OBJECT_TYPE) * 2, (char*)"NTOSKRNL.PsProcessType");
+        PsThreadType = (_OBJECT_TYPE*)MemoryTracker::AllocateVariable(sizeof(_OBJECT_TYPE) * 2);
+        PsThreadType->TotalNumberOfObjects = 1;
+        MemoryTracker::TrackVariable((uint64_t)PsThreadType, sizeof(_OBJECT_TYPE) * 2, (char*)"NTOSKRNL.PsThreadType");
     }
 
     void InitializePsLoadedModuleList() {
@@ -19,7 +22,7 @@ namespace ntoskrnl_export {
     void InitializeExport() {
         PsInitialSystemProcess = (uint64_t)&FakeSystemProcess;
 
-        ntoskrnl_export::InitializePsProcessType();
+        ntoskrnl_export::InitializeObjectType();
         ntoskrnl_export::InitializePsLoadedModuleList();
 
         Provider::AddDataImpl("SeExports", (PVOID)SeExport, sizeof(SeExport));

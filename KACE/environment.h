@@ -10,4 +10,9 @@ namespace Environment {
 
     void InitializeSystemModules();
     void CheckPtr(uint64_t ptr);
-} // namespace Environment
+
+    namespace ThreadManager {
+        inline std::unordered_map<uintptr_t, _ETHREAD*> environment_threads{};
+
+    }
+} 

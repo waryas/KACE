@@ -9,6 +9,8 @@
 #include "nt_define.h"
 #include <Logger/Logger.h>
 
+#include "environment.h"
+
 using fnFreeCall = uint64_t(__fastcall*)(...);
 
 template <typename... Params>
@@ -22,7 +24,10 @@ static NTSTATUS __NtRoutine(const char* Name, Params&&... params) {
 struct ThreadInfo {
     LPTHREAD_START_ROUTINE routineStart;
     PVOID routineContext;
+    HANDLE mutex;
+    _ETHREAD* ethread;
 };
+
 void TrampolineThread(ThreadInfo* info) {
     auto newETHREAD = (_ETHREAD*)MemoryTracker::AllocateVariable(sizeof(_ETHREAD));
     __writegsqword(0x188, (DWORD64)newETHREAD); //Fake KTHREAD
@@ -47,6 +52,8 @@ void TrampolineThread(ThreadInfo* info) {
     MemoryTracker::TrackVariable((uintptr_t)newETHREAD, sizeof(*newETHREAD), ThreadName);
     __writeeflags(0x10286);
     Logger::Log("Thread Initialized, starting...\n");
+    info->ethread = newETHREAD;
+    SetEvent(info->mutex);
     info->routineStart(info->routineContext);
     
 }
@@ -358,13 +365,11 @@ NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, P
 }
 
 void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex) {
-    auto fm = &FastMutex[0];
+    auto fm = FastMutex;
     fm->OldIrql = 0; //PASSIVE_LEVEL
     fm->Owner = (_KTHREAD*)h_KeGetCurrentThread();
-    //fm = &FastMutex[0];
-    //fm->OldIrql = 0; //PASSIVE_LEVEL
-    // fm->Owner = (_KTHREAD*)&FakeKernelThread;
     fm->Count--;
+    DebugBreak();
     return;
 }
 
@@ -372,6 +377,7 @@ void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex) {
     FastMutex->OldIrql = 0; //PASSIVE_LEVEL
     FastMutex->Owner = 0;
     FastMutex->Count++;
+    DebugBreak();
     return;
 }
 
@@ -579,14 +585,26 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc) {
     Logger::Log("\tTimer object : %llx\n", Timer);
     Logger::Log("\tDPC object : %llx\n", Dpc);
 
+    if (Dpc)
+        DebugBreak();
+
     memcpy(&Timer->DueTime, &DueTime, sizeof(DueTime));
 
-    Timer->Header.SignalState = 1;
+    if (TimerManager::timer_manager.contains(Timer))
+        TimerManager::timer_manager[Timer] = GetTickCount64();
+    else
+        TimerManager::timer_manager.insert(std::pair(Timer, GetTickCount64()));
+
+    Timer->Header.SignalState = 0;
 
     return true;
 }
 
-void h_KeInitializeTimer(_KTIMER* Timer) { InitializeListHead(&Timer->TimerListEntry); }
+void h_KeInitializeTimer(_KTIMER* Timer) { 
+    InitializeListHead(&Timer->TimerListEntry); 
+    Timer->Header.SignalState = 0;
+}
+
 ULONG_PTR h_KeIpiGenericCall(PVOID BroadcastFunction, ULONG_PTR Context) {
     Logger::Log("\tBroadcastFunction: %llx\n", static_cast<const void*>(BroadcastFunction));
     Logger::Log("\tContent: %llx\n", reinterpret_cast<const void*>(Context));
@@ -767,22 +785,32 @@ int h__vsnwprintf(wchar_t* buffer, size_t count, const wchar_t* format, va_list 
 }
 
 //todo fix mutex bs
-void h_KeInitializeMutex(PVOID Mutex, ULONG level) { }
+void h_KeInitializeMutex(PVOID Mutex, ULONG level) { 
+    DebugBreak();
 
-LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { return 0; }
+}
+
+LONG h_KeReleaseMutex(PVOID Mutex, BOOLEAN Wait) { 
+    DebugBreak();
+    return 0; }
 
 //todo object might be invalid
 NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
 
     auto hEvent = HandleManager::GetHandle((uintptr_t)Object);
+    if (!hEvent)
+        DebugBreak();
     WaitForSingleObject((HANDLE)hEvent, INFINITE);
     return STATUS_SUCCESS;
 };
 
-ULONG h_KeQueryTimeIncrement() { return 1000; }
 
-//todo impl might be broken
-NTSTATUS h_PsCreateSystemThread(PHANDLE ThreadHandle, ULONG DesiredAccess, void* ObjectAttributes, HANDLE ProcessHandle, void* ClientId,
+ULONG h_KeQueryTimeIncrement() { 
+    return 156250; //machine with no hv
+}
+
+
+NTSTATUS h_PsCreateSystemThread(PHANDLE ThreadHandle, ULONG DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes, HANDLE ProcessHandle, void* ClientId,
     void* StartRoutine, PVOID StartContext) {
     ThreadInfo* ti = (ThreadInfo*)malloc(sizeof(ThreadInfo));
     if (!ti)
@@ -790,22 +818,31 @@ NTSTATUS h_PsCreateSystemThread(PHANDLE ThreadHandle, ULONG DesiredAccess, void*
 
     ti->routineContext = StartContext;
     ti->routineStart = (LPTHREAD_START_ROUTINE)StartRoutine;
+    ti->mutex = CreateEvent(NULL, false, false, NULL);
 
-    auto ret = CreateThread(nullptr, 4096, (LPTHREAD_START_ROUTINE)TrampolineThread, ti, 0, 0);
+    if (!ti->mutex)
+        return STATUS_NO_MEMORY;
+
+    auto ret = CreateThread(nullptr, 8192, (LPTHREAD_START_ROUTINE)TrampolineThread, ti, 0, 0);
+    WaitForSingleObject(ti->mutex, INFINITE);
     *ThreadHandle = ret;
-    //Sleep(100000);
+    Environment::ThreadManager::environment_threads.insert(std::pair((uintptr_t)ret, ti->ethread));
+
     return STATUS_SUCCESS;
 }
 
 //todo impl
 NTSTATUS h_PsTerminateSystemThread(NTSTATUS exitstatus) {
     Logger::Log("\tthread boom\n");
-    //__debugbreak(); int* a = 0; *a = 1; return 0;
+
     ExitThread(exitstatus);
 }
 
 //todo impl
-void h_IofCompleteRequest(void* pirp, CHAR boost) { }
+void h_IofCompleteRequest(void* pirp, CHAR boost) {
+
+
+}
 
 //todo impl
 NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRING DeviceName) { 
@@ -816,9 +853,15 @@ NTSTATUS h_IoCreateSymbolicLink(PUNICODE_STRING SymbolicLinkName, PUNICODE_STRIN
 
 }
 
-BOOL h_IoIsSystemThread(_ETHREAD* thread) { return true; }
+BOOL h_IoIsSystemThread(_ETHREAD* thread) { 
+    DebugBreak();
+    return true; 
 
-void h_IoDeleteDevice(_DEVICE_OBJECT* obj) { }
+}
+
+void h_IoDeleteDevice(_DEVICE_OBJECT* obj) {
+    
+}
 
 //todo definitely will blowup
 void* h_IoGetTopLevelIrp() {
@@ -827,13 +870,31 @@ void* h_IoGetTopLevelIrp() {
     return &irp;
 }
 
-NTSTATUS h_ObReferenceObjectByHandle(HANDLE handle, ACCESS_MASK DesiredAccess, GUID* ObjectType, uint64_t AccessMode, PVOID* Object,
+NTSTATUS h_ObReferenceObjectByHandle(HANDLE handle, ACCESS_MASK DesiredAccess, _OBJECT_TYPE* ObjectType, uint64_t AccessMode, PVOID* Object,
     void* HandleInformation) {
-    Logger::Log("\th_ObReferenceObjectByHandle blows up sorry\n");
-    *(PHANDLE)(Object) = &FakeKernelThread;
+
     if (HandleInformation) {
-        *(PHANDLE)(HandleInformation) = handle;
+        DebugBreak();
     }
+
+    if (ObjectType == PsThreadType) {
+        *(PHANDLE)(Object) = &FakeKernelThread;
+
+        if (Environment::ThreadManager::environment_threads.contains((uintptr_t)handle)) {
+            *(_ETHREAD**)(Object) = Environment::ThreadManager::environment_threads[(uintptr_t)handle];
+        }
+        else {
+            DebugBreak();
+        }
+    }
+    else if (ObjectType == PsProcessType) {
+        DebugBreak();
+    }
+    else
+    {
+        DebugBreak();
+    }
+
 
     return 0;
 }
@@ -844,15 +905,16 @@ NTSTATUS h_ObRegisterCallbacks(PVOID CallbackRegistration, PVOID* RegistrationHa
     return STATUS_SUCCESS;
 }
 
-void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) { }
+void h_ObUnRegisterCallbacks(PVOID RegistrationHandle) { 
+
+}
 
 void* h_ObGetFilterVersion(void* arg) { return 0; }
 
 BOOLEAN h_MmIsAddressValid(PVOID VirtualAddress) {
-    Logger::Log("\tChecking for %llx\n", VirtualAddress);
-    if (VirtualAddress == 0)
+    if ((uintptr_t)VirtualAddress <= 0x10000)
         return false;
-    return true; // rand() % 2 :troll:
+    return true;
 }
 
 NTSTATUS h_PsSetCreateThreadNotifyRoutine(PVOID NotifyRoutine) { return STATUS_SUCCESS; }
@@ -879,103 +941,6 @@ NTSTATUS h_ZwOpenSection(PHANDLE SectionHandle, ACCESS_MASK DesiredAccess, OBJEC
     return ret;
 }
 
-/*
-uint64_t TranslateLinearAddress(uint64_t directoryTableBase, uint64_t virtualAddress)
-{
-	uint16_t PML4 = (uint16_t)((virtualAddress >> 39) & 0x1FF);         //<! PML4 Entry Index
-	uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
-	uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF);    //<! Page Directory Table Index
-	uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);        //<! Page Table Index
-
-																	// Read the PML4 Entry. DirectoryTableBase has the base address of the table.
-																	// It can be read from the CR3 register or from the kernel process object.
-	uint64_t PML4E = 0;// ReadPhysicalAddress<ulong>(directoryTableBase + (ulong)PML4 * sizeof(ulong));
-	Read(directoryTableBase + (uint64_t)PML4 * sizeof(uint64_t), (uint8_t*)&PML4E, sizeof(PML4E));
-
-	if (PML4E == 0)
-		return 0;
-
-	// The PML4E that we read is the base address of the next table on the chain,
-	// the Page-Directory-Pointer Table.
-	uint64_t PDPTE = 0;// ReadPhysicalAddress<ulong>((PML4E & 0xFFFF1FFFFFF000) + (ulong)DirectoryPtr * sizeof(ulong));
-	Read((PML4E & 0xFFFF1FFFFFF000) + (uint64_t)DirectoryPtr * sizeof(uint64_t), (uint8_t*)&PDPTE, sizeof(PDPTE));
-
-	if (PDPTE == 0)
-		return 0;
-
-	//Check the PS bit
-	if ((PDPTE & (1 << 7)) != 0)
-	{
-		// If the PDPTE¨s PS flag is 1, the PDPTE maps a 1-GByte page. The
-		// final physical address is computed as follows:
-		// ！ Bits 51:30 are from the PDPTE.
-		// ！ Bits 29:0 are from the original va address.
-		return (PDPTE & 0xFFFFFC0000000) + (virtualAddress & 0x3FFFFFFF);
-	}
-
-	// PS bit was 0. That means that the PDPTE references the next table
-	// on the chain, the Page Directory Table. Read it.
-	uint64_t PDE = 0;// ReadPhysicalAddress<ulong>((PDPTE & 0xFFFFFFFFFF000) + (ulong)Directory * sizeof(ulong));
-	Read((PDPTE & 0xFFFFFFFFFF000) + (uint64_t)Directory * sizeof(uint64_t), (uint8_t*)&PDE, sizeof(PDE));
-
-	if (PDE == 0)
-		return 0;
-
-	if ((PDE & (1 << 7)) != 0)
-	{
-		// If the PDE¨s PS flag is 1, the PDE maps a 2-MByte page. The
-		// final physical address is computed as follows:
-		// ！ Bits 51:21 are from the PDE.
-		// ！ Bits 20:0 are from the original va address.
-		return (PDE & 0xFFFFFFFE00000) + (virtualAddress & 0x1FFFFF);
-	}
-
-	// PS bit was 0. That means that the PDE references a Page Table.
-	uint64_t PTE = 0;// ReadPhysicalAddress<ulong>((PDE & 0xFFFFFFFFFF000) + (ulong)Table * sizeof(ulong));
-	Read((PDE & 0xFFFFFFFFFF000) + (uint64_t)Table * sizeof(uint64_t), (uint8_t*)&PTE, sizeof(PTE));
-
-	if (PTE == 0)
-		return 0;
-
-	// The PTE maps a 4-KByte page. The
-	// final physical address is computed as follows:
-	// ！ Bits 51:12 are from the PTE.
-	// ！ Bits 11:0 are from the original va address.
-	return (PTE & 0xFFFFFFFFFF000) + (virtualAddress & 0xFFF);
-}*/
-
-typedef struct _MMPTE_HARDWARE {
-    union {
-        struct {
-            UINT64 Valid : 1;
-            UINT64 Write : 1;
-            UINT64 Owner : 1;
-            UINT64 WriteThrough : 1;
-            UINT64 CacheDisable : 1;
-            UINT64 Accessed : 1;
-            UINT64 Dirty : 1;
-            UINT64 LargePage : 1;
-            UINT64 Available : 4;
-            UINT64 PageFrameNumber : 36;
-            UINT64 ReservedForHardware : 4;
-            UINT64 ReservedForSoftware : 11;
-            UINT64 NoExecute : 1;
-        };
-        UINT64 AsUlonglong;
-    };
-} MMPTE_HARDWARE, *PMMPTE_HARDWARE;
-
-static constexpr auto s_1MB = 1ULL * 1024 * 1024;
-static constexpr auto s_1GB = 1ULL * 1024 * 1024 * 1024;
-static constexpr auto s_256GB = 256ULL * s_1GB;
-static constexpr auto s_512GB = 512ULL * s_1GB;
-
-static const auto s_UserSharedData = reinterpret_cast<PVOID>(0x7FFE0000ULL);
-static const auto s_UserSharedDataEnd = reinterpret_cast<PVOID>(0x7FFF0000ULL);
-static const auto s_LowestValidAddress = reinterpret_cast<PVOID>(0x10000ULL);
-static const auto s_HighestValidAddress = reinterpret_cast<PVOID>(s_256GB - 1);
-
-static constexpr auto s_Pml4PhysicalAddress = s_512GB - s_1GB;
 
 struct RamRange {
     uint64_t base;
@@ -996,44 +961,10 @@ PVOID h_MmAllocateContiguousMemorySpecifyCache(SIZE_T NumberOfBytes, uintptr_t L
     AllocatedContiguous = (uint64_t)hM_AllocPool(CacheType, NumberOfBytes);
     return (PVOID)AllocatedContiguous;
 }
-/*
-Result for cfe7f3f9f000 : 1ad000
-0 : 1000
-0 : 57000
-1 : 59000
-1 : 46000
-2 : 100000
-2 : b81b9000
-3 : b82f1000
-3 : 3b0000
-4 : b86a3000
-4 : cc58000
-5 : c6b99000
-5 : fd000
-6 : c7ba2000
-6 : 5e000
-7 : 100000000
-7 : 337000000
-*/
+
 
 unsigned long long h_MmGetPhysicalAddress(uint64_t BaseAddress) { //To test shit
-    auto virtualAddress = BaseAddress;
 
-    uint16_t PML4 = (uint16_t)((virtualAddress >> 39) & 0x1FF); //<! PML4 Entry Index
-    uint16_t DirectoryPtr = (uint16_t)((virtualAddress >> 30) & 0x1FF); //<! Page-Directory-Pointer Table Index
-    uint16_t Directory = (uint16_t)((virtualAddress >> 21) & 0x1FF); //<! Page Directory Table Index
-    uint16_t Table = (uint16_t)((virtualAddress >> 12) & 0x1FF);
-
-
-    /*
-
-
-	Logger::Log("\tPML4 : %llx\n", PML4);
-	Logger::Log("\tDirectoryPtr : %llx\n", DirectoryPtr);
-	Logger::Log("\tDirectory : %llx\n", Directory);
-	Logger::Log("\tTable : %llx\n", Table);
-
-	*/
     Logger::Log("\tGetting Physical address for %llx\n", BaseAddress);
     uint64_t ret = BaseAddress/0x1000;
 
@@ -1131,7 +1062,9 @@ PMDL NTAPI h_IoAllocateMdl(IN PVOID VirtualAddress, IN ULONG Length, IN BOOLEAN 
     return Mdl;
 }
 
-PVOID h_ExRegisterCallback(PVOID CallbackObject, PVOID CallbackFunction, PVOID CallbackContext) { return CallbackObject; }
+PVOID h_ExRegisterCallback(PVOID CallbackObject, PVOID CallbackFunction, PVOID CallbackContext) { 
+    return CallbackObject; 
+}
 
 void h_KeInitializeGuardedMutex(_KGUARDED_MUTEX* Mutex) {
     Mutex->Owner = 0i64;
@@ -1143,6 +1076,7 @@ void h_KeInitializeGuardedMutex(_KGUARDED_MUTEX* Mutex) {
     Mutex->Gate.Header.SignalState = 0;
     Mutex->Gate.Header.WaitListHead.Flink = &Mutex->Gate.Header.WaitListHead;
     Mutex->Gate.Header.WaitListHead.Blink = &Mutex->Gate.Header.WaitListHead;
+    DebugBreak();
 }
 
 NTSTATUS
@@ -1186,8 +1120,24 @@ void h_KeClearEvent(_KEVENT* Event) { //This should set the Event to non-signale
     return;
 }
 
-BOOLEAN h_KeReadStateTimer(_KTIMER* timer) { return false; }
-std::unordered_map<std::string, PVOID> api_provider;
+BOOLEAN h_KeReadStateTimer(_KTIMER* timer) { 
+    if (TimerManager::timer_manager.contains(timer)) {
+        auto timeSet = TimerManager::timer_manager[timer];
+        if ((timer->DueTime.QuadPart * -1 / 10000) + timeSet < GetTickCount64()) {
+            timer->Header.SignalState = 1;
+            DebugBreak();
+            return true;
+        }
+        else {
+            DebugBreak();
+            return false;
+        }
+    }
+    else {
+        DebugBreak();
+    }
+    return false; 
+}
 
 
 NTSTATUS h_ExGetFirmwareEnvironmentVariable(

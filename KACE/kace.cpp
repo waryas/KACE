@@ -38,7 +38,7 @@ uintptr_t lastPG = 0;
 
 extern "C" void u_iret();
 
-std::mutex exceptionMutex;
+
 
 LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
    // exceptionMutex.lock();

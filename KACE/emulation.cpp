@@ -394,7 +394,7 @@ namespace VCPU {
                         if (PTE == 481 && PDPTE == 481 && PDTE == 481) {
                             //Logger::Log("Getting entry %d for PML4\n", Offset/8);
                             _PML4E* pml4e1 = PagingEmulation::GetPML4();
-                            pml4e1[Offset / 8].Present = 1;
+                            pml4e1[Offset / 8].Present = 0;
                             if (Offset / 8 == 481)
                                 pml4e1[Offset / 8].PageFrameNumber = 0x1AD;
                             else
