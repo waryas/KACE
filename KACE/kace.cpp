@@ -202,13 +202,20 @@ DWORD FakeDriverEntry(LPVOID) {
 
     LDR_DATA_TABLE_ENTRY* ldrentry = (LDR_DATA_TABLE_ENTRY*)MemoryTracker::AllocateVariable(sizeof(LDR_DATA_TABLE_ENTRY));
     drvObj.DriverSection = ldrentry;
+    
+    ldrentry->FullDllName.Buffer = (wchar_t*)L"c:\\Program Files\\Riot Vanguard\\vgk.sys";
+    ldrentry->FullDllName.Length = lstrlenW(ldrentry->FullDllName.Buffer) * 2;
+    ldrentry->FullDllName.MaximumLength = ldrentry->FullDllName.Length;
+
+    
 
     InsertTailList(&Environment::PsLoadedModuleList->InLoadOrderLinks, &ldrentry->InLoadOrderLinks);
 
     MemoryTracker::TrackVariable((uintptr_t)drvObj.DriverSection, sizeof(UINT64), "MainModule.DriverObject.DriverSectionLdrEntry");
+    MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKPCR, sizeof(FakeKPCR), (char*)"KPCR");
     MemoryTracker::TrackVariable((uintptr_t)&FakeCPU, sizeof(FakeCPU), (char*)"CPU");
-    MemoryTracker::TrackVariable((uintptr_t)&drvObj, sizeof(drvObj), (char*)"MainModule.DriverObject");
+
    // MemoryTracker::TrackVariable((uintptr_t)&RegistryPath, sizeof(RegistryPath), (char*)"MainModule.RegistryPath");
     MemoryTracker::TrackVariable((uintptr_t)&FakeSystemProcess, sizeof(FakeSystemProcess), (char*)"PID4.EPROCESS");
     MemoryTracker::TrackVariable((uintptr_t)&FakeKernelThread, sizeof(FakeKernelThread), (char*)"PID4.ETHREAD");
