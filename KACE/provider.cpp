@@ -4,12 +4,7 @@
 
 #include "provider.h"
 
-namespace Provider {
-    std::unordered_map<std::string, PVOID> function_providers;
-    std::unordered_map<std::string, PVOID> passthrough_provider_cache;
-    std::unordered_map<std::string, PVOID> data_providers;
-    std::vector<std::pair<uintptr_t, size_t>> export_data_range;
-} // namespace Provider
+
 
 static auto ntdll = LoadLibraryA("ntdll.dll");
 

@@ -69,9 +69,25 @@ LONG ExceptionHandler(EXCEPTION_POINTERS* e) {
         auto bufferopcode = (uint8_t*)e->ContextRecord->Rip;
         auto addr_access = e->ExceptionRecord->ExceptionInformation[1];
         bool wasEmulated = false;
-
+        PEFile* pe_file;
         switch (e->ExceptionRecord->ExceptionInformation[0]) {
         case WRITE_VIOLATION:
+            pe_file = PEFile::FindModule(addr_access);
+
+            if (pe_file) {
+                auto sect = pe_file->sections;
+                auto offset = addr_access - pe_file->GetMappedImageBase();
+
+                for (auto section = sect.begin(); section != sect.end(); section++) {
+                    if (section->second.virtual_address <= offset && offset <= section->second.virtual_address + section->second.virtual_size) {
+                        if (section->first != ".data") {
+
+                            Logger::Log("Writing to %s", section->first.c_str());
+                            DebugBreak();
+                        }
+                    }
+                }
+            }
 
             wasEmulated = VCPU::MemoryWrite::Parse(addr_access, e->ContextRecord);
 
@@ -252,7 +268,8 @@ int main(int argc, char* argv[]) {
     PagingEmulation::SetupCR3();
     Environment::InitializeSystemModules();
     ntoskrnl_provider::Initialize();
-   
+ 
+    
 
     DWORD dwMode;
 
@@ -269,9 +286,12 @@ int main(int argc, char* argv[]) {
     else
         DriverPath = "C:\\emu\\easyanticheat_2.sys";
 
-    auto MainModule = PEFile::Open(DriverPath, "MyDriver");
+    auto MainModule = PEFile::Open(DriverPath, strrchr(DriverPath.c_str(), '\\') +1);
     MainModule->ResolveImport();
     MainModule->SetExecutable(true);
+
+    auto ci = PEFile::Open("c:\\emu\\ci.dll", "ci.dll");
+    ci->ResolveImport();
 
     PEFile::SetPermission();
 
@@ -282,6 +302,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    auto patchableBuffer = (unsigned char*)MainModule->GetMappedImageBase();
+    DWORD oldProtect = 0;
+    VirtualProtect(&patchableBuffer[0x1550], 0x1, PAGE_EXECUTE_READWRITE, &oldProtect);
+    patchableBuffer[0x1550] = 0xcc;
+    VirtualProtect(&patchableBuffer[0x1550], 0x1, oldProtect, &oldProtect);
     DriverEntry = (proxyCall)(MainModule->GetMappedImageBase() + MainModule->GetEP());
 
     const HANDLE ThreadHandle = CreateThread(nullptr, 4096, FakeDriverEntry, nullptr, 0, nullptr);

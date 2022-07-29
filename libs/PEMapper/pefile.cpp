@@ -158,7 +158,8 @@ void PEFile::ResolveImport() {
     for (; pImageImportDescriptor->Name; pImageImportDescriptor++) {
 
         PCHAR pDllName = makepointer<PCHAR>(mapped_buffer, pImageImportDescriptor->Name);
-
+        if (strstr(pDllName, "ext-ms-win-ci-xbox-l1-1-0.dll"))
+            continue;
         PEFile* importModule = nullptr;
         char tmpName[256] = { 0 };
         strcpy_s(tmpName, pDllName);
@@ -326,12 +327,17 @@ PEFile* PEFile::Open(std::string path, std::string name) {
     auto size = std::filesystem::file_size(path);
 
     if (size) {
+
+        for (auto& c : name)
+            c = tolower(c);
+        if (moduleList_namekey.contains(name)) {
+            return moduleList_namekey[name];
+        }
         auto loadedModule = new PEFile(path, name, size);
         loadedModule->isExecutable = false;
         LoadedModuleArray.push_back(loadedModule);
 
-        for (auto& c : name)
-            c = tolower(c);
+       
 
         moduleList_namekey.insert(std::pair(name, loadedModule));
 

@@ -31,6 +31,12 @@
     <ClInclude Include="utils.h">
       <Filter>utils</Filter>
     </ClInclude>
+    <ClInclude Include="cng_provider.h">
+      <Filter>provider\cng</Filter>
+    </ClInclude>
+    <ClInclude Include="ci_provider.h">
+      <Filter>provider\ci</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="kace.cpp" />
@@ -57,6 +63,12 @@
     </ClCompile>
     <ClCompile Include="environment.cpp">
       <Filter>environment</Filter>
+    </ClCompile>
+    <ClCompile Include="cng_provider.cpp">
+      <Filter>provider\cng</Filter>
+    </ClCompile>
+    <ClCompile Include="ci_provider.cpp">
+      <Filter>provider\ci</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -89,6 +101,12 @@
     </Filter>
     <Filter Include="utils">
       <UniqueIdentifier>{72a2dbcd-0902-48c5-8c09-d701b991a4a9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="provider\cng">
+      <UniqueIdentifier>{35a71f30-0434-493c-bfb7-e3359d188c06}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="provider\ci">
+      <UniqueIdentifier>{f2ed5cbc-34f6-4d06-b4c5-31e29abe117d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

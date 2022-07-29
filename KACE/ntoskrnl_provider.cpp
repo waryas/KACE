@@ -643,7 +643,10 @@ BOOLEAN h_KeSetTimer(_KTIMER* Timer, LARGE_INTEGER DueTime, _KDPC* Dpc) {
 }
 
 void h_KeInitializeTimer(_KTIMER* Timer) { 
-    InitializeListHead(&Timer->TimerListEntry); 
+    
+    InitializeListHead(&Timer->Header.WaitListHead); 
+    Logger::Log("Timer object : %llx - Header : %llx - Timer Entry : %llx\n", Timer, &Timer->Header, &Timer->TimerListEntry);
+
     Timer->Header.SignalState = 0;
 }
 
@@ -857,13 +860,13 @@ NTSTATUS h_KeWaitForSingleObject(PVOID Object, void* WaitReason, void* WaitMode,
 };
 
 
-NTSTATUS h_KeWaitForMutextObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
+NTSTATUS h_KeWaitForMutexObject(PVOID Object, void* WaitReason, void* WaitMode, BOOLEAN Alertable, PLARGE_INTEGER Timeout) {
 
     if (!MutexManager::mutex_manager.contains((uintptr_t)Object))
         DebugBreak();
 
     auto hMutex = MutexManager::mutex_manager[(uintptr_t)Object];
-
+    Logger::Log("Object : %llx - WaitReason : %llx - WaitMode : %llx - Alertable : %d, Timeout : %llx\n", Object, WaitReason, WaitMode, Alertable, Timeout);
     WaitForSingleObject((HANDLE)hMutex, INFINITE);
     return STATUS_SUCCESS;
 };
@@ -1442,7 +1445,7 @@ void ntoskrnl_provider::Initialize() {
     Provider::AddFuncImpl("ExGetFirmwareEnvironmentVariable", h_ExGetFirmwareEnvironmentVariable);
     Provider::AddFuncImpl("KeReadStateTimer", h_KeReadStateTimer);
     Provider::AddFuncImpl("KeClearEvent", h_KeClearEvent);
-    Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForMutextObject);
+    Provider::AddFuncImpl("KeWaitForMutexObject", h_KeWaitForMutexObject);
     Provider::AddFuncImpl("ExRegisterCallback", h_ExRegisterCallback);
     Provider::AddFuncImpl("KeWaitForMultipleObjects", h_KeWaitForMultipleObjects);
     Provider::AddFuncImpl("KeInitializeGuardedMutex", h_KeInitializeGuardedMutex);

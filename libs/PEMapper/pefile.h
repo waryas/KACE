@@ -25,7 +25,7 @@ struct SectionData {
 
 class PEFile {
 private:
-    static std::unordered_map<std::string, PEFile*> moduleList_namekey;
+    
 
     uintmax_t size = 0;
     std::ifstream File;
@@ -74,6 +74,7 @@ public:
     std::string name;
 
     static std::vector<PEFile*> LoadedModuleArray;
+    static std::unordered_map<std::string, PEFile*> moduleList_namekey;
 
     static PEFile* Open(std::string path, std::string name);
     static PEFile* FindModule(uintptr_t ptr);
