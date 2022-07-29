@@ -1432,7 +1432,18 @@ void  h_ExReleaseSpinLockExclusive(EX_SPIN_LOCK* SpinLock, uint32_t OldIrql)
     *SpinLock = 0;
 }
 
+NTSTATUS h_PsGetPermanentSiloContext(
+    PVOID Silo,
+    ULONG  ContextSlot,
+    PVOID* ReturnedSiloContext
+) {
+
+
+    return 0;
+}
+
 void ntoskrnl_provider::Initialize() {
+    Provider::AddFuncImpl("PsGetPermanentSiloContext", h_PsGetPermanentSiloContext);
     Provider::AddFuncImpl("ExAcquireSpinLockShared", h_ExAcquireSpinLockShared);
     Provider::AddFuncImpl("ExReleaseSpinLockShared", h_ExReleaseSpinLockShared);
     Provider::AddFuncImpl("ExAcquireSpinLockExclusive", h_ExAcquireSpinLockExclusive);

@@ -11,6 +11,12 @@ namespace Provider::CI {
 
 	using proxyCall = NTSTATUS (__fastcall*)(...);
 
+
+	static PolicyInfo lastValidCertificate = { 0 };
+	static PolicyInfo lastTimeCertificate = { 0 };
+	LARGE_INTEGER lastsigningTime = { 0 };
+	bool done = false;
+
 	NTSTATUS _stdcall h_CiCheckSignedFile(
 		const PVOID digestBuffer,
 		int digestSize,
@@ -34,12 +40,19 @@ namespace Provider::CI {
 		VirtualProtect((PVOID)ci->GetShadowBuffer(), ci->GetVirtualSize(), oldProtect2, &oldProtect2);
 		VirtualProtect((PVOID)ci->GetMappedImageBase(), ci->GetVirtualSize(), oldProtect, &oldProtect);
 		
+		if (!done) {
+			done = true;
+			memcpy(&lastValidCertificate, policyInfoForSigner, sizeof(PolicyInfo));
+			memcpy(&lastsigningTime, signingTime, sizeof(LARGE_INTEGER));
+			memcpy(&lastTimeCertificate, policyInfoForTimestampingAuthority, sizeof(PolicyInfo));
+		}
 		return 0;
 	}
 
 
 	PVOID _stdcall h_CiFreePolicyInfo(PolicyInfo* policyInfo) {
 		auto ci = PEFile::FindModule("ci.dll");
+		/*
 		auto rva = ci->GetExport("CiFreePolicyInfo");
 
 		proxyCall CiFreePolicyInfo = (proxyCall)(ci->GetShadowBuffer() + rva);
@@ -51,8 +64,8 @@ namespace Provider::CI {
 		auto ret = CiFreePolicyInfo(policyInfo);
 		VirtualProtect((PVOID)ci->GetShadowBuffer(), ci->GetVirtualSize(), oldProtect2, &oldProtect2);
 		VirtualProtect((PVOID)ci->GetMappedImageBase(), ci->GetVirtualSize(), oldProtect, &oldProtect);
-
-		return (PVOID)ret;
+		*/
+		return (PVOID)0;
 	}
 
 
@@ -85,8 +98,7 @@ namespace Provider::CI {
 			_Out_ PolicyInfo* TimeStampPolicyInfo
 		)
 	{
-
-
+		/*
 		auto ci = PEFile::FindModule("ci.dll");
 		auto rva = ci->GetExport("CiVerifyHashInCatalog");
 
@@ -99,9 +111,14 @@ namespace Provider::CI {
 		auto ret = CiVerifyHashInCatalog(Hash, HashSize, HashAlgId, IsReloadCatalogs, Always0, Always2007F, PolicyInfos, CatalogName, SigningTime, TimeStampPolicyInfo);
 		VirtualProtect((PVOID)ci->GetShadowBuffer(), ci->GetVirtualSize(), oldProtect2, &oldProtect2);
 		VirtualProtect((PVOID)ci->GetMappedImageBase(), ci->GetVirtualSize(), oldProtect, &oldProtect);
+		*/
+		memcpy(PolicyInfos, &lastValidCertificate, sizeof(lastValidCertificate));
+		memcpy(TimeStampPolicyInfo, &lastTimeCertificate, sizeof(lastTimeCertificate));
+		memcpy(SigningTime, &lastsigningTime, sizeof(LARGE_INTEGER));
 
-		return ret;
+		return 0x0;
 	}
+
 
 	int Initialize() {
 
