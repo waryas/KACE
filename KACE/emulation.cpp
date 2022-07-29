@@ -366,7 +366,8 @@ namespace VCPU {
                         auto xmm0 = &context->Xmm0;
                         _mm_storeu_ps((float*)addr, *(__m128*)xmm0);
                         return SkipToNext(context, instr);
-                    } else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
+                    }
+                    else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
                         auto xmm1 = &context->Xmm1;
                         _mm_storeu_ps((float*)addr, *(__m128*)xmm1);
                         return SkipToNext(context, instr);
@@ -388,6 +389,46 @@ namespace VCPU {
                     } else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
                         auto xmm1 = &context->Xmm1;
                         _mm_store_ps((float*)addr, *(__m128*)xmm1);
+                        return SkipToNext(context, instr);
+                    }
+                    else {
+                        DebugBreak();
+                    }
+                }
+                else {
+                    DebugBreak();
+                }
+            }
+            else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVDQU) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].size == 128) {
+                    if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM0) {
+                        auto xmm0 = &context->Xmm0;
+                        _mm_storeu_si128((__m128i*)addr, *(__m128i*)xmm0);
+                        return SkipToNext(context, instr);
+                    }
+                    else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
+                        auto xmm1 = &context->Xmm1;
+                        _mm_storeu_si128((__m128i*)addr, *(__m128i*)xmm1);
+                        return SkipToNext(context, instr);
+                    }
+                    else {
+                        DebugBreak();
+                    }
+                }
+                else {
+                    DebugBreak();
+                }
+            }
+            else if (instr->mnemonic == ZYDIS_MNEMONIC_MOVDQA) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].size == 128) {
+                    if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM0) {
+                        auto xmm0 = &context->Xmm0;
+                        _mm_store_si128((__m128i*)addr, *(__m128i*)xmm0);
+                        return SkipToNext(context, instr);
+                    }
+                    else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
+                        auto xmm1 = &context->Xmm1;
+                        _mm_store_si128((__m128i*)addr, *(__m128i*)xmm1);
                         return SkipToNext(context, instr);
                     }
                     else {
