@@ -65,6 +65,7 @@ uintptr_t Provider::FindDataImpl(uintptr_t ptr) {
     auto exported_func = pe_file->GetExport(rva);
 
     if (!exported_func) {
+        return 0;
         auto sym = symparser::find_symbol(pe_file->filename, rva);
         if (!sym || !sym->rva) {
             return 0;

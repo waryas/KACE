@@ -58,29 +58,31 @@ void TrampolineThread(ThreadInfo* info) {
     Logger::Log("End of thread with return : %llx\n", ret);
     
 }
-void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) {
+void* hM_AllocPoolTag(uint32_t pooltype, size_t size, ULONG tag) { //Ok
     auto ptr = _aligned_malloc(size, 0x1000);
     return ptr;
 }
 
-void* hM_AllocPool(uint32_t pooltype, size_t size) {
+void* hM_AllocPool(uint32_t pooltype, size_t size) { //Ok
     auto ptr = _aligned_malloc(size, 0x1000);
     return ptr;
 }
 
-void h_DeAllocPoolTag(uintptr_t ptr, ULONG tag) {
+void h_DeAllocPoolTag(uintptr_t ptr, ULONG tag) { //Ok
     _aligned_free((PVOID)ptr);
     return;
 }
 
-void h_DeAllocPool(uintptr_t ptr) {
+void h_DeAllocPool(uintptr_t ptr) { //Ok
     _aligned_free((PVOID)ptr);
     return;
 }
 
-_ETHREAD* h_KeGetCurrentThread() { return (_ETHREAD*)__readgsqword(0x188); }
+_ETHREAD* h_KeGetCurrentThread() {  //Ok
+    return (_ETHREAD*)__readgsqword(0x188); 
+}
 
-NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
+NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) { //Other classes
 
     auto x = NtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 
@@ -153,7 +155,7 @@ NTSTATUS h_NtQuerySystemInformation(uint32_t SystemInformationClass, uintptr_t S
     return x;
 }
 
-uint64_t h_RtlRandomEx(unsigned long* seed) {
+uint64_t h_RtlRandomEx(unsigned long* seed) { //Ok
     Logger::Log("\tSeed is %llx\n", *seed);
     auto ret = __NtRoutine("RtlRandomEx", seed);
     *seed = ret; //Keep behavior kinda same as Kernel equivalent in case of check
@@ -161,7 +163,7 @@ uint64_t h_RtlRandomEx(unsigned long* seed) {
 }
 
 NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSize, PUNICODE_STRING DeviceName, DWORD DeviceType,
-    ULONG DeviceCharacteristics, BOOLEAN Exclusive, _DEVICE_OBJECT** DeviceObject) {
+    ULONG DeviceCharacteristics, BOOLEAN Exclusive, _DEVICE_OBJECT** DeviceObject) { //Ok
     *DeviceObject = (_DEVICE_OBJECT*)MemoryTracker::AllocateVariable(sizeof(_DEVICE_OBJECT));
     auto realDevice = *DeviceObject;
 
@@ -183,7 +185,7 @@ NTSTATUS h_IoCreateDevice(_DRIVER_OBJECT* DriverObject, ULONG DeviceExtensionSiz
 
 NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes, void* IoStatusBlock,
     PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess, ULONG Disposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength,
-    void* CreateFileType, PVOID InternalParameters, ULONG Options, void* DriverContext) {
+    void* CreateFileType, PVOID InternalParameters, ULONG Options, void* DriverContext) { //Todo Sandboxing
 
 
     Logger::Log("\tCreating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
@@ -196,7 +198,7 @@ NTSTATUS h_IoCreateFileEx(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_
     return 0;
 }
 
-void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State) {
+void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State) { //Ok
 
     /* Initialize the Dispatcher Header */
     Event->Header.SignalState = State;
@@ -212,7 +214,7 @@ void h_KeInitializeEvent(_KEVENT* Event, _EVENT_TYPE Type, BOOLEAN State) {
     Logger::Log("\tEvent object : %llx\n", Event);
 }
 
-NTSTATUS h_RtlGetVersion(RTL_OSVERSIONINFOW* lpVersionInformation) {
+NTSTATUS h_RtlGetVersion(RTL_OSVERSIONINFOW* lpVersionInformation) { //Ok
     auto ret = __NtRoutine("RtlGetVersion", lpVersionInformation);
     Logger::Log("\t%d.%d.%d\n", lpVersionInformation->dwMajorVersion, lpVersionInformation->dwMinorVersion, lpVersionInformation->dwBuildNumber);
     return ret;
@@ -229,14 +231,16 @@ NTSTATUS h_RtlMultiByteToUnicodeN(PWCH UnicodeString, ULONG MaxBytesInUnicodeStr
     return __NtRoutine("RtlMultiByteToUnicodeN", UnicodeString, MaxBytesInUnicodeString, BytesInUnicodeString, MultiByteString, BytesInMultiByteString);
 }
 
-bool h_KeAreAllApcsDisabled() { //Track thread IRQL ideally
+bool h_KeAreAllApcsDisabled() { //Todo
     return false;
 }
 
-bool h_KeAreApcsDisabled() { return false; }
+bool h_KeAreApcsDisabled() {  //Todo
+    return false; 
+}
 
 NTSTATUS h_NtCreateFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes, PVOID IoStatusBlock,
-    PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess, ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength) {
+    PLARGE_INTEGER AllocationSize, ULONG FileAttributes, ULONG ShareAccess, ULONG CreateDisposition, ULONG CreateOptions, PVOID EaBuffer, ULONG EaLength) { //oK, sandboxing needed
     Logger::Log("\tCreating file : %ls\n", ObjectAttributes->ObjectName->Buffer);
     auto ret = __NtRoutine("NtCreateFile", FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess,
         CreateDisposition, CreateOptions, EaBuffer, EaLength);
@@ -245,36 +249,36 @@ NTSTATUS h_NtCreateFile(PHANDLE FileHandle, ACCESS_MASK DesiredAccess, OBJECT_AT
 }
 
 NTSTATUS h_NtReadFile(HANDLE FileHandle, HANDLE Event, PVOID ApcRoutine, PVOID ApcContext, PVOID IoStatusBlock, PVOID Buffer, ULONG Length,
-    PLARGE_INTEGER ByteOffset, PULONG Key) {
+    PLARGE_INTEGER ByteOffset, PULONG Key) { //Ok, more logging
     auto ret = __NtRoutine("NtReadFile", FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
     return ret;
 }
 
 NTSTATUS h_NtQueryInformationFile(HANDLE FileHandle, PVOID IoStatusBlock, PVOID FileInformation, ULONG Length,
-    FILE_INFORMATION_CLASS FileInformationClass) {
+    FILE_INFORMATION_CLASS FileInformationClass) { //ok, more logging
     Logger::Log("\tQueryInformationFile with class %08x\n", FileInformationClass);
     auto ret = __NtRoutine("NtQueryInformationFile", FileHandle, IoStatusBlock, FileInformation, Length, FileInformationClass);
     return ret;
 }
 
 NTSTATUS h_ZwQueryValueKey(HANDLE KeyHandle, PUNICODE_STRING ValueName, KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass, PVOID KeyValueInformation,
-    ULONG Length, PULONG ResultLength) {
+    ULONG Length, PULONG ResultLength) { //ok, more logging
     auto ret = __NtRoutine("NtQueryValueKey", KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
     return ret;
 }
 
 NTSTATUS h_ZwOpenKey(PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, OBJECT_ATTRIBUTES* ObjectAttributes) {
-    auto ret = __NtRoutine("NtOpenKey", KeyHandle, DesiredAccess, ObjectAttributes);
+    auto ret = __NtRoutine("NtOpenKey", KeyHandle, DesiredAccess, ObjectAttributes); //ok
     Logger::Log("\tTry to open %ls : %08x\n", ObjectAttributes->ObjectName->Buffer, ret);
     return ret;
 }
 
-NTSTATUS h_ZwFlushKey(PHANDLE KeyHandle) {
+NTSTATUS h_ZwFlushKey(PHANDLE KeyHandle) { //ok
     auto ret = __NtRoutine("NtFlushKey", KeyHandle);
     return ret;
 }
 
-NTSTATUS h_ZwClose(HANDLE Handle) {
+NTSTATUS h_ZwClose(HANDLE Handle) { //ok ?
     Logger::Log("\tClosing Kernel Handle : %llx\n", Handle);
     if (!Handle)
         return STATUS_NOT_FOUND;
@@ -289,86 +293,104 @@ NTSTATUS h_ZwClose(HANDLE Handle) {
     
 }
 
-NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData, ULONG ValueLength) {
+NTSTATUS h_RtlWriteRegistryValue(ULONG RelativeTo, PCWSTR Path, PCWSTR ValueName, ULONG ValueType, PVOID ValueData, ULONG ValueLength) { //Ok
     Logger::Log("\tWriting to %ls - %ls  %llx\n", Path, ValueName, *(const PVOID*)ValueData);
     auto ret = __NtRoutine("RtlWriteRegistryValue", RelativeTo, Path, ValueName, ValueType, ValueData, ValueLength);
     return ret;
 }
 
-NTSTATUS h_RtlInitUnicodeString(PUNICODE_STRING DestinationString, PCWSTR SourceString) {
+NTSTATUS h_RtlInitUnicodeString(PUNICODE_STRING DestinationString, PCWSTR SourceString) { //Ok
     auto ret = __NtRoutine("RtlInitUnicodeString", DestinationString, SourceString);
     return ret;
 }
 
-NTSTATUS h_ZwQueryFullAttributesFile(OBJECT_ATTRIBUTES* ObjectAttributes, PFILE_NETWORK_OPEN_INFORMATION FileInformation) {
+NTSTATUS h_ZwQueryFullAttributesFile(OBJECT_ATTRIBUTES* ObjectAttributes, PFILE_NETWORK_OPEN_INFORMATION FileInformation) { //Ok
 
     auto ret = __NtRoutine("NtQueryFullAttributesFile", ObjectAttributes, FileInformation);
     Logger::Log("\tQuerying information for %ls : %08x\n", ObjectAttributes->ObjectName->Buffer, ret);
     return ret;
 }
 
-PVOID h_PsGetProcessWow64Process(_EPROCESS* Process) {
+PVOID h_PsGetProcessWow64Process(_EPROCESS* Process) { //Ok
     Logger::Log("\tRequesting WoW64 for process : %llx (id : %llx)\n", (const PVOID)Process, Process->UniqueProcessId);
     return Process->WoW64Process;
 }
 
-NTSTATUS h_IoWMIOpenBlock(LPCGUID Guid, ULONG DesiredAccess, PVOID* DataBlockObject) {
+NTSTATUS h_IoWMIOpenBlock(LPCGUID Guid, ULONG DesiredAccess, PVOID* DataBlockObject) { //TODO
     Logger::Log("\tWMI GUID : %llx-%llx-%llx-%llx with access : %llx\n", Guid->Data1, Guid->Data2, Guid->Data3, Guid->Data4, DesiredAccess);
     return STATUS_SUCCESS;
 }
 
-NTSTATUS h_IoWMIQueryAllData(PVOID DataBlockObject, PULONG InOutBufferSize, PVOID OutBuffer) { return STATUS_SUCCESS; }
+NTSTATUS h_IoWMIQueryAllData(PVOID DataBlockObject, PULONG InOutBufferSize, PVOID OutBuffer) { //TODO
+    return STATUS_SUCCESS; 
+} 
 
 uint64_t h_ObfDereferenceObject(PVOID obj) { //TODO
 
     return 0;
 }
 
-NTSTATUS h_PsLookupThreadByThreadId(HANDLE ThreadId, PVOID* Thread) {
-    //Logger::Log("\tThread ID : %llx is being investigated.\n", ThreadId);
+NTSTATUS h_PsLookupThreadByThreadId(HANDLE ThreadId, PVOID* Thread) { //Ok for now
+   
     auto ct = h_KeGetCurrentThread();
 
-    if (ThreadId == (HANDLE)4) {
-        *Thread = (PVOID)&FakeKernelThread;
+    if (ThreadId == ct->Cid.UniqueThread) {
+        *Thread = (PVOID)ct;
+        return STATUS_SUCCESS;
     } else {
+        for (auto thread = Environment::ThreadManager::environment_threads.begin(); thread != Environment::ThreadManager::environment_threads.end(); thread++) {
+            auto ethread = thread->second;
+            if (ethread->Cid.UniqueThread == ThreadId) {
+                *Thread = (PVOID)ethread;
+                return STATUS_SUCCESS;
+            }
+        }
         *Thread = 0;
         return STATUS_INVALID_PARAMETER;
     }
-    return 0;
+    
 }
 
-HANDLE h_PsGetThreadId(_ETHREAD* Thread) {
+HANDLE h_PsGetThreadId(_ETHREAD* Thread) { //Ok
     if (Thread)
         return Thread->Cid.UniqueThread;
     else
         return 0;
 }
 
-_PEB* h_PsGetProcessPeb(_EPROCESS* process) { return process->Peb; }
+_PEB* h_PsGetProcessPeb(_EPROCESS* process) { //Ok for now
+    return process->Peb; 
+}
 
-HANDLE h_PsGetProcessInheritedFromUniqueProcessId(_EPROCESS* Process) { return Process->InheritedFromUniqueProcessId; }
+HANDLE h_PsGetProcessInheritedFromUniqueProcessId(_EPROCESS* Process) {  //Ok for now
+    return Process->InheritedFromUniqueProcessId; 
+}
 
-NTSTATUS h_IoQueryFileDosDeviceName(PVOID fileObject, PVOID* name_info) {
+NTSTATUS h_IoQueryFileDosDeviceName(PVOID fileObject, PVOID* name_info) { //Todo
     typedef struct _OBJECT_NAME_INFORMATION {
         UNICODE_STRING Name;
     } aids;
     static aids n;
     name_info = (PVOID*)&n;
-
+    Logger::Log("%s breakpoint, needs some work.\n", __FUNCTION__);
+    DebugBreak();
     return STATUS_SUCCESS;
 }
 
-NTSTATUS h_ObOpenObjectByPointer(PVOID Object, ULONG HandleAttributes, PVOID PassedAccessState, ACCESS_MASK DesiredAccess, uint64_t ObjectType,
-    uint64_t AccessMode, PHANDLE Handle) {
+NTSTATUS h_ObOpenObjectByPointer(PVOID Object, ULONG HandleAttributes, PVOID PassedAccessState, ACCESS_MASK DesiredAccess, uint64_t ObjectType, 
+    uint64_t AccessMode, PHANDLE Handle) { //Todo
+    Logger::Log("%s breakpoint, needs some work.\n", __FUNCTION__);
+    DebugBreak();
     return STATUS_SUCCESS;
 }
 
-NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, PULONG ReturnLength) {
-    Logger::Log("\tUnimplemented function call detected\n");
+NTSTATUS h_ObQueryNameString(PVOID Object, PVOID ObjectNameInfo, ULONG Length, PULONG ReturnLength) { //Todo
+    Logger::Log("%s breakpoint, needs some work.\n", __FUNCTION__);
+    DebugBreak();
     return STATUS_SUCCESS;
 }
 
-void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex) {
+void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex) { //Ok
     auto fm = FastMutex;
 
     if (!MutexManager::mutex_manager.contains((uintptr_t)&fm->Gate))
@@ -390,7 +412,7 @@ void h_ExAcquireFastMutex(PFAST_MUTEX FastMutex) {
     return;
 }
 
-void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex) {
+void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex) { //Ok
 
     auto fm = FastMutex;
 
@@ -409,27 +431,19 @@ void h_ExReleaseFastMutex(PFAST_MUTEX FastMutex) {
     return;
 }
 
-LONG_PTR h_ObfReferenceObject(PVOID Object) {
+LONG_PTR h_ObfReferenceObject(PVOID Object) { //Ok
     //  Logger::Log("Trying to get reference for %llx", Object);
     if (!Object)
         return -1;
-    if (Object == (PVOID)&FakeSystemProcess) {
-        Logger::Log("\tIncreasing ref by 1\n");
-        return (LONG_PTR)&FakeSystemProcess;
-    } else {
-        Logger::Log("\tFailed - ");
-        Logger::Log("%llx\n", Object);
-    }
-
-    return 0;
+    return (LONG_PTR)Object;
 }
 
-LONGLONG h_PsGetProcessCreateTimeQuadPart(_EPROCESS* process) {
+LONGLONG h_PsGetProcessCreateTimeQuadPart(_EPROCESS* process) { //Ok
     Logger::Log("\t\tTrying to get creation time for %llx\n", (const void*)process);
     return process->CreateTime.QuadPart;
 }
 
-LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN CaseInSensitive) {
+LONG h_RtlCompareString(const STRING* String1, const STRING* String2, BOOLEAN CaseInSensitive) { //Ok
     Logger::Log("\tComparing %s to %s\n", String1->Buffer, String2->Buffer);
     auto ret = __NtRoutine("RtlCompareString", String1, String2, CaseInSensitive);
     return ret;
@@ -705,20 +719,18 @@ LONG h_KeSetEvent(_KEVENT* Event, LONG Increment, BOOLEAN Wait) {
     LONG PreviousState;
     _KTHREAD* Thread;
 
-    /*
-	 * Check if this is an signaled notification event without an upcoming wait.
-	 * In this case, we can immediately return TRUE, without locking.
-	 */
-    if ((Event->Header.Type == 0) && (Event->Header.SignalState == 1) && !(Wait)) {
-        /* Return the signal state (TRUE/Signalled) */
-        return TRUE;
-    }
-
-    /* Save the Previous State */
     PreviousState = Event->Header.SignalState;
+    Event->Header.SignalState = 1;
 
     auto hEvent = HandleManager::GetHandle((uintptr_t)Event);
     SetEvent((HANDLE)hEvent);
+
+    if (!MutexManager::mutex_manager.contains((uintptr_t)Event))
+        DebugBreak();
+
+    auto hMutex = MutexManager::mutex_manager[(uintptr_t)Event];
+
+    ReleaseMutex((HANDLE)hMutex);
     return PreviousState;
 }
 
@@ -754,14 +766,24 @@ NTSTATUS h_PsSetCreateProcessNotifyRoutineEx(void* NotifyRoutine, BOOLEAN Remove
 }
 
 UCHAR h_KeAcquireSpinLockRaiseToDpc(PKSPIN_LOCK SpinLock) { 
+    DebugBreak();
     return (UCHAR)0x00; 
 }
 
-void h_KeReleaseSpinLock(PKSPIN_LOCK SpinLock, UCHAR NewIrql) { }
+void h_KeReleaseSpinLock(PKSPIN_LOCK SpinLock, UCHAR NewIrql) { 
+    DebugBreak();
+}
 
-void h_ExWaitForRundownProtectionRelease(_EX_RUNDOWN_REF* RunRef) { }
+void h_ExWaitForRundownProtectionRelease(_EX_RUNDOWN_REF* RunRef) {
+    DebugBreak();
 
-BOOLEAN h_KeCancelTimer(_KTIMER* Timer) { return true; }
+}
+
+BOOLEAN h_KeCancelTimer(_KTIMER* Timer) { 
+    DebugBreak();
+    return true; 
+
+}
 
 PVOID h_MmGetSystemRoutineAddress(PUNICODE_STRING SystemRoutineName) {
 
@@ -1172,7 +1194,7 @@ void h_KeClearEvent(_KEVENT* Event) { //This should set the Event to non-signale
 
     ReleaseMutex((HANDLE)hMutex);
     ResetEvent((HANDLE)hEvent);
-
+    Event->Header.SignalState = 0;
     return;
 }
 
@@ -1379,7 +1401,7 @@ uint64_t  h_ExAcquireSpinLockExclusive(EX_SPIN_LOCK* SpinLock)
                 if (!v3)
                     continue;
             }
-            Sleep(0);
+            _mm_pause();
             v2 = *(unsigned int*)SpinLock;
         } while ((v2 & 0xBFFFFFFF) != 0x80000000);
     }

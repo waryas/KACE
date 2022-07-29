@@ -15,4 +15,8 @@ namespace Environment {
         inline std::unordered_map<uintptr_t, _ETHREAD*> environment_threads{};
 
     }
+
+    namespace ProcessManager {
+
+    }
 } 

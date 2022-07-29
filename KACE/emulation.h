@@ -66,6 +66,9 @@ namespace VCPU {
         bool EmulateCMPDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
         bool EmulateCMPSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
         bool EmulateCMPImm(PCONTEXT ctx, int32_t imm, uint64_t ptr, size_t size, ZydisDecodedInstruction* instr);
+        bool EmulateCMPXCHG(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, size_t size, ZydisDecodedInstruction* instr);
+        bool EmulateXADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, size_t size, ZydisDecodedInstruction* instr);
+        bool EmulateXCHG(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, size_t size, ZydisDecodedInstruction* instr);
 
         bool EmulateTestSourcePtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
         bool EmulateTestDestPtr(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
@@ -78,6 +81,7 @@ namespace VCPU {
             bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
             bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
             bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr);
+            bool EmulateIMULImm(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, int64_t imm, ZydisDecodedInstruction* instr);
             bool EmulateMOVZX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr);
             bool EmulateMOVSX(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, uint32_t size, ZydisDecodedInstruction* instr);
         } // namespace ReadPtr

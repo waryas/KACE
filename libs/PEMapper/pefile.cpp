@@ -278,18 +278,32 @@ void PEFile::CreateShadowBuffer() {
     memcpy(shadow_buffer, mapped_buffer, this->GetVirtualSize());
     auto sections = this->sections;
     for (auto section = sections.begin(); section != sections.end(); section++) {
-        auto sectionName = section->first;
-        auto sectionData = section->second;
-        if (sectionData.characteristics & 0x80000000 || sectionData.characteristics & 0x40000000) {
-            if (sectionName != ".edata") {
-                Logger::Log("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
-                VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_NOACCESS, &oldProtect);
+
+        if (!this->isExecutable) {
+            auto sectionName = section->first;
+            auto sectionData = section->second;
+            if (sectionData.characteristics & 0x80000000 || sectionData.characteristics & 0x40000000) {
+                if (sectionName != ".edata") {
+                    Logger::Log("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
+                    VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_NOACCESS, &oldProtect);
+                }
+            }
+
+            if ((sectionData.characteristics & 0x20000000) || (sectionData.characteristics & 0x00000020)) {
+                Logger::Log("Hooking EXECUTE %s of %s\n", sectionName.c_str(), this->name.c_str());
+                VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_READONLY, &oldProtect);
             }
         }
+        else {
+            auto sectionName = section->first;
+            auto sectionData = section->second;
+            if (sectionData.characteristics & 0x80000000 || sectionData.characteristics & 0x40000000) {
+                if (sectionName == ".data") {
+                    Logger::Log("Hooking READ/WRITE %s of %s\n", sectionName.c_str(), this->name.c_str());
+                    VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_NOACCESS, &oldProtect);
+                }
+            }
 
-        if ((sectionData.characteristics & 0x20000000) || (sectionData.characteristics & 0x00000020)) {
-            Logger::Log("Hooking EXECUTE %s of %s\n", sectionName.c_str(), this->name.c_str());
-            VirtualProtect(mapped_buffer + sectionData.virtual_address, sectionData.virtual_size, PAGE_READONLY, &oldProtect);
         }
     }
 
@@ -300,6 +314,9 @@ uintptr_t PEFile::GetShadowBuffer() { return (uintptr_t)shadow_buffer; }
 void PEFile::SetPermission() {
     for (int i = 0; i < LoadedModuleArray.size(); i++) {
         if (!LoadedModuleArray[i]->isExecutable) {
+            LoadedModuleArray[i]->CreateShadowBuffer();
+        }
+        else {
             LoadedModuleArray[i]->CreateShadowBuffer();
         }
     }
