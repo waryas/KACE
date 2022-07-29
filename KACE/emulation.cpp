@@ -366,6 +366,10 @@ namespace VCPU {
                         auto xmm0 = &context->Xmm0;
                         _mm_storeu_ps((float*)addr, *(__m128*)xmm0);
                         return SkipToNext(context, instr);
+                    } else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
+                        auto xmm1 = &context->Xmm1;
+                        _mm_storeu_ps((float*)addr, *(__m128*)xmm1);
+                        return SkipToNext(context, instr);
                     }
                     else {
                         DebugBreak();
@@ -380,6 +384,10 @@ namespace VCPU {
                     if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM0) {
                         auto xmm0 = &context->Xmm0;
                         _mm_store_ps((float*)addr, *(__m128*)xmm0);
+                        return SkipToNext(context, instr);
+                    } else  if (instr->operands[1].reg.value == ZYDIS_REGISTER_XMM1) {
+                        auto xmm1 = &context->Xmm1;
+                        _mm_store_ps((float*)addr, *(__m128*)xmm1);
                         return SkipToNext(context, instr);
                     }
                     else {
@@ -411,6 +419,72 @@ namespace VCPU {
             else if (instr->mnemonic == ZYDIS_MNEMONIC_XCHG) {
                 if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
                     InstrEmu::EmulateXCHG(context, instr->operands[1].reg.value, addr, instr->operands[0].size, instr);
+                    return SkipToNext(context, instr);
+                }
+                else {
+                    DebugBreak();
+                }
+            }
+            else if (instr->mnemonic == ZYDIS_MNEMONIC_DEC) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY) {
+                    if (instr->operands[0].size == 64) {
+                        _InterlockedDecrement64((volatile long long*)addr);
+                    }
+                    else if (instr->operands[0].size == 32) {
+                        _InterlockedDecrement((volatile long*)addr);
+                    }
+                    else if (instr->operands[0].size == 16) {
+                        _InterlockedDecrement16((volatile short*)addr);
+                    }
+                    else if (instr->operands[0].size == 8) {
+                        *(volatile char*)addr = (*(volatile char*)addr) - 1;
+                    }
+                    else {
+                        DebugBreak();
+                    }
+
+                    return SkipToNext(context, instr);
+                }
+                else {
+                    DebugBreak();
+                }
+            }
+            else if (instr->mnemonic == ZYDIS_MNEMONIC_INC) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY) {
+                    if (instr->operands[0].size == 64) {
+                        _InterlockedIncrement64((volatile long long*)addr);
+                    }
+                    else if (instr->operands[0].size == 32) {
+                        _InterlockedIncrement((volatile long*)addr);
+                    }
+                    else if (instr->operands[0].size == 16) {
+                        _InterlockedIncrement16((volatile short*)addr);
+                    }
+                    else if (instr->operands[0].size == 8) {
+                        *(volatile char*)addr = (*(volatile char*)addr) + 1;
+                    }
+                    else {
+                        DebugBreak();
+                    }
+
+                    return SkipToNext(context, instr);
+                }
+                else {
+                    DebugBreak();
+                }
+            }
+            else if (instr->mnemonic == ZYDIS_MNEMONIC_ADD) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
+                    InstrEmu::WritePtr::EmulateADD(context, instr->operands[1].reg.value, addr, instr);
+                    return SkipToNext(context, instr);
+                }
+                else {
+                    DebugBreak();
+                }
+            }
+            else if (instr->mnemonic == ZYDIS_MNEMONIC_SUB) {
+                if (instr->operands[0].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[1].type == ZYDIS_OPERAND_TYPE_REGISTER) {
+                    InstrEmu::WritePtr::EmulateSUB(context, instr->operands[1].reg.value, addr, instr);
                     return SkipToNext(context, instr);
                 }
                 else {
@@ -704,6 +778,9 @@ namespace VCPU {
                     if (instr->operands[0].reg.value == ZYDIS_REGISTER_XMM0) {
                         _mm_store_ps((float*)&context->Xmm0, _mm_load_ps((float*)addr));
                         return SkipToNext(context, instr);
+                    } else if (instr->operands[0].reg.value == ZYDIS_REGISTER_XMM1) {
+                        _mm_store_ps((float*)&context->Xmm1, _mm_load_ps((float*)addr));
+                        return SkipToNext(context, instr);
                     }
                     else {
                         DebugBreak();
@@ -719,6 +796,9 @@ namespace VCPU {
                 if (instr->operand_count == 2 && instr->operands[1].type == ZYDIS_OPERAND_TYPE_MEMORY && instr->operands[0].type == ZYDIS_OPERAND_TYPE_REGISTER) { //cmp reg, [memory]
                     if (instr->operands[0].reg.value == ZYDIS_REGISTER_XMM0) {
                         _mm_storeu_ps((float*)&context->Xmm0, _mm_loadu_ps((float*)addr));
+                        return SkipToNext(context, instr);
+                    } else  if (instr->operands[0].reg.value == ZYDIS_REGISTER_XMM1) {
+                        _mm_storeu_ps((float*)&context->Xmm1, _mm_loadu_ps((float*)addr));
                         return SkipToNext(context, instr);
                     }
                     else {
@@ -1200,67 +1280,141 @@ namespace VCPU {
 
             bool EmulateMOV(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
 
-                uint64_t* context_lookup = (uint64_t*)ctx;
                 auto reg_class = ZydisRegisterGetClass(reg);
-                auto orig_value = context_lookup[GRegIndex(reg)];
+                auto reg_value = ReadRegisterValue(ctx, reg);
 
                 if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
-                    *(uint64_t*)ptr = context_lookup[GRegIndex(reg)];
+                    *(uint64_t*)ptr = reg_value;
 
-                } else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
-                    *(uint32_t*)ptr = context_lookup[GRegIndex(reg)];
-                } else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
-                    *(uint16_t*)ptr = context_lookup[GRegIndex(reg)];
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+                    *(uint32_t*)ptr = reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint16_t*)ptr = reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint8_t*)ptr = reg_value;
+                }
+                else {
+                    DebugBreak();
+                }
 
-                } else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
-                    if (reg == ZYDIS_REGISTER_AH || reg == ZYDIS_REGISTER_BH || reg == ZYDIS_REGISTER_CH || reg == ZYDIS_REGISTER_DH) {
-                        *(uint8_t*)ptr = context_lookup[GRegIndex(reg)] >> 8;
-                    } else { // 16/8bits operation do not overwrite the rest of the register
-                        *(uint8_t*)ptr = context_lookup[GRegIndex(reg)];
-                    }
-                } else {
+                return true;
+            }
+
+            bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
+                auto reg_class = ZydisRegisterGetClass(reg);
+                auto reg_value = ReadRegisterValue(ctx, reg);
+
+                if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+                    *(uint64_t*)ptr -= reg_value;
+
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+                    *(uint32_t*)ptr -= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint16_t*)ptr -= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint8_t*)ptr -= reg_value;
+                }
+                else {
                     DebugBreak();
                 }
                 return true;
             }
 
-            bool EmulateSUB(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
-                uint64_t* context_lookup = (uint64_t*)ctx;
-                auto reg_class = ZydisRegisterGetClass(reg);
-
-                DebugBreak();
-                return true;
-            }
-
             bool EmulateADD(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
-                uint64_t* context_lookup = (uint64_t*)ctx;
                 auto reg_class = ZydisRegisterGetClass(reg);
+                auto reg_value = ReadRegisterValue(ctx, reg);
 
-                DebugBreak();
+                if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+                    *(uint64_t*)ptr += reg_value;
+
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+                    *(uint32_t*)ptr += reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint16_t*)ptr += reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint8_t*)ptr += reg_value;
+                }
+                else {
+                    DebugBreak();
+                }
                 return true;
             }
 
             bool EmulateOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
-                uint64_t* context_lookup = (uint64_t*)ctx;
                 auto reg_class = ZydisRegisterGetClass(reg);
+                auto reg_value = ReadRegisterValue(ctx, reg);
 
-                DebugBreak();
+                if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+                    *(uint64_t*)ptr |= reg_value;
+
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+                    *(uint32_t*)ptr |= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint16_t*)ptr |= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint8_t*)ptr |= reg_value;
+                }
+                else {
+                    DebugBreak();
+                }
                 return true;
             }
 
             bool EmulateXOR(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
-                uint64_t* context_lookup = (uint64_t*)ctx;
                 auto reg_class = ZydisRegisterGetClass(reg);
+                auto reg_value = ReadRegisterValue(ctx, reg);
 
-                DebugBreak();
+                if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+                    *(uint64_t*)ptr ^= reg_value;
+
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+                    *(uint32_t*)ptr ^= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint16_t*)ptr ^= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint8_t*)ptr ^= reg_value;
+                }
+                else {
+                    DebugBreak();
+                }
                 return true;
             }
 
             bool EmulateAND(PCONTEXT ctx, ZydisRegister reg, uint64_t ptr, ZydisDecodedInstruction* instr) { //X86-compliant MOV R64, [...] emulation
-                uint64_t* context_lookup = (uint64_t*)ctx;
                 auto reg_class = ZydisRegisterGetClass(reg);
+                auto reg_value = ReadRegisterValue(ctx, reg);
 
-                DebugBreak();
+                if (reg_class == ZYDIS_REGCLASS_GPR64) { //We replace the whole register
+                    *(uint64_t*)ptr &= reg_value;
+
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR32) { //We replace the whole register
+                    *(uint32_t*)ptr &= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR16) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint16_t*)ptr &= reg_value;
+                }
+                else if (reg_class == ZYDIS_REGCLASS_GPR8) { // 16/8bits operation do not overwrite the rest of the register
+                    *(uint8_t*)ptr &= reg_value;
+                }
+                else {
+                    DebugBreak();
+                }
                 return true;
             }
 
@@ -1273,6 +1427,10 @@ namespace VCPU {
                 DebugBreak();
                 return true;
             }
+
+
+
+
 
         } // namespace WritePtr
     } // namespace InstrEmu
