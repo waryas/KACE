@@ -1,3 +1,6 @@
+This got leaked to EAC, they added specific check for KACE, won't update this publicly anymore, use it as a learning tool.
+No custom detection for it on VGK/BE yet.
+
 Kernel Anti-Cheat Emulator
 SOON(tm)
 
